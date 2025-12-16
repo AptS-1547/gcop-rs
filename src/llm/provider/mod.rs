@@ -1,6 +1,8 @@
 pub mod claude;
 pub mod ollama;
 pub mod openai;
+mod utils;
+
 
 use std::sync::Arc;
 

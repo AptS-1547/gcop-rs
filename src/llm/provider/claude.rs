@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
+use super::utils::{CLAUDE_API_SUFFIX, DEFAULT_CLAUDE_BASE, complete_endpoint};
 use crate::config::ProviderConfig;
 use crate::error::{GcopError, Result};
 use crate::llm::{CommitContext, LLMProvider, ReviewResult, ReviewType};
@@ -59,8 +60,9 @@ impl ClaudeProvider {
 
         let endpoint = config
             .endpoint
-            .clone()
-            .unwrap_or_else(|| "https://api.anthropic.com/v1/messages".to_string());
+            .as_ref()
+            .map(|e| complete_endpoint(e, CLAUDE_API_SUFFIX))
+            .unwrap_or_else(|| format!("{}{}", DEFAULT_CLAUDE_BASE, CLAUDE_API_SUFFIX));
 
         let model = config.model.clone();
 

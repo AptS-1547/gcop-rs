@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
+use super::utils::{DEFAULT_OPENAI_BASE, OPENAI_API_SUFFIX, complete_endpoint};
 use crate::config::ProviderConfig;
 use crate::error::{GcopError, Result};
 use crate::llm::{CommitContext, LLMProvider, ReviewResult, ReviewType};
@@ -63,8 +64,9 @@ impl OpenAIProvider {
 
         let endpoint = config
             .endpoint
-            .clone()
-            .unwrap_or_else(|| "https://api.openai.com/v1/chat/completions".to_string());
+            .as_ref()
+            .map(|e| complete_endpoint(e, OPENAI_API_SUFFIX))
+            .unwrap_or_else(|| format!("{}{}", DEFAULT_OPENAI_BASE, OPENAI_API_SUFFIX));
 
         let model = config.model.clone();
 

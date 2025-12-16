@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
+use super::utils::{DEFAULT_OLLAMA_BASE, OLLAMA_API_SUFFIX, complete_endpoint};
 use crate::config::ProviderConfig;
 use crate::error::{GcopError, Result};
 use crate::llm::{CommitContext, LLMProvider, ReviewResult, ReviewType};
@@ -42,8 +43,9 @@ impl OllamaProvider {
         // provider_name 参数保留用于统一接口
         let endpoint = config
             .endpoint
-            .clone()
-            .unwrap_or_else(|| "http://localhost:11434/api/generate".to_string());
+            .as_ref()
+            .map(|e| complete_endpoint(e, OLLAMA_API_SUFFIX))
+            .unwrap_or_else(|| format!("{}{}", DEFAULT_OLLAMA_BASE, OLLAMA_API_SUFFIX));
 
         let model = config.model.clone();
 
