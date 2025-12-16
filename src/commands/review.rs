@@ -1,17 +1,12 @@
 use crate::cli::{Cli, ReviewTarget};
 use crate::config::AppConfig;
 use crate::error::{GcopError, Result};
-use crate::git::{repository::GitRepository, GitOperations};
-use crate::llm::{provider::create_provider, IssueSeverity, ReviewResult, ReviewType};
+use crate::git::{GitOperations, repository::GitRepository};
+use crate::llm::{IssueSeverity, ReviewResult, ReviewType, provider::create_provider};
 use crate::ui;
 
 /// 执行 review 命令
-pub async fn run(
-    cli: &Cli,
-    config: &AppConfig,
-    target: &ReviewTarget,
-    format: &str,
-) -> Result<()> {
+pub async fn run(cli: &Cli, config: &AppConfig, target: &ReviewTarget, format: &str) -> Result<()> {
     let colored = config.ui.colored;
     let repo = GitRepository::open()?;
     let provider = create_provider(config, cli.provider.as_deref())?;
@@ -30,11 +25,7 @@ pub async fn run(
             (diff, "Uncommitted changes".to_string())
         }
         ReviewTarget::Commit { hash } => {
-            ui::step(
-                "1/3",
-                &format!("Analyzing commit {}...", hash),
-                colored,
-            );
+            ui::step("1/3", &format!("Analyzing commit {}...", hash), colored);
             let diff = repo.get_commit_diff(hash)?;
             (diff, format!("Commit {}", hash))
         }

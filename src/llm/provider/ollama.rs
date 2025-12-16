@@ -99,13 +99,12 @@ impl OllamaProvider {
             )));
         }
 
-        let response_body: OllamaResponse =
-            serde_json::from_str(&response_text).map_err(|e| {
-                GcopError::LLM(format!(
-                    "Failed to parse Ollama response: {}. Raw response: {}",
-                    e, response_text
-                ))
-            })?;
+        let response_body: OllamaResponse = serde_json::from_str(&response_text).map_err(|e| {
+            GcopError::LLM(format!(
+                "Failed to parse Ollama response: {}. Raw response: {}",
+                e, response_text
+            ))
+        })?;
 
         Ok(response_body.response)
     }

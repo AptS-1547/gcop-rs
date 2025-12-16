@@ -29,9 +29,10 @@ pub fn load_config() -> Result<AppConfig> {
 
     // 2. 加载配置文件（如果存在）
     if let Some(config_path) = get_config_path()
-        && config_path.exists() {
-            builder = builder.add_source(File::from(config_path));
-        }
+        && config_path.exists()
+    {
+        builder = builder.add_source(File::from(config_path));
+    }
 
     // 3. 加载环境变量（GCOP_ 前缀，优先级最高）
     builder = builder.add_source(

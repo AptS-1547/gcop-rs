@@ -19,6 +19,18 @@ impl GitRepository {
     fn diff_to_string(&self, diff: &git2::Diff) -> Result<String> {
         let mut output = Vec::new();
         diff.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
+            // 获取行的类型标记（origin）
+            let origin = line.origin();
+
+            // 如果 origin 是可打印字符（+、-、空格等），先写入它
+            match origin {
+                '+' | '-' | ' ' => {
+                    let _ = output.write_all(&[origin as u8]);
+                }
+                _ => {}
+            }
+
+            // 再写入行内容
             let _ = output.write_all(line.content());
             true
         })?;

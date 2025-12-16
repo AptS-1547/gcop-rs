@@ -131,14 +131,12 @@ impl ClaudeProvider {
         }
 
         // 解析 JSON
-        let response_body: ClaudeResponse = serde_json::from_str(&response_text).map_err(
-            |e| {
-                GcopError::LLM(format!(
-                    "Failed to parse Claude response: {}. Raw response: {}",
-                    e, response_text
-                ))
-            },
-        )?;
+        let response_body: ClaudeResponse = serde_json::from_str(&response_text).map_err(|e| {
+            GcopError::LLM(format!(
+                "Failed to parse Claude response: {}. Raw response: {}",
+                e, response_text
+            ))
+        })?;
 
         let text = response_body
             .content

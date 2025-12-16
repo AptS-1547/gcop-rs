@@ -46,21 +46,21 @@ impl GcopError {
     /// 获取错误的解决建议
     pub fn suggestion(&self) -> Option<&str> {
         match self {
-            GcopError::NoStagedChanges => {
-                Some("Run 'git add <files>' to stage your changes first")
-            }
+            GcopError::NoStagedChanges => Some("Run 'git add <files>' to stage your changes first"),
             GcopError::Config(msg) if msg.contains("API key not found") => {
                 if msg.contains("Claude") {
                     Some("Get your Claude API key from https://console.anthropic.com/")
                 } else if msg.contains("OpenAI") {
                     Some("Get your OpenAI API key from https://platform.openai.com/")
                 } else {
-                    Some("Set the appropriate API key environment variable or configure it in ~/.config/gcop/config.toml")
+                    Some(
+                        "Set the appropriate API key environment variable or configure it in ~/.config/gcop/config.toml",
+                    )
                 }
             }
-            GcopError::Config(msg) if msg.contains("not found in config") => {
-                Some("Check your ~/.config/gcop/config.toml or use the default providers: claude, openai, ollama")
-            }
+            GcopError::Config(msg) if msg.contains("not found in config") => Some(
+                "Check your ~/.config/gcop/config.toml or use the default providers: claude, openai, ollama",
+            ),
             GcopError::LLM(msg) if msg.contains("401") => {
                 Some("Check if your API key is valid and has not expired")
             }

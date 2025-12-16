@@ -131,13 +131,12 @@ impl OpenAIProvider {
         }
 
         // 解析响应
-        let response_body: OpenAIResponse =
-            serde_json::from_str(&response_text).map_err(|e| {
-                GcopError::LLM(format!(
-                    "Failed to parse OpenAI response: {}. Raw response: {}",
-                    e, response_text
-                ))
-            })?;
+        let response_body: OpenAIResponse = serde_json::from_str(&response_text).map_err(|e| {
+            GcopError::LLM(format!(
+                "Failed to parse OpenAI response: {}. Raw response: {}",
+                e, response_text
+            ))
+        })?;
 
         let text = response_body
             .choices

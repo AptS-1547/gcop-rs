@@ -25,8 +25,7 @@ fn main() -> Result<()> {
     // 初始化 tracing 日志
     tracing_subscriber::fmt()
         .with_env_filter(
-            tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive(log_level.into()),
+            tracing_subscriber::EnvFilter::from_default_env().add_directive(log_level.into()),
         )
         .init();
 
@@ -52,7 +51,10 @@ fn main() -> Result<()> {
                             ui::error(&e.to_string(), config.ui.colored);
                             if let Some(suggestion) = e.suggestion() {
                                 println!();
-                                println!("{}", ui::info(&format!("Tip: {}", suggestion), config.ui.colored));
+                                println!(
+                                    "{}",
+                                    ui::info(&format!("Tip: {}", suggestion), config.ui.colored)
+                                );
                             }
                             std::process::exit(1);
                         }
@@ -60,7 +62,10 @@ fn main() -> Result<()> {
                             ui::error(&format!("Error: {}", e), config.ui.colored);
                             if let Some(suggestion) = e.suggestion() {
                                 println!();
-                                println!("{}", ui::info(&format!("Tip: {}", suggestion), config.ui.colored));
+                                println!(
+                                    "{}",
+                                    ui::info(&format!("Tip: {}", suggestion), config.ui.colored)
+                                );
                             }
                             std::process::exit(1);
                         }
@@ -83,7 +88,10 @@ fn main() -> Result<()> {
                             ui::error(&format!("Error: {}", e), config.ui.colored);
                             if let Some(suggestion) = e.suggestion() {
                                 println!();
-                                println!("{}", ui::info(&format!("Tip: {}", suggestion), config.ui.colored));
+                                println!(
+                                    "{}",
+                                    ui::info(&format!("Tip: {}", suggestion), config.ui.colored)
+                                );
                             }
                             std::process::exit(1);
                         }
