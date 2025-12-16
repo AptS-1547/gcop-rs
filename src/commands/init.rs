@@ -18,6 +18,11 @@ const GCOP_ALIASES: &[(&str, &str, &str)] = &[
         "!git add -A && gcop-rs commit -y",
         "Add all changes and commit with AI message",
     ),
+    (
+        "acp",
+        "!git add -A && gcop-rs commit -y && git push",
+        "Add all, commit with AI, and push",
+    ),
     ("ghelp", "!gcop-rs --help", "Show gcop-rs help message"),
     (
         "gconfig",
@@ -103,12 +108,28 @@ pub fn run_config(force: bool, colored: bool) -> Result<()> {
     println!("  2. Add your API key to [llm.providers.claude]");
     println!("     Get key from: https://console.anthropic.com/");
     println!();
-    println!("  3. Test it:");
-    println!("     gcop-rs commit");
-    println!();
-    println!("{}", ui::info("Optional - Add git aliases:", colored));
-    println!("  gcop-rs init alias");
-    println!("  Then use: git c, git ac, git p, etc.");
+
+    // 7. 询问是否安装 git aliases
+    let install_aliases = ui::confirm("Install git aliases (git c, git ac, etc.)?", true)?;
+
+    if install_aliases {
+        println!();
+        // 调用 alias 安装逻辑
+        match install_all_aliases(force, colored) {
+            Ok(_) => {}
+            Err(e) => {
+                ui::warning(&format!("Failed to install aliases: {}", e), colored);
+                println!();
+                println!("You can install them later with:");
+                println!("  gcop-rs init alias");
+            }
+        }
+    } else {
+        println!();
+        println!("Skipped alias installation.");
+        println!("Run 'gcop-rs init alias' later if needed.");
+    }
+
     println!();
     println!("See docs/configuration.md for more options.");
 
@@ -176,6 +197,7 @@ fn install_all_aliases(force: bool, colored: bool) -> Result<()> {
     println!("Now you can use:");
     println!("  git c        # AI commit");
     println!("  git ac       # Add all and commit");
+    println!("  git acp      # Add all, commit, and push");
     println!("  git gconfig  # Edit configuration");
     println!("  git p        # Push");
     println!("  git undo     # Undo last commit");
