@@ -12,6 +12,8 @@ AI 驱动的 Git 提交信息生成器和代码审查工具，使用 Rust 编写
 
 - 🤖 **AI 生成提交信息** - 使用 Claude、OpenAI 或 Ollama 生成符合规范的提交信息
 - 🔍 **代码审查** - AI 驱动的代码审查，关注安全性和性能问题
+- 🎯 **Git 别名** - 便捷的快捷方式，如 `git c`、`git r`、`git acp` 简化工作流程
+- 🚀 **快速设置** - 交互式 `init` 命令快速配置
 - 🔧 **自定义 Provider** - 支持任意 OpenAI/Claude 兼容的 API（DeepSeek、自定义端点等）
 - 📝 **自定义 Prompt** - 使用模板变量自定义生成和审查的 prompt
 - ⚙️  **灵活配置** - 通过配置文件或环境变量配置
@@ -35,6 +37,19 @@ sudo cp target/release/gcop-rs /usr/local/bin/gcop-rs
 详见 [docs/zh/installation.md](docs/zh/installation.md)。
 
 ### 2. 配置
+
+**方式 1: 快速设置（推荐）**
+
+```bash
+gcop-rs init
+```
+
+交互式向导将：
+- 创建配置目录和文件
+- 设置安全文件权限 (chmod 600)
+- 可选安装便捷的 git 别名
+
+**方式 2: 手动设置**
 
 创建 `~/.config/gcop/config.toml`：
 
@@ -60,42 +75,165 @@ export ANTHROPIC_API_KEY="sk-ant-your-key"
 # 生成提交信息
 git add .
 gcop-rs commit
+# 或使用别名: git c
 
 # 审查未提交的变更
-gcop-rs review changes
+gcop-rs review
+# 或使用别名: git r
 
-# 审查特定 commit
-gcop-rs review commit abc123
+# 完整工作流
+git acp  # 添加所有、AI 提交、推送
 
 # 使用不同的 provider
 gcop-rs --provider openai commit
 ```
 
+## Git 别名
+
+gcop-rs 提供便捷的 git 别名来简化工作流程。
+
+### 安装
+
+```bash
+# 安装所有别名
+gcop-rs alias
+
+# 或在初始化时安装
+gcop-rs init  # 会提示是否安装别名
+```
+
+### 使用
+
+安装后，你可以使用这些快捷方式：
+
+```bash
+git c          # AI 生成提交信息并提交
+git r          # AI 审查未提交的变更
+git ac         # 添加所有变更并用 AI 提交
+git acp        # 添加、AI 提交并推送
+git gconfig    # 编辑 gcop-rs 配置
+git p          # 推送到远程
+git pf         # 强制推送（使用 --force-with-lease 更安全）
+git undo       # 撤销最后一次提交（保留暂存的变更）
+```
+
+### 管理
+
+```bash
+# 列出所有可用的别名
+gcop-rs alias --list
+
+# 重新安装（覆盖冲突）
+gcop-rs alias --force
+
+# 删除所有 gcop-rs 别名
+gcop-rs alias --remove --force
+```
+
+详细信息见 [docs/zh/aliases.md](docs/zh/aliases.md)。
+
 ## 命令说明
+
+### `gcop-rs init`
+
+初始化 gcop-rs 配置。
+
+```bash
+gcop-rs init
+```
+
+交互式设置向导：
+- 创建配置目录
+- 复制示例配置
+- 设置安全文件权限
+- 可选安装 git 别名
+
+---
 
 ### `gcop-rs commit`
 
-为暂存的变更生成提交信息。
+为暂存的变更生成 AI 驱动的提交信息。
 
 ```bash
-gcop-rs commit              # 生成、编辑并提交
+gcop-rs commit              # 生成、审查并提交
 gcop-rs commit --no-edit    # 跳过编辑器
 gcop-rs commit --yes        # 跳过确认
 gcop-rs -v commit           # 详细模式
 ```
+
+**交互式工作流**:
+
+生成提交信息后，你可以选择：
+- **Accept（接受）** - 使用生成的信息
+- **Edit（编辑）** - 打开编辑器手动修改
+- **Retry（重试）** - 不带反馈重新生成
+- **Retry with feedback（带反馈重试）** - 提供自定义指令（如 "用中文"、"更简洁"、"更详细"）
+- **Quit（退出）** - 取消提交
+
+示例：
+```bash
+$ git add .
+$ gcop-rs commit
+
+ℹ 生成的提交信息:
+feat(auth): 实现 JWT 令牌验证
+
+选择下一步操作:
+> 接受
+  编辑
+  重试
+  带反馈重试
+  退出
+```
+
+---
 
 ### `gcop-rs review`
 
 使用 AI 审查代码变更。
 
 ```bash
-gcop-rs review changes           # 审查未提交的变更
-gcop-rs review commit <hash>     # 审查某个 commit
-gcop-rs review range main..dev   # 审查 commit 范围
-gcop-rs review file src/main.rs  # 审查某个文件
+gcop-rs review                   # 审查未提交的变更
+gcop-rs review --commit <hash>   # 审查特定 commit
+gcop-rs review --range main..dev # 审查 commit 范围
+gcop-rs review --file src/main.rs # 审查特定文件
 ```
 
 **输出格式**: `--format text|json|markdown`
+
+---
+
+### `gcop-rs config`
+
+管理配置。
+
+```bash
+# 在默认编辑器中编辑配置文件
+gcop-rs config edit
+
+# 验证配置并测试 provider 连接
+gcop-rs config validate
+
+# 显示当前配置
+gcop-rs config show
+```
+
+---
+
+### `gcop-rs alias`
+
+管理 git 别名。
+
+```bash
+gcop-rs alias                       # 安装所有别名
+gcop-rs alias --list                # 列出可用的别名
+gcop-rs alias --force               # 覆盖冲突
+gcop-rs alias --remove --force      # 删除所有别名
+```
+
+提供便捷的快捷方式，如 `git c`、`git r`、`git acp` 等。
+
+详见 [docs/zh/aliases.md](docs/zh/aliases.md)。
 
 ## 配置
 
@@ -115,10 +253,12 @@ temperature = 0.3
 [commit]
 show_diff_preview = true
 allow_edit = true
-confirm_before_commit = true
 
 [review]
 min_severity = "info"
+
+[ui]
+colored = true
 ```
 
 完整配置参考见 [docs/zh/configuration.md](docs/zh/configuration.md)。
@@ -167,6 +307,8 @@ gcop-rs -v commit  # 显示 API 请求、响应和 prompts
 ## 文档
 
 - **[安装指南](docs/zh/installation.md)** - 详细的安装说明
+- **[Git 别名指南](docs/zh/aliases.md)** - Git 别名完整指南
+- **[命令参考](docs/zh/commands.md)** - 详细的命令文档
 - **[配置参考](docs/zh/configuration.md)** - 完整的配置指南
 - **[Provider 设置](docs/zh/providers.md)** - 配置 LLM 提供商
 - **[自定义 Prompt](docs/zh/prompts.md)** - 自定义 AI prompts
@@ -184,8 +326,8 @@ MIT License - 详见 LICENSE 文件。
 
 ## 作者
 
-AptS-1547 <apts-1547@esaps.net>
+AptS:1547 (Yuhan Bian / 卞雨涵) <apts-1547@esaps.net>
 
 ---
 
-**提示**: 运行 `gcop-rs commit --help` 或 `gcop-rs review --help` 查看更多选项。
+**提示**: 运行 `gcop-rs --help` 查看所有命令，或在安装别名后使用 `git c` 快速提交！

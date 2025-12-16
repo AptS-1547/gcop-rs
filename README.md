@@ -12,6 +12,8 @@ AI-powered Git commit message generator and code reviewer, written in Rust.
 
 - 🤖 **AI Commit Messages** - Generate conventional commit messages using Claude, OpenAI, or Ollama
 - 🔍 **Code Review** - Get AI-powered code reviews with security and performance insights
+- 🎯 **Git Aliases** - Convenient shortcuts like `git c`, `git r`, `git acp` for streamlined workflow
+- 🚀 **Easy Setup** - Interactive `init` command for quick configuration
 - 🔧 **Custom Providers** - Support any OpenAI/Claude compatible API (DeepSeek, custom endpoints, etc.)
 - 📝 **Custom Prompts** - Customize generation and review prompts with template variables
 - ⚙️  **Flexible Config** - Configure via file or environment variables
@@ -35,6 +37,19 @@ sudo cp target/release/gcop-rs /usr/local/bin/gcop-rs
 See [docs/installation.md](docs/installation.md) for more options.
 
 ### 2. Configure
+
+**Option 1: Quick setup (recommended)**
+
+```bash
+gcop-rs init
+```
+
+This interactive wizard will:
+- Create config directory and file
+- Set secure file permissions (chmod 600)
+- Optionally install convenient git aliases
+
+**Option 2: Manual setup**
 
 Create `~/.config/gcop/config.toml`:
 
@@ -60,42 +75,165 @@ See [docs/configuration.md](docs/configuration.md) for all options.
 # Generate commit message
 git add .
 gcop-rs commit
+# Or use the alias: git c
 
 # Review uncommitted changes
-gcop-rs review changes
+gcop-rs review
+# Or use the alias: git r
 
-# Review a specific commit
-gcop-rs review commit abc123
+# Complete workflow
+git acp  # Add all, commit with AI, and push
 
 # Use different provider
 gcop-rs --provider openai commit
 ```
 
+## Git Aliases
+
+gcop-rs provides convenient git aliases for streamlined workflow.
+
+### Installation
+
+```bash
+# Install all aliases
+gcop-rs alias
+
+# Or during initial setup
+gcop-rs init  # Will prompt to install aliases
+```
+
+### Usage
+
+After installation, you can use these shortcuts:
+
+```bash
+git c          # AI commit message and commit
+git r          # AI review uncommitted changes
+git ac         # Add all changes and commit with AI
+git acp        # Add all, commit with AI, and push
+git gconfig    # Edit gcop-rs configuration
+git p          # Push to remote
+git pf         # Force push (safer with --force-with-lease)
+git undo       # Undo last commit (keep changes staged)
+```
+
+### Management
+
+```bash
+# List all available aliases
+gcop-rs alias --list
+
+# Reinstall (overwrite conflicts)
+gcop-rs alias --force
+
+# Remove all gcop-rs aliases
+gcop-rs alias --remove --force
+```
+
+See [docs/aliases.md](docs/aliases.md) for detailed information on each alias.
+
 ## Commands
+
+### `gcop-rs init`
+
+Initialize gcop-rs configuration.
+
+```bash
+gcop-rs init
+```
+
+Interactive setup wizard that:
+- Creates config directory
+- Copies example configuration
+- Sets secure file permissions
+- Optionally installs git aliases
+
+---
 
 ### `gcop-rs commit`
 
-Generate commit message for staged changes.
+Generate AI-powered commit message for staged changes.
 
 ```bash
-gcop-rs commit              # Generate, edit, and commit
+gcop-rs commit              # Generate, review, and commit
 gcop-rs commit --no-edit    # Skip editor
 gcop-rs commit --yes        # Skip confirmation
 gcop-rs -v commit           # Verbose mode
 ```
+
+**Interactive workflow**:
+
+After generating a commit message, you can choose:
+- **Accept** - Use the generated message
+- **Edit** - Open editor to manually modify
+- **Retry** - Regenerate without feedback
+- **Retry with feedback** - Provide custom instructions (e.g., "use Chinese", "be more concise")
+- **Quit** - Cancel commit
+
+Example:
+```bash
+$ git add .
+$ gcop-rs commit
+
+ℹ Generated commit message:
+feat(auth): implement JWT token validation
+
+Choose next action:
+> Accept
+  Edit
+  Retry
+  Retry with feedback
+  Quit
+```
+
+---
 
 ### `gcop-rs review`
 
 Review code changes with AI.
 
 ```bash
-gcop-rs review changes           # Review uncommitted changes
-gcop-rs review commit <hash>     # Review a commit
-gcop-rs review range main..dev   # Review commit range
-gcop-rs review file src/main.rs  # Review a file
+gcop-rs review                   # Review uncommitted changes
+gcop-rs review --commit <hash>   # Review a commit
+gcop-rs review --range main..dev # Review commit range
+gcop-rs review --file src/main.rs # Review a file
 ```
 
 **Output formats**: `--format text|json|markdown`
+
+---
+
+### `gcop-rs config`
+
+Manage configuration.
+
+```bash
+# Edit config file in your default editor
+gcop-rs config edit
+
+# Validate configuration and test provider connection
+gcop-rs config validate
+
+# Show current configuration
+gcop-rs config show
+```
+
+---
+
+### `gcop-rs alias`
+
+Manage git aliases.
+
+```bash
+gcop-rs alias                       # Install all aliases
+gcop-rs alias --list                # List available aliases
+gcop-rs alias --force               # Overwrite conflicts
+gcop-rs alias --remove --force      # Remove all aliases
+```
+
+Provides convenient shortcuts like `git c`, `git r`, `git acp`, etc.
+
+See [docs/aliases.md](docs/aliases.md) for details.
 
 ## Configuration
 
@@ -115,10 +253,12 @@ temperature = 0.3
 [commit]
 show_diff_preview = true
 allow_edit = true
-confirm_before_commit = true
 
 [review]
 min_severity = "info"
+
+[ui]
+colored = true
 ```
 
 For complete configuration reference, see [docs/configuration.md](docs/configuration.md).
@@ -167,6 +307,8 @@ gcop-rs -v commit  # Shows API requests, responses, and prompts
 ## Documentation
 
 - **[Installation Guide](docs/installation.md)** - Detailed installation instructions
+- **[Git Aliases Guide](docs/aliases.md)** - Complete guide to git aliases
+- **[Command Reference](docs/commands.md)** - Detailed command documentation
 - **[Configuration Reference](docs/configuration.md)** - Complete configuration guide
 - **[Provider Setup](docs/providers.md)** - Configure LLM providers
 - **[Custom Prompts](docs/prompts.md)** - Customize AI prompts
@@ -184,8 +326,8 @@ MIT License - see LICENSE file for details.
 
 ## Author
 
-AptS-1547 <apts-1547@esaps.net>
+AptS:1547 (Yuhan Bian / 卞雨涵) <apts-1547@esaps.net>
 
 ---
 
-**Tip**: Run `gcop-rs commit --help` or `gcop-rs review --help` for more options.
+**Tip**: Run `gcop-rs --help` to see all commands, or use `git c` after installing aliases for quick commits!
