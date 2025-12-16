@@ -49,13 +49,15 @@ impl GcopError {
             GcopError::NoStagedChanges => Some("Run 'git add <files>' to stage your changes first"),
             GcopError::Config(msg) if msg.contains("API key not found") => {
                 if msg.contains("Claude") {
-                    Some("Get your Claude API key from https://console.anthropic.com/")
-                } else if msg.contains("OpenAI") {
-                    Some("Get your OpenAI API key from https://platform.openai.com/")
-                } else {
                     Some(
-                        "Set the appropriate API key environment variable or configure it in ~/.config/gcop/config.toml",
+                        "Add 'api_key = \"sk-ant-...\"' to [llm.providers.claude] in ~/.config/gcop/config.toml, or set ANTHROPIC_API_KEY",
                     )
+                } else if msg.contains("OpenAI") {
+                    Some(
+                        "Add 'api_key = \"sk-...\"' to [llm.providers.openai] in ~/.config/gcop/config.toml, or set OPENAI_API_KEY",
+                    )
+                } else {
+                    Some("Set api_key in ~/.config/gcop/config.toml")
                 }
             }
             GcopError::Config(msg) if msg.contains("not found in config") => Some(

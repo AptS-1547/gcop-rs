@@ -24,3 +24,7 @@ target
 # Added by cargo
 
 /target
+
+# gcop-rs 配置文件（可能包含 API key）
+config.toml
+*.toml.local

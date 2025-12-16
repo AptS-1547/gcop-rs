@@ -1,6 +1,12 @@
 # gcop-rs 配置文件
 # 位置: ~/.config/gcop/config.toml
 #
+# ⚠️  安全警告 ⚠️
+# 此配置文件可能包含 API key 等敏感信息！
+# 1. 请勿将此文件提交到 git 仓库
+# 2. 建议设置文件权限: chmod 600 ~/.config/gcop/config.toml
+# 3. 将 config.toml 添加到项目的 .gitignore
+#
 # 所有配置都是可选的，未配置时使用默认值
 # 环境变量的优先级高于此配置文件
 
@@ -20,11 +26,15 @@ default_provider = "claude"
 # API 端点（可选，默认为官方端点）
 endpoint = "https://api.anthropic.com/v1/messages"
 
-# API Key 配置方式（三选一）:
-# 1. 在此设置: api_key = "sk-ant-..."
-# 2. 环境变量: export ANTHROPIC_API_KEY="sk-ant-..."
-# 3. 获取地址: https://console.anthropic.com/
-# API key: GCOP_LLM_PROVIDERS_CLAUDE_API_KEY 或 ANTHROPIC_API_KEY
+# API Key 配置方式:
+# 方式 1（推荐）: 直接在配置文件中设置
+api_key = "sk-ant-api03-your-key-here"
+
+# 方式 2: 使用环境变量
+# export ANTHROPIC_API_KEY="sk-ant-..."
+# 注意：配置文件中的 api_key 优先级更高
+
+# 获取 API key: https://console.anthropic.com/
 
 # 模型选择:
 # - claude-sonnet-4-5-20250929 (推荐，平衡性能和成本)
@@ -51,10 +61,14 @@ max_tokens = 2000
 endpoint = "https://api.openai.com/v1/chat/completions"
 
 # API Key 配置方式:
-# 1. 在此设置: api_key = "sk-..."
-# 2. 环境变量: export OPENAI_API_KEY="sk-..."
-# 3. 获取地址: https://platform.openai.com/
-# API key: GCOP_LLM_PROVIDERS_OPENAI_API_KEY 或 OPENAI_API_KEY
+# 方式 1（推荐）: 直接在配置文件中设置
+api_key = "sk-your-openai-key-here"
+
+# 方式 2: 使用环境变量
+# export OPENAI_API_KEY="sk-..."
+# 注意：配置文件中的 api_key 优先级更高
+
+# 获取 API key: https://platform.openai.com/
 
 # 模型选择:
 # - gpt-4-turbo (推荐)

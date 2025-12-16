@@ -47,27 +47,18 @@ struct MessageContent {
 }
 
 impl OpenAIProvider {
-    pub fn new(config: &ProviderConfig, provider_name: &str) -> Result<Self> {
+    pub fn new(config: &ProviderConfig, _provider_name: &str) -> Result<Self> {
         // API key 读取顺序：
-        // 1. 配置文件中的 api_key
-        // 2. {PROVIDER_NAME}_API_KEY 环境变量（如 DEEPSEEK_API_KEY）
-        // 3. OPENAI_API_KEY 环境变量（默认）
+        // 1. 配置文件中的 api_key（优先）
+        // 2. OPENAI_API_KEY 环境变量（fallback）
         let api_key = config
             .api_key
             .clone()
-            .or_else(|| {
-                let env_var = format!(
-                    "{}_API_KEY",
-                    provider_name.to_uppercase().replace("-", "_")
-                );
-                std::env::var(&env_var).ok()
-            })
             .or_else(|| std::env::var("OPENAI_API_KEY").ok())
             .ok_or_else(|| {
-                GcopError::Config(format!(
-                    "OpenAI API key not found. Set {}_API_KEY or OPENAI_API_KEY or configure in config.toml",
-                    provider_name.to_uppercase().replace("-", "_")
-                ))
+                GcopError::Config(
+                    "OpenAI API key not found. Set api_key in config.toml or OPENAI_API_KEY environment variable".to_string()
+                )
             })?;
 
         let endpoint = config
