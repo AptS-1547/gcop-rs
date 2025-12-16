@@ -88,9 +88,17 @@ pub enum InitAction {
 
     /// Add git alias for 'git cop'
     Alias {
-        /// Force overwrite existing alias
+        /// Force overwrite existing aliases
         #[arg(short, long)]
         force: bool,
+
+        /// List all available aliases and their status
+        #[arg(short, long)]
+        list: bool,
+
+        /// Remove all gcop-related aliases
+        #[arg(short, long)]
+        remove: bool,
     },
 }
 
