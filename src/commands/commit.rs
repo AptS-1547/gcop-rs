@@ -1,3 +1,5 @@
+use colored::Colorize;
+
 use crate::cli::Cli;
 use crate::config::AppConfig;
 use crate::error::{GcopError, Result};
@@ -40,44 +42,58 @@ pub async fn run(cli: &Cli, config: &AppConfig, no_edit: bool, yes: bool) -> Res
     let mut message = String::new();
     let mut user_feedback: Option<String> = None;
     let mut retry_count = 0;
+    let mut should_regenerate = true;
+    let mut should_display = true;
     const MAX_RETRIES: usize = 10;
 
     loop {
-        // 生成或重新生成 commit message
-        let spinner = ui::Spinner::new(if retry_count == 0 {
-            "Generating commit message..."
-        } else {
-            "Regenerating commit message..."
-        });
+        // 只在需要时生成或重新生成 commit message
+        if should_regenerate {
+            let spinner = ui::Spinner::new(if retry_count == 0 {
+                "Generating commit message..."
+            } else {
+                "Regenerating commit message..."
+            });
 
-        let context = CommitContext {
-            files_changed: stats.files_changed.clone(),
-            insertions: stats.insertions,
-            deletions: stats.deletions,
-            branch_name: repo.get_current_branch()?,
-            custom_prompt: config.commit.custom_prompt.clone(),
-            user_feedback: user_feedback.clone(),
-        };
+            let context = CommitContext {
+                files_changed: stats.files_changed.clone(),
+                insertions: stats.insertions,
+                deletions: stats.deletions,
+                branch_name: repo.get_current_branch()?,
+                custom_prompt: config.commit.custom_prompt.clone(),
+                user_feedback: user_feedback.clone(),
+            };
 
-        message = provider
-            .generate_commit_message(&diff, Some(context))
-            .await?;
+            message = provider
+                .generate_commit_message(&diff, Some(context))
+                .await?;
 
-        spinner.finish_and_clear();
+            spinner.finish_and_clear();
 
-        // 显示生成的消息
-        if retry_count == 0 {
-            println!("\n{}", ui::info("Generated commit message:", colored));
-        } else {
-            println!(
-                "\n{}",
-                ui::info(
-                    &format!("Regenerated commit message (attempt {}):", retry_count + 1),
-                    colored
-                )
-            );
+            should_regenerate = false;
         }
-        println!("{}", message);
+
+        // 只在需要时显示消息
+        if should_display {
+            if retry_count == 0 {
+                println!("\n{}", ui::info("Generated commit message:", colored));
+            } else {
+                println!(
+                    "\n{}",
+                    ui::info(
+                        &format!("Regenerated commit message (attempt {}):", retry_count + 1),
+                        colored
+                    )
+                );
+            }
+            if colored {
+                println!("{}", message.yellow());
+            } else {
+                println!("{}", message);
+            }
+
+            should_display = false;
+        }
 
         // 如果有 --yes 标志，跳过菜单直接接受
         if yes {
@@ -101,8 +117,12 @@ pub async fn run(cli: &Cli, config: &AppConfig, no_edit: bool, yes: bool) -> Res
                     Ok(edited) => {
                         message = edited;
                         println!("\n{}", ui::info("Updated commit message:", colored));
-                        println!("{}", message);
-                        break;
+                        if colored {
+                            println!("{}", message.yellow());
+                        } else {
+                            println!("{}", message);
+                        }
+                        continue;
                     }
                     Err(GcopError::UserCancelled) => {
                         ui::warning("Edit cancelled.", colored);
@@ -115,6 +135,8 @@ pub async fn run(cli: &Cli, config: &AppConfig, no_edit: bool, yes: bool) -> Res
                 // 重试，清空反馈
                 user_feedback = None;
                 retry_count += 1;
+                should_regenerate = true;
+                should_display = true;
 
                 if retry_count >= MAX_RETRIES {
                     ui::warning(
@@ -142,6 +164,8 @@ pub async fn run(cli: &Cli, config: &AppConfig, no_edit: bool, yes: bool) -> Res
                 }
 
                 retry_count += 1;
+                should_regenerate = true;
+                should_display = true;
 
                 if retry_count >= MAX_RETRIES {
                     ui::warning(
