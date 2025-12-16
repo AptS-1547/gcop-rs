@@ -4,9 +4,26 @@ pub mod openai;
 
 use std::sync::Arc;
 
+use reqwest::Client;
+
 use crate::config::AppConfig;
 use crate::error::{GcopError, Result};
 use crate::llm::LLMProvider;
+
+/// 创建带有自定义 User-Agent 的 HTTP 客户端
+pub(crate) fn create_http_client() -> Result<Client> {
+    let user_agent = format!(
+        "{}/{} ({})",
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION"),
+        std::env::consts::OS
+    );
+
+    Client::builder()
+        .user_agent(user_agent)
+        .build()
+        .map_err(GcopError::Network)
+}
 
 /// 根据配置创建 LLM Provider
 pub fn create_provider(

@@ -77,7 +77,7 @@ impl ClaudeProvider {
             .unwrap_or(0.3) as f32;
 
         Ok(Self {
-            client: Client::new(),
+            client: super::create_http_client()?,
             api_key,
             endpoint,
             model,

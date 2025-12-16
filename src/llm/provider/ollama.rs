@@ -54,7 +54,7 @@ impl OllamaProvider {
             .map(|v| v as f32);
 
         Ok(Self {
-            client: Client::new(),
+            client: super::create_http_client()?,
             endpoint,
             model,
             temperature,
