@@ -40,16 +40,32 @@ pub enum Commands {
         format: String,
     },
 
-    /// Initialize gcop-rs
+    /// Initialize configuration file
     Init {
-        #[command(subcommand)]
-        action: Option<InitAction>,
+        /// Force overwrite existing config
+        #[arg(short, long)]
+        force: bool,
     },
 
     /// Manage configuration
     Config {
         #[command(subcommand)]
         action: Option<ConfigAction>,
+    },
+
+    /// Manage git aliases
+    Alias {
+        /// Force overwrite existing aliases
+        #[arg(short, long)]
+        force: bool,
+
+        /// List all available aliases and their status
+        #[arg(short, long)]
+        list: bool,
+
+        /// Remove all gcop-related aliases
+        #[arg(short, long)]
+        remove: bool,
     },
 }
 
@@ -74,31 +90,6 @@ pub enum ReviewTarget {
     File {
         /// Path to file or directory
         path: String,
-    },
-}
-
-#[derive(Subcommand)]
-pub enum InitAction {
-    /// Initialize configuration file
-    Config {
-        /// Force overwrite existing config
-        #[arg(short, long)]
-        force: bool,
-    },
-
-    /// Add git alias for 'git cop'
-    Alias {
-        /// Force overwrite existing aliases
-        #[arg(short, long)]
-        force: bool,
-
-        /// List all available aliases and their status
-        #[arg(short, long)]
-        list: bool,
-
-        /// Remove all gcop-related aliases
-        #[arg(short, long)]
-        remove: bool,
     },
 }
 
