@@ -68,7 +68,7 @@ pub fn install_all(force: bool, colored: bool) -> Result<()> {
         return Err(GcopError::Config("gcop-rs not in PATH".to_string()));
     }
 
-    println!("Installing git aliases...");
+    ui::step("1/2", "Installing git aliases...", colored);
     println!();
 
     let mut installed = 0;
@@ -89,16 +89,25 @@ pub fn install_all(force: bool, colored: bool) -> Result<()> {
         ui::success(&format!("Installed {} aliases", installed), colored);
     }
     if skipped > 0 {
-        println!("Skipped {} (already exists or conflicts)", skipped);
+        println!(
+            "{}",
+            ui::info(
+                &format!("Skipped {} aliases (already exists or conflicts)", skipped),
+                colored
+            )
+        );
         if !force {
             println!();
-            println!("Use --force to overwrite conflicts:");
+            println!(
+                "{}",
+                ui::info("Use --force to overwrite conflicts:", colored)
+            );
             println!("  gcop-rs alias --force");
         }
     }
 
     println!();
-    println!("Now you can use:");
+    println!("\n{}", ui::info("Now you can use:", colored));
     println!("  git c        # AI commit");
     println!("  git ac       # Add all and commit");
     println!("  git acp      # Add all, commit, and push");
@@ -115,27 +124,69 @@ fn install_single_alias(
     command: &str,
     description: &str,
     force: bool,
-    _colored: bool,
+    colored: bool,
 ) -> Result<bool> {
     let existing = get_git_alias(name)?;
 
     match existing {
         None => {
             add_git_alias(name, command)?;
-            println!("  ✓  git {:10} → {}", name, description);
+            if colored {
+                use colored::Colorize;
+                println!(
+                    "  {}  git {:10} → {}",
+                    "✓".green().bold(),
+                    name.bold(),
+                    description
+                );
+            } else {
+                println!("  ✓  git {:10} → {}", name, description);
+            }
             Ok(true)
         }
         Some(existing_cmd) if existing_cmd == command => {
-            println!("  ℹ  git {:10} → {} (already set)", name, description);
+            if colored {
+                use colored::Colorize;
+                println!(
+                    "  {}  git {:10} → {} {}",
+                    "ℹ".blue().bold(),
+                    name.bold(),
+                    description,
+                    "(already set)".dimmed()
+                );
+            } else {
+                println!("  ℹ  git {:10} → {} (already set)", name, description);
+            }
             Ok(false)
         }
         Some(existing_cmd) => {
             if force {
                 add_git_alias(name, command)?;
-                println!("  ⚠  git {:10} → {} (overwritten)", name, description);
+                if colored {
+                    use colored::Colorize;
+                    println!(
+                        "  {}  git {:10} → {} {}",
+                        "⚠".yellow().bold(),
+                        name.bold(),
+                        description,
+                        "(overwritten)".yellow()
+                    );
+                } else {
+                    println!("  ⚠  git {:10} → {} (overwritten)", name, description);
+                }
                 Ok(true)
             } else {
-                println!("  ⊗  git {:10} - conflicts with: {}", name, existing_cmd);
+                if colored {
+                    use colored::Colorize;
+                    println!(
+                        "  {}  git {:10} - conflicts with: {}",
+                        "⊗".red().bold(),
+                        name.bold(),
+                        existing_cmd.dimmed()
+                    );
+                } else {
+                    println!("  ⊗  git {:10} - conflicts with: {}", name, existing_cmd);
+                }
                 Ok(false)
             }
         }
@@ -157,7 +208,7 @@ fn add_git_alias(name: &str, command: &str) -> Result<()> {
 
 /// 列出所有可用的 aliases 及其状态
 fn list_aliases(colored: bool) -> Result<()> {
-    println!("Available git aliases for gcop-rs:");
+    println!("{}", ui::info("Available git aliases for gcop-rs:", colored));
     println!();
 
     for (name, command, description) in GCOP_ALIASES {
@@ -187,8 +238,11 @@ fn list_aliases(colored: bool) -> Result<()> {
     }
 
     println!();
-    println!("Run 'gcop-rs alias' to install all.");
-    println!("Run 'gcop-rs alias --force' to overwrite conflicts.");
+    println!("{}", ui::info("Run 'gcop-rs alias' to install all.", colored));
+    println!(
+        "{}",
+        ui::info("Run 'gcop-rs alias --force' to overwrite conflicts.", colored)
+    );
 
     Ok(())
 }
@@ -198,19 +252,19 @@ fn remove_aliases(force: bool, colored: bool) -> Result<()> {
     if !force {
         ui::warning("This will remove all gcop-related git aliases", colored);
         println!();
-        println!("Aliases to be removed:");
+        println!("{}", ui::info("Aliases to be removed:", colored));
         for (name, _, _) in GCOP_ALIASES {
             if get_git_alias(name)?.is_some() {
                 println!("  - git {}", name);
             }
         }
         println!();
-        println!("Use --force to confirm:");
+        println!("{}", ui::info("Use --force to confirm:", colored));
         println!("  gcop-rs alias --remove --force");
         return Ok(());
     }
 
-    println!("Removing git aliases...");
+    ui::step("1/1", "Removing git aliases...", colored);
     println!();
 
     let mut removed = 0;
@@ -222,7 +276,12 @@ fn remove_aliases(force: bool, colored: bool) -> Result<()> {
                 .status()?;
 
             if status.success() {
-                println!("  ✓  Removed git {}", name);
+                if colored {
+                    use colored::Colorize;
+                    println!("  {}  Removed git {}", "✓".green().bold(), name.bold());
+                } else {
+                    println!("  ✓  Removed git {}", name);
+                }
                 removed += 1;
             }
         }
