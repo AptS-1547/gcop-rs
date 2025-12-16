@@ -28,21 +28,21 @@ pub fn commit_action_menu(
     retry_count: usize,
 ) -> Result<CommitAction> {
     // 构建选项列表
-    let mut options = vec!["✓ Accept - 使用这个 commit message"];
+    let mut options = vec!["✓ Accept - Use this commit message"];
 
     if allow_edit {
-        options.push("✎ Edit - 手动修改 message");
+        options.push("✎ Edit - Manually edit the message");
     }
 
-    options.push("↻ Retry - 重新生成");
-    options.push("↻+ Retry with feedback - 重新生成并提供指示");
-    options.push("✕ Quit - 放弃提交");
+    options.push("↻ Retry - Regenerate");
+    options.push("↻+ Retry with feedback - Regenerate with instructions");
+    options.push("✕ Quit - Cancel commit");
 
     // 根据重试次数调整提示文字
     let prompt = if retry_count == 0 {
-        "选择下一步操作:"
+        "Choose next action:"
     } else {
-        "还不满意? 继续选择:"
+        "Not satisfied? Choose again:"
     };
 
     let selection = Select::new()
@@ -82,10 +82,12 @@ pub fn commit_action_menu(
 /// * `Ok(None)` - 用户未输入或取消
 /// * `Err(_)` - 发生错误
 pub fn get_retry_feedback() -> Result<Option<String>> {
-    println!("\n请提供重新生成的指示（例如: \"使用中文\", \"更简洁\", \"包含更多细节\"）");
+    println!(
+        "\nProvide instructions for regeneration (e.g., \"use Chinese\", \"be more concise\", \"include more details\")"
+    );
 
     let feedback: String = Input::new()
-        .with_prompt("指示")
+        .with_prompt("Instructions")
         .allow_empty(true)
         .interact_text()
         .map_err(|_| GcopError::UserCancelled)?;
@@ -95,7 +97,7 @@ pub fn get_retry_feedback() -> Result<Option<String>> {
     // 限制长度，防止 prompt 过长
     if trimmed.len() > 200 {
         let truncated = &trimmed[..200];
-        println!("⚠ 反馈过长，已截断至 200 字符");
+        println!("⚠ Feedback too long, truncated to 200 characters");
         Ok(Some(truncated.to_string()))
     } else if trimmed.is_empty() {
         Ok(None)
