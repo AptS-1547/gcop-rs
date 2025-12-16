@@ -4,8 +4,8 @@ use config::{Config, Environment, File};
 use directories::ProjectDirs;
 use std::path::PathBuf;
 
-pub use schema::*;
 use crate::error::Result;
+pub use schema::*;
 
 /// 加载应用配置
 ///

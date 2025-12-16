@@ -1,6 +1,7 @@
 mod cli;
 mod config;
 mod error;
+mod git;
 
 use anyhow::Result;
 use clap::Parser;
