@@ -53,7 +53,7 @@ pub async fn run(
     };
 
     // 调用 LLM 进行审查
-    ui::step("2/3", "Reviewing code with AI...", colored);
+    let spinner = ui::Spinner::new("Reviewing code with AI...");
 
     let review_type = match target {
         ReviewTarget::Changes => ReviewType::UncommittedChanges,
@@ -63,6 +63,8 @@ pub async fn run(
     };
 
     let result = provider.review_code(&diff, review_type).await?;
+
+    spinner.finish_and_clear();
 
     // 格式化输出
     ui::step("3/3", "Formatting results...", colored);

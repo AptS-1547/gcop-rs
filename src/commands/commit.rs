@@ -36,7 +36,7 @@ pub async fn run(cli: &Cli, config: &AppConfig, no_edit: bool, yes: bool) -> Res
     }
 
     // 5. 生成 commit message
-    ui::step("2/5", "Generating commit message...", colored);
+    let spinner = ui::Spinner::new("Generating commit message...");
 
     let context = CommitContext {
         files_changed: stats.files_changed.clone(),
@@ -48,6 +48,8 @@ pub async fn run(cli: &Cli, config: &AppConfig, no_edit: bool, yes: bool) -> Res
     let mut message = provider
         .generate_commit_message(&diff, Some(context))
         .await?;
+
+    spinner.finish_and_clear();
 
     // 6. 显示生成的消息
     println!("\n{}", ui::info("Generated commit message:", colored));

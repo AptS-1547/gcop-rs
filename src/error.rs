@@ -37,6 +37,43 @@ pub enum GcopError {
     #[error("Invalid input: {0}")]
     InvalidInput(String),
 
+    /// 通用错误类型，用于不适合其他分类的错误
     #[error("{0}")]
     Other(String),
+}
+
+impl GcopError {
+    /// 获取错误的解决建议
+    pub fn suggestion(&self) -> Option<&str> {
+        match self {
+            GcopError::NoStagedChanges => {
+                Some("Run 'git add <files>' to stage your changes first")
+            }
+            GcopError::Config(msg) if msg.contains("API key not found") => {
+                if msg.contains("Claude") {
+                    Some("Get your Claude API key from https://console.anthropic.com/")
+                } else if msg.contains("OpenAI") {
+                    Some("Get your OpenAI API key from https://platform.openai.com/")
+                } else {
+                    Some("Set the appropriate API key environment variable or configure it in ~/.config/gcop/config.toml")
+                }
+            }
+            GcopError::Config(msg) if msg.contains("not found in config") => {
+                Some("Check your ~/.config/gcop/config.toml or use the default providers: claude, openai, ollama")
+            }
+            GcopError::LLM(msg) if msg.contains("401") => {
+                Some("Check if your API key is valid and has not expired")
+            }
+            GcopError::LLM(msg) if msg.contains("429") => {
+                Some("Rate limit exceeded. Wait a moment and try again, or upgrade your API plan")
+            }
+            GcopError::LLM(msg) if msg.contains("500") || msg.contains("503") => {
+                Some("API service is temporarily unavailable. Try again in a few moments")
+            }
+            GcopError::LLM(msg) if msg.contains("Failed to parse") => {
+                Some("Try using --verbose flag to see the full LLM response and debug the issue")
+            }
+            _ => None,
+        }
+    }
 }

@@ -50,10 +50,18 @@ fn main() -> Result<()> {
                         }
                         error::GcopError::NoStagedChanges => {
                             ui::error(&e.to_string(), config.ui.colored);
+                            if let Some(suggestion) = e.suggestion() {
+                                println!();
+                                println!("{}", ui::info(&format!("Tip: {}", suggestion), config.ui.colored));
+                            }
                             std::process::exit(1);
                         }
                         _ => {
                             ui::error(&format!("Error: {}", e), config.ui.colored);
+                            if let Some(suggestion) = e.suggestion() {
+                                println!();
+                                println!("{}", ui::info(&format!("Tip: {}", suggestion), config.ui.colored));
+                            }
                             std::process::exit(1);
                         }
                     }
@@ -73,6 +81,10 @@ fn main() -> Result<()> {
                         }
                         _ => {
                             ui::error(&format!("Error: {}", e), config.ui.colored);
+                            if let Some(suggestion) = e.suggestion() {
+                                println!();
+                                println!("{}", ui::info(&format!("Tip: {}", suggestion), config.ui.colored));
+                            }
                             std::process::exit(1);
                         }
                     }

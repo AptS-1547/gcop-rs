@@ -55,6 +55,9 @@ fn get_config_path() -> Option<PathBuf> {
 }
 
 /// 获取配置目录路径
+///
+/// 用于需要访问配置目录的场景（如初始化、验证等）
+#[allow(dead_code)]
 pub fn get_config_dir() -> Option<PathBuf> {
     ProjectDirs::from("", "", "gcop").map(|dirs| dirs.config_dir().to_path_buf())
 }

@@ -32,6 +32,7 @@ struct OllamaOptions {
 #[derive(Deserialize)]
 struct OllamaResponse {
     response: String,
+    #[allow(dead_code)] // 保留用于完整性验证
     done: bool,
 }
 

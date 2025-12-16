@@ -1,32 +1,122 @@
+# gcop-rs 配置文件
+# 位置: ~/.config/gcop/config.toml
+#
+# 所有配置都是可选的，未配置时使用默认值
+# 环境变量的优先级高于此配置文件
+
+# ============================================
+# LLM 配置
+# ============================================
 [llm]
+# 默认使用的 provider
+# 可选值: "claude" | "openai" | "ollama"
+# 可以通过 --provider 参数临时覆盖
 default_provider = "claude"
 
+# --------------------------------------------
+# Claude Provider 配置
+# --------------------------------------------
 [llm.providers.claude]
+# API 端点（可选，默认为官方端点）
 endpoint = "https://api.anthropic.com/v1/messages"
+
+# API Key 配置方式（三选一）:
+# 1. 在此设置: api_key = "sk-ant-..."
+# 2. 环境变量: export ANTHROPIC_API_KEY="sk-ant-..."
+# 3. 获取地址: https://console.anthropic.com/
 # API key: GCOP_LLM_PROVIDERS_CLAUDE_API_KEY 或 ANTHROPIC_API_KEY
+
+# 模型选择:
+# - claude-sonnet-4-5-20250929 (推荐，平衡性能和成本)
+# - claude-opus-4-5-20251101 (最强，适合复杂审查，速度慢且贵)
+# - claude-3-5-sonnet-20241022 (旧版 Sonnet)
 model = "claude-sonnet-4-5-20250929"
+
+# 温度参数 (0.0-1.0)
+# - 0.0-0.3: 更确定性和一致性，适合 commit message
+# - 0.5-0.7: 平衡创造性和准确性
+# - 0.8-1.0: 更有创造性，适合探索性审查
 temperature = 0.3
+
+# 最大 token 数（可选）
+# - commit: 1000-2000 通常足够
+# - review: 2000-4000 适合详细审查
 max_tokens = 2000
 
+# --------------------------------------------
+# OpenAI Provider 配置
+# --------------------------------------------
 [llm.providers.openai]
+# API 端点（可选，默认为官方端点）
 endpoint = "https://api.openai.com/v1/chat/completions"
+
+# API Key 配置方式:
+# 1. 在此设置: api_key = "sk-..."
+# 2. 环境变量: export OPENAI_API_KEY="sk-..."
+# 3. 获取地址: https://platform.openai.com/
 # API key: GCOP_LLM_PROVIDERS_OPENAI_API_KEY 或 OPENAI_API_KEY
+
+# 模型选择:
+# - gpt-4-turbo (推荐)
+# - gpt-4 (经典版本)
+# - gpt-3.5-turbo (经济型)
 model = "gpt-4-turbo"
+
+# 温度参数 (0.0-1.0)
 temperature = 0.3
 
+# --------------------------------------------
+# Ollama Provider 配置（本地部署）
+# --------------------------------------------
 [llm.providers.ollama]
+# Ollama 服务端点（默认本地）
+# 启动 Ollama: ollama serve
 endpoint = "http://localhost:11434/api/generate"
+
+# 模型选择（需先拉取）:
+# - codellama:13b (推荐用于代码)
+# - llama2:7b (通用)
+# - mistral:7b (快速)
+# 拉取模型: ollama pull codellama:13b
 model = "codellama:13b"
 
+# ============================================
+# Commit 行为配置
+# ============================================
 [commit]
+# 生成前是否显示 diff 预览
 show_diff_preview = true
+
+# 是否允许编辑生成的消息
+# 设为 false 或使用 --no-edit 跳过编辑器
 allow_edit = true
+
+# 提交前是否需要确认
+# 设为 false 或使用 --yes 自动确认
 confirm_before_commit = true
 
+# ============================================
+# Review 配置
+# ============================================
 [review]
+# 审查时是否显示完整 diff
 show_full_diff = true
+
+# 最低显示的问题严重性
+# 可选值: "critical" | "warning" | "info"
+# - critical: 只显示严重问题
+# - warning: 显示警告及以上
+# - info: 显示所有问题（默认）
 min_severity = "info"  # critical | warning | info
 
+# ============================================
+# UI 配置
+# ============================================
 [ui]
+# 是否启用彩色输出
+# 设为 false 适用于不支持彩色的终端或日志文件
 colored = true
+
+# 是否显示详细信息
+# 等同于使用 --verbose 标志
 verbose = false
