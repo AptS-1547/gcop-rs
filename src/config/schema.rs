@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Default)]
 pub struct AppConfig {
     #[serde(default)]
     pub llm: LLMConfig,
@@ -87,16 +88,6 @@ fn default_severity() -> String {
     "info".to_string()
 }
 
-impl Default for AppConfig {
-    fn default() -> Self {
-        Self {
-            llm: LLMConfig::default(),
-            commit: CommitConfig::default(),
-            review: ReviewConfig::default(),
-            ui: UIConfig::default(),
-        }
-    }
-}
 
 impl Default for LLMConfig {
     fn default() -> Self {

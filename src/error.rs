@@ -25,6 +25,9 @@ pub enum GcopError {
     #[error("Configuration parsing error: {0}")]
     ConfigParse(#[from] config::ConfigError),
 
+    #[error("UI error: {0}")]
+    Dialoguer(#[from] dialoguer::Error),
+
     #[error("No staged changes found")]
     NoStagedChanges,
 

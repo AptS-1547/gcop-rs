@@ -1,0 +1,32 @@
+[llm]
+default_provider = "claude"
+
+[llm.providers.claude]
+endpoint = "https://api.anthropic.com/v1/messages"
+# API key: GCOP_LLM_PROVIDERS_CLAUDE_API_KEY 或 ANTHROPIC_API_KEY
+model = "claude-sonnet-4-5-20250929"
+temperature = 0.3
+max_tokens = 2000
+
+[llm.providers.openai]
+endpoint = "https://api.openai.com/v1/chat/completions"
+# API key: GCOP_LLM_PROVIDERS_OPENAI_API_KEY 或 OPENAI_API_KEY
+model = "gpt-4-turbo"
+temperature = 0.3
+
+[llm.providers.ollama]
+endpoint = "http://localhost:11434/api/generate"
+model = "codellama:13b"
+
+[commit]
+show_diff_preview = true
+allow_edit = true
+confirm_before_commit = true
+
+[review]
+show_full_diff = true
+min_severity = "info"  # critical | warning | info
+
+[ui]
+colored = true
+verbose = false

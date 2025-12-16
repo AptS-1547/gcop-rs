@@ -1,13 +1,15 @@
 mod cli;
+mod commands;
 mod config;
 mod error;
 mod git;
+mod llm;
+mod ui;
 
 use anyhow::Result;
 use clap::Parser;
 use cli::{Cli, Commands, ReviewTarget};
 use tokio::runtime::Runtime;
-use tracing_subscriber;
 
 fn main() -> Result<()> {
     // 初始化 tracing 日志
@@ -31,11 +33,24 @@ fn main() -> Result<()> {
     rt.block_on(async {
         match cli.command {
             Commands::Commit { no_edit, yes } => {
-                println!("gcop commit 命令");
-                println!("  --no-edit: {}", no_edit);
-                println!("  --yes: {}", yes);
-                println!("  Provider: {:?}", cli.provider);
-                println!("\n[Not implemented yet]");
+                // 执行 commit 命令
+                if let Err(e) = commands::commit::run(&cli, &config, no_edit, yes).await {
+                    // 错误处理
+                    match e {
+                        error::GcopError::UserCancelled => {
+                            // 用户取消不算错误，正常退出
+                            std::process::exit(0);
+                        }
+                        error::GcopError::NoStagedChanges => {
+                            ui::error(&e.to_string(), config.ui.colored);
+                            std::process::exit(1);
+                        }
+                        _ => {
+                            ui::error(&format!("Error: {}", e), config.ui.colored);
+                            std::process::exit(1);
+                        }
+                    }
+                }
                 Ok(())
             }
             Commands::Review { target, format } => {
