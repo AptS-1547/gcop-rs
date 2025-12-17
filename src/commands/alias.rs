@@ -18,6 +18,11 @@ const GCOP_ALIASES: &[(&str, &str, &str)] = &[
         "Add all changes and commit with AI message",
     ),
     (
+        "cp",
+        "!gcop-rs commit && git push",
+        "Commit with AI message and push",
+    ),
+    (
         "acp",
         "!git add -A && gcop-rs commit && git push",
         "Add all, commit with AI, and push",
@@ -112,6 +117,7 @@ pub fn install_all(force: bool, colored: bool) -> Result<()> {
     println!("  git c        # AI commit");
     println!("  git r        # AI review");
     println!("  git ac       # Add all and commit");
+    println!("  git cp       # Commit and push");
     println!("  git acp      # Add all, commit, and push");
     println!("  git gconfig  # Edit configuration");
     println!("  git p        # Push");
