@@ -114,12 +114,21 @@ pub async fn run(cli: &Cli, config: &AppConfig, no_edit: bool, yes: bool) -> Res
                         match ui::edit_text(&message) {
                             Ok(edited) => {
                                 display_edited_message(&edited, colored);
-                                // 编辑后视同接受
-                                CommitState::Accepted { message: edited }
+                                // 编辑后返回菜单
+                                CommitState::WaitingForAction {
+                                    message: edited,
+                                    attempt,
+                                    feedbacks,
+                                }
                             }
                             Err(GcopError::UserCancelled) => {
                                 ui::warning("Edit cancelled.", colored);
-                                CommitState::Cancelled
+                                // 取消编辑返回菜单，保留原消息
+                                CommitState::WaitingForAction {
+                                    message,
+                                    attempt,
+                                    feedbacks,
+                                }
                             }
                             Err(e) => return Err(e),
                         }
