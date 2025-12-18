@@ -127,8 +127,7 @@ impl GitOperations for GitRepository {
     }
 
     fn commit(&self, message: &str) -> Result<()> {
-        // 使用 commit 模块的函数
-        crate::git::commit::commit_changes(&self.repo, message)
+        crate::git::commit::commit_changes(message)
     }
 
     fn get_current_branch(&self) -> Result<Option<String>> {

@@ -2,7 +2,8 @@ use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
-use super::utils::{DEFAULT_OLLAMA_BASE, OLLAMA_API_SUFFIX, complete_endpoint};
+use super::base::{build_endpoint, extract_extra_f32, parse_review_response};
+use super::utils::{DEFAULT_OLLAMA_BASE, OLLAMA_API_SUFFIX};
 use crate::config::ProviderConfig;
 use crate::error::{GcopError, Result};
 use crate::llm::{CommitContext, LLMProvider, ReviewResult, ReviewType};
@@ -40,20 +41,9 @@ struct OllamaResponse {
 impl OllamaProvider {
     pub fn new(config: &ProviderConfig, _provider_name: &str) -> Result<Self> {
         // Ollama 本地部署，无需 API key
-        // provider_name 参数保留用于统一接口
-        let endpoint = config
-            .endpoint
-            .as_ref()
-            .map(|e| complete_endpoint(e, OLLAMA_API_SUFFIX))
-            .unwrap_or_else(|| format!("{}{}", DEFAULT_OLLAMA_BASE, OLLAMA_API_SUFFIX));
-
+        let endpoint = build_endpoint(config, DEFAULT_OLLAMA_BASE, OLLAMA_API_SUFFIX);
         let model = config.model.clone();
-
-        let temperature = config
-            .extra
-            .get("temperature")
-            .and_then(|v| v.as_f64())
-            .map(|v| v as f32);
+        let temperature = extract_extra_f32(config, "temperature");
 
         Ok(Self {
             client: super::create_http_client()?,
@@ -120,15 +110,7 @@ impl LLMProvider for OllamaProvider {
         diff: &str,
         context: Option<CommitContext>,
     ) -> Result<String> {
-        let ctx = context.unwrap_or_else(|| CommitContext {
-            files_changed: vec![],
-            insertions: 0,
-            deletions: 0,
-            branch_name: None,
-            custom_prompt: None,
-            user_feedback: None,
-        });
-
+        let ctx = context.unwrap_or_default();
         let prompt =
             crate::llm::prompt::build_commit_prompt(diff, &ctx, ctx.custom_prompt.as_deref());
 
@@ -155,20 +137,7 @@ impl LLMProvider for OllamaProvider {
 
         tracing::debug!("LLM review response: {}", response);
 
-        let result: ReviewResult = serde_json::from_str(&response).map_err(|e| {
-            let preview = if response.len() > 500 {
-                format!("{}...", &response[..500])
-            } else {
-                response.clone()
-            };
-
-            GcopError::Llm(format!(
-                "Failed to parse review result: {}. Response preview: {}",
-                e, preview
-            ))
-        })?;
-
-        Ok(result)
+        parse_review_response(&response)
     }
 
     fn name(&self) -> &str {

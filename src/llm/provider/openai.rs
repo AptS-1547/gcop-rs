@@ -2,7 +2,11 @@ use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
-use super::utils::{DEFAULT_OPENAI_BASE, OPENAI_API_SUFFIX, complete_endpoint};
+use super::base::{
+    build_endpoint, default_temperature, extract_api_key, extract_extra_f32_or, extract_extra_u32,
+    parse_review_response,
+};
+use super::utils::{DEFAULT_OPENAI_BASE, OPENAI_API_SUFFIX};
 use crate::config::ProviderConfig;
 use crate::error::{GcopError, Result};
 use crate::llm::{CommitContext, LLMProvider, ReviewResult, ReviewType};
@@ -49,38 +53,11 @@ struct MessageContent {
 
 impl OpenAIProvider {
     pub fn new(config: &ProviderConfig, _provider_name: &str) -> Result<Self> {
-        // API key 读取顺序：
-        // 1. 配置文件中的 api_key（优先）
-        // 2. OPENAI_API_KEY 环境变量（fallback）
-        let api_key = config
-            .api_key
-            .clone()
-            .or_else(|| std::env::var("OPENAI_API_KEY").ok())
-            .ok_or_else(|| {
-                GcopError::Config(
-                    "OpenAI API key not found. Set api_key in config.toml or OPENAI_API_KEY environment variable".to_string()
-                )
-            })?;
-
-        let endpoint = config
-            .endpoint
-            .as_ref()
-            .map(|e| complete_endpoint(e, OPENAI_API_SUFFIX))
-            .unwrap_or_else(|| format!("{}{}", DEFAULT_OPENAI_BASE, OPENAI_API_SUFFIX));
-
+        let api_key = extract_api_key(config, "OPENAI_API_KEY", "OpenAI")?;
+        let endpoint = build_endpoint(config, DEFAULT_OPENAI_BASE, OPENAI_API_SUFFIX);
         let model = config.model.clone();
-
-        let max_tokens = config
-            .extra
-            .get("max_tokens")
-            .and_then(|v| v.as_u64())
-            .map(|v| v as u32);
-
-        let temperature = config
-            .extra
-            .get("temperature")
-            .and_then(|v| v.as_f64())
-            .unwrap_or(0.3) as f32;
+        let max_tokens = extract_extra_u32(config, "max_tokens");
+        let temperature = extract_extra_f32_or(config, "temperature", default_temperature());
 
         Ok(Self {
             client: super::create_http_client()?,
@@ -159,15 +136,7 @@ impl LLMProvider for OpenAIProvider {
         diff: &str,
         context: Option<CommitContext>,
     ) -> Result<String> {
-        let ctx = context.unwrap_or_else(|| CommitContext {
-            files_changed: vec![],
-            insertions: 0,
-            deletions: 0,
-            branch_name: None,
-            custom_prompt: None,
-            user_feedback: None,
-        });
-
+        let ctx = context.unwrap_or_default();
         let prompt =
             crate::llm::prompt::build_commit_prompt(diff, &ctx, ctx.custom_prompt.as_deref());
 
@@ -194,20 +163,7 @@ impl LLMProvider for OpenAIProvider {
 
         tracing::debug!("LLM review response: {}", response);
 
-        let result: ReviewResult = serde_json::from_str(&response).map_err(|e| {
-            let preview = if response.len() > 500 {
-                format!("{}...", &response[..500])
-            } else {
-                response.clone()
-            };
-
-            GcopError::Llm(format!(
-                "Failed to parse review result: {}. Response preview: {}",
-                e, preview
-            ))
-        })?;
-
-        Ok(result)
+        parse_review_response(&response)
     }
 
     fn name(&self) -> &str {

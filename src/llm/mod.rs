@@ -34,7 +34,7 @@ pub trait LLMProvider: Send + Sync {
 }
 
 /// Commit 上下文信息
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct CommitContext {
     pub files_changed: Vec<String>,
     pub insertions: usize,

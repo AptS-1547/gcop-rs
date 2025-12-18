@@ -2,7 +2,11 @@ use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
-use super::utils::{CLAUDE_API_SUFFIX, DEFAULT_CLAUDE_BASE, complete_endpoint};
+use super::base::{
+    build_endpoint, default_max_tokens, default_temperature, extract_api_key, extract_extra_f32_or,
+    extract_extra_u32_or, parse_review_response,
+};
+use super::utils::{CLAUDE_API_SUFFIX, DEFAULT_CLAUDE_BASE};
 use crate::config::ProviderConfig;
 use crate::error::{GcopError, Result};
 use crate::llm::{CommitContext, LLMProvider, ReviewResult, ReviewType};
@@ -45,38 +49,11 @@ struct ContentBlock {
 
 impl ClaudeProvider {
     pub fn new(config: &ProviderConfig, _provider_name: &str) -> Result<Self> {
-        // API key 读取顺序：
-        // 1. 配置文件中的 api_key（优先）
-        // 2. ANTHROPIC_API_KEY 环境变量（fallback）
-        let api_key = config
-            .api_key
-            .clone()
-            .or_else(|| std::env::var("ANTHROPIC_API_KEY").ok())
-            .ok_or_else(|| {
-                GcopError::Config(
-                    "Claude API key not found. Set api_key in config.toml or ANTHROPIC_API_KEY environment variable".to_string()
-                )
-            })?;
-
-        let endpoint = config
-            .endpoint
-            .as_ref()
-            .map(|e| complete_endpoint(e, CLAUDE_API_SUFFIX))
-            .unwrap_or_else(|| format!("{}{}", DEFAULT_CLAUDE_BASE, CLAUDE_API_SUFFIX));
-
+        let api_key = extract_api_key(config, "ANTHROPIC_API_KEY", "Claude")?;
+        let endpoint = build_endpoint(config, DEFAULT_CLAUDE_BASE, CLAUDE_API_SUFFIX);
         let model = config.model.clone();
-
-        let max_tokens = config
-            .extra
-            .get("max_tokens")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(2000) as u32;
-
-        let temperature = config
-            .extra
-            .get("temperature")
-            .and_then(|v| v.as_f64())
-            .unwrap_or(0.3) as f32;
+        let max_tokens = extract_extra_u32_or(config, "max_tokens", default_max_tokens());
+        let temperature = extract_extra_f32_or(config, "temperature", default_temperature());
 
         Ok(Self {
             client: super::create_http_client()?,
@@ -160,19 +137,10 @@ impl LLMProvider for ClaudeProvider {
         diff: &str,
         context: Option<CommitContext>,
     ) -> Result<String> {
-        let ctx = context.unwrap_or_else(|| CommitContext {
-            files_changed: vec![],
-            insertions: 0,
-            deletions: 0,
-            branch_name: None,
-            custom_prompt: None,
-            user_feedback: None,
-        });
-
+        let ctx = context.unwrap_or_default();
         let prompt =
             crate::llm::prompt::build_commit_prompt(diff, &ctx, ctx.custom_prompt.as_deref());
 
-        // Debug 模式下输出 prompt 长度
         tracing::debug!(
             "Commit message generation prompt length: {} chars",
             prompt.len()
@@ -180,7 +148,6 @@ impl LLMProvider for ClaudeProvider {
 
         let response = self.call_api(&prompt).await?;
 
-        // Debug 模式下输出生成的消息
         tracing::debug!("Generated commit message: {}", response);
 
         Ok(response)
@@ -195,36 +162,9 @@ impl LLMProvider for ClaudeProvider {
         let prompt = crate::llm::prompt::build_review_prompt(diff, &review_type, custom_prompt);
         let response = self.call_api(&prompt).await?;
 
-        // Debug 模式下输出 LLM 返回的原始文本
         tracing::debug!("LLM review response: {}", response);
 
-        // 清理响应：移除可能的 markdown 代码块标记
-        let cleaned_response = response
-            .trim()
-            .strip_prefix("```json")
-            .unwrap_or(&response)
-            .strip_prefix("```")
-            .unwrap_or(&response)
-            .strip_suffix("```")
-            .unwrap_or(&response)
-            .trim();
-
-        // 解析 JSON 响应
-        let result: ReviewResult = serde_json::from_str(cleaned_response).map_err(|e| {
-            // 在错误中包含原始响应的前 500 字符
-            let preview = if response.len() > 500 {
-                format!("{}...", &response[..500])
-            } else {
-                response.clone()
-            };
-
-            GcopError::Llm(format!(
-                "Failed to parse review result: {}. Response preview: {}",
-                e, preview
-            ))
-        })?;
-
-        Ok(result)
+        parse_review_response(&response)
     }
 
     fn name(&self) -> &str {
@@ -232,7 +172,6 @@ impl LLMProvider for ClaudeProvider {
     }
 
     async fn validate(&self) -> Result<()> {
-        // 简单验证：检查 API key 是否存在
         if self.api_key.is_empty() {
             return Err(GcopError::Config("API key is empty".to_string()));
         }

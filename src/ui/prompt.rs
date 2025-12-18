@@ -1,6 +1,7 @@
 use colored::Colorize;
 use dialoguer::{Confirm, Input, Select};
 
+use crate::constants::ui::MAX_FEEDBACK_LENGTH;
 use crate::error::{GcopError, Result};
 
 /// 用户对 commit message 的操作选择
@@ -141,9 +142,12 @@ pub fn get_retry_feedback() -> Result<Option<String>> {
     let trimmed = feedback.trim();
 
     // 限制长度，防止 prompt 过长
-    if trimmed.len() > 200 {
-        let truncated = &trimmed[..200];
-        println!("⚠ Feedback too long, truncated to 200 characters");
+    if trimmed.len() > MAX_FEEDBACK_LENGTH {
+        let truncated = &trimmed[..MAX_FEEDBACK_LENGTH];
+        println!(
+            "⚠ Feedback too long, truncated to {} characters",
+            MAX_FEEDBACK_LENGTH
+        );
         Ok(Some(truncated.to_string()))
     } else if trimmed.is_empty() {
         Ok(None)

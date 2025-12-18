@@ -1,11 +1,30 @@
+use std::sync::Arc;
+
 use colored::Colorize;
 
 use crate::cli::Cli;
 use crate::config::AppConfig;
+use crate::constants::commit::MAX_RETRIES;
 use crate::error::{GcopError, Result};
-use crate::git::{GitOperations, repository::GitRepository};
-use crate::llm::{CommitContext, provider::create_provider};
+use crate::git::{DiffStats, GitOperations, repository::GitRepository};
+use crate::llm::{CommitContext, LLMProvider, provider::create_provider};
 use crate::ui;
+
+/// Commit 流程状态机
+#[derive(Debug)]
+enum CommitState {
+    /// 需要生成/重新生成 message
+    Generating {
+        attempt: usize,
+        feedback: Option<String>,
+    },
+    /// 展示生成的 message 并等待用户操作
+    WaitingForAction { message: String, attempt: usize },
+    /// 用户接受，准备提交
+    Accepted { message: String },
+    /// 用户取消
+    Cancelled,
+}
 
 /// 执行 commit 命令
 ///
@@ -37,164 +56,162 @@ pub async fn run(cli: &Cli, config: &AppConfig, no_edit: bool, yes: bool) -> Res
         println!("\n{}", ui::format_diff_stats(&stats, colored));
     }
 
-    // 5. 生成 commit message（支持重试循环）
+    // 5. 状态机主循环
     let should_edit = config.commit.allow_edit && !no_edit;
-    let mut message = String::new();
-    let mut user_feedback: Option<String> = None;
-    let mut retry_count = 0;
-    let mut should_regenerate = true;
-    let mut should_display = true;
-    const MAX_RETRIES: usize = 10;
+    let mut state = CommitState::Generating {
+        attempt: 0,
+        feedback: None,
+    };
 
     loop {
-        // 只在需要时生成或重新生成 commit message
-        if should_regenerate {
-            let spinner = ui::Spinner::new(if retry_count == 0 {
-                "Generating commit message..."
-            } else {
-                "Regenerating commit message..."
-            });
+        state = match state {
+            CommitState::Generating { attempt, feedback } => {
+                // 检查重试上限
+                if attempt >= MAX_RETRIES {
+                    ui::warning(
+                        &format!("Reached maximum retry limit ({})", MAX_RETRIES),
+                        colored,
+                    );
+                    return Err(GcopError::Other("Too many retries".to_string()));
+                }
 
-            let context = CommitContext {
-                files_changed: stats.files_changed.clone(),
-                insertions: stats.insertions,
-                deletions: stats.deletions,
-                branch_name: repo.get_current_branch()?,
-                custom_prompt: config.commit.custom_prompt.clone(),
-                user_feedback: user_feedback.clone(),
-            };
+                // 生成 message
+                let message =
+                    generate_message(&provider, &repo, &diff, &stats, config, &feedback, attempt)
+                        .await?;
 
-            message = provider
-                .generate_commit_message(&diff, Some(context))
-                .await?;
-
-            spinner.finish_and_clear();
-
-            should_regenerate = false;
-        }
-
-        // 只在需要时显示消息
-        if should_display {
-            if retry_count == 0 {
-                println!("\n{}", ui::info("Generated commit message:", colored));
-            } else {
-                println!(
-                    "\n{}",
-                    ui::info(
-                        &format!("Regenerated commit message (attempt {}):", retry_count + 1),
-                        colored
-                    )
-                );
-            }
-            if colored {
-                println!("{}", message.yellow());
-            } else {
-                println!("{}", message);
+                // --yes 标志直接接受
+                if yes {
+                    CommitState::Accepted { message }
+                } else {
+                    // 显示生成的 message
+                    display_message(&message, attempt, colored);
+                    CommitState::WaitingForAction { message, attempt }
+                }
             }
 
-            should_display = false;
-        }
+            CommitState::WaitingForAction { message, attempt } => {
+                ui::step("3/4", "Choose next action...", colored);
+                let action = ui::commit_action_menu(&message, should_edit, attempt, colored)?;
 
-        // 如果有 --yes 标志，跳过菜单直接接受
-        if yes {
-            break;
-        }
+                match action {
+                    ui::CommitAction::Accept => CommitState::Accepted { message },
 
-        // 显示交互式菜单
-        ui::step("3/4", "Choose next action...", colored);
-
-        let action = ui::commit_action_menu(&message, should_edit, retry_count, colored)?;
-
-        match action {
-            ui::CommitAction::Accept => {
-                // 接受，跳出循环
-                break;
-            }
-            ui::CommitAction::Edit => {
-                // 手动编辑
-                ui::step("3/4", "Opening editor...", colored);
-                match ui::edit_text(&message) {
-                    Ok(edited) => {
-                        message = edited;
-                        println!("\n{}", ui::info("Updated commit message:", colored));
-                        if colored {
-                            println!("{}", message.yellow());
-                        } else {
-                            println!("{}", message);
+                    ui::CommitAction::Edit => {
+                        ui::step("3/4", "Opening editor...", colored);
+                        match ui::edit_text(&message) {
+                            Ok(edited) => {
+                                display_edited_message(&edited, colored);
+                                // 编辑后视同接受
+                                CommitState::Accepted { message: edited }
+                            }
+                            Err(GcopError::UserCancelled) => {
+                                ui::warning("Edit cancelled.", colored);
+                                CommitState::Cancelled
+                            }
+                            Err(e) => return Err(e),
                         }
-                        continue;
                     }
-                    Err(GcopError::UserCancelled) => {
-                        ui::warning("Edit cancelled.", colored);
-                        return Err(GcopError::UserCancelled);
+
+                    ui::CommitAction::Retry => CommitState::Generating {
+                        attempt: attempt + 1,
+                        feedback: None,
+                    },
+
+                    ui::CommitAction::RetryWithFeedback => {
+                        let feedback = ui::get_retry_feedback()?;
+                        if feedback.is_none() {
+                            ui::warning(
+                                "No feedback provided, will retry without additional instructions.",
+                                colored,
+                            );
+                        }
+                        CommitState::Generating {
+                            attempt: attempt + 1,
+                            feedback,
+                        }
                     }
-                    Err(e) => return Err(e),
+
+                    ui::CommitAction::Quit => CommitState::Cancelled,
                 }
             }
-            ui::CommitAction::Retry => {
-                // 重试，清空反馈
-                user_feedback = None;
-                retry_count += 1;
-                should_regenerate = true;
-                should_display = true;
 
-                if retry_count >= MAX_RETRIES {
-                    ui::warning(
-                        &format!("Reached maximum retry limit ({})", MAX_RETRIES),
-                        colored,
-                    );
-                    return Err(GcopError::Other("Too many retries".to_string()));
+            CommitState::Accepted { message } => {
+                // 执行 commit
+                ui::step("4/4", "Creating commit...", colored);
+                repo.commit(&message)?;
+
+                println!();
+                ui::success("Commit created successfully!", colored);
+                if cli.verbose {
+                    println!("\n{}", message);
                 }
-
-                continue;
+                return Ok(());
             }
-            ui::CommitAction::RetryWithFeedback => {
-                // 重试并获取反馈
-                match ui::get_retry_feedback()? {
-                    Some(feedback) => {
-                        user_feedback = Some(feedback);
-                    }
-                    None => {
-                        ui::warning(
-                            "No feedback provided, will retry without additional instructions.",
-                            colored,
-                        );
-                        user_feedback = None;
-                    }
-                }
 
-                retry_count += 1;
-                should_regenerate = true;
-                should_display = true;
-
-                if retry_count >= MAX_RETRIES {
-                    ui::warning(
-                        &format!("Reached maximum retry limit ({})", MAX_RETRIES),
-                        colored,
-                    );
-                    return Err(GcopError::Other("Too many retries".to_string()));
-                }
-
-                continue;
-            }
-            ui::CommitAction::Quit => {
+            CommitState::Cancelled => {
                 ui::warning("Commit cancelled by user.", colored);
                 return Err(GcopError::UserCancelled);
             }
-        }
+        };
     }
+}
 
-    // 7. 执行 commit
-    ui::step("4/4", "Creating commit...", colored);
+/// 生成 commit message
+async fn generate_message(
+    provider: &Arc<dyn LLMProvider>,
+    repo: &GitRepository,
+    diff: &str,
+    stats: &DiffStats,
+    config: &AppConfig,
+    feedback: &Option<String>,
+    attempt: usize,
+) -> Result<String> {
+    let spinner = ui::Spinner::new(if attempt == 0 {
+        "Generating commit message..."
+    } else {
+        "Regenerating commit message..."
+    });
 
-    repo.commit(&message)?;
+    let context = CommitContext {
+        files_changed: stats.files_changed.clone(),
+        insertions: stats.insertions,
+        deletions: stats.deletions,
+        branch_name: repo.get_current_branch()?,
+        custom_prompt: config.commit.custom_prompt.clone(),
+        user_feedback: feedback.clone(),
+    };
 
-    // 8. 显示成功
-    println!();
-    ui::success("Commit created successfully!", colored);
-    if cli.verbose {
-        println!("\n{}", message);
+    let message = provider
+        .generate_commit_message(diff, Some(context))
+        .await?;
+
+    spinner.finish_and_clear();
+    Ok(message)
+}
+
+/// 显示生成的 message
+fn display_message(message: &str, attempt: usize, colored: bool) {
+    let header = if attempt == 0 {
+        "Generated commit message:".to_string()
+    } else {
+        format!("Regenerated commit message (attempt {}):", attempt + 1)
+    };
+
+    println!("\n{}", ui::info(&header, colored));
+    if colored {
+        println!("{}", message.yellow());
+    } else {
+        println!("{}", message);
     }
+}
 
-    Ok(())
+/// 显示编辑后的 message
+fn display_edited_message(message: &str, colored: bool) {
+    println!("\n{}", ui::info("Updated commit message:", colored));
+    if colored {
+        println!("{}", message.yellow());
+    } else {
+        println!("{}", message);
+    }
 }

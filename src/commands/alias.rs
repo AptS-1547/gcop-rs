@@ -1,8 +1,10 @@
+use colored::Colorize;
+
 use crate::error::{GcopError, Result};
 use crate::ui;
 use std::process::Command;
 
-// 完整的 git alias 列表（11 个，基于原项目 + review）
+// 完整的 git alias 列表（12 个，基于原项目 + review）
 const GCOP_ALIASES: &[(&str, &str, &str)] = &[
     ("cop", "!gcop-rs", "Main entry point for gcop-rs"),
     (
@@ -140,7 +142,6 @@ fn install_single_alias(
         None => {
             add_git_alias(name, command)?;
             if colored {
-                use colored::Colorize;
                 println!(
                     "  {}  git {:10} → {}",
                     "✓".green().bold(),
@@ -154,7 +155,6 @@ fn install_single_alias(
         }
         Some(existing_cmd) if existing_cmd == command => {
             if colored {
-                use colored::Colorize;
                 println!(
                     "  {}  git {:10} → {} {}",
                     "ℹ".blue().bold(),
@@ -171,7 +171,6 @@ fn install_single_alias(
             if force {
                 add_git_alias(name, command)?;
                 if colored {
-                    use colored::Colorize;
                     println!(
                         "  {}  git {:10} → {} {}",
                         "⚠".yellow().bold(),
@@ -185,7 +184,6 @@ fn install_single_alias(
                 Ok(true)
             } else {
                 if colored {
-                    use colored::Colorize;
                     println!(
                         "  {}  git {:10} - conflicts with: {}",
                         "⊗".red().bold(),
@@ -227,7 +225,6 @@ fn list_aliases(colored: bool) -> Result<()> {
         let status = match existing {
             Some(existing_cmd) if existing_cmd == *command => {
                 if colored {
-                    use colored::Colorize;
                     "✓ installed".green().to_string()
                 } else {
                     "✓ installed".to_string()
@@ -236,7 +233,6 @@ fn list_aliases(colored: bool) -> Result<()> {
             Some(existing_cmd) => {
                 let msg = format!("⚠ conflicts: {}", existing_cmd);
                 if colored {
-                    use colored::Colorize;
                     msg.yellow().to_string()
                 } else {
                     msg
@@ -244,7 +240,6 @@ fn list_aliases(colored: bool) -> Result<()> {
             }
             None => {
                 if colored {
-                    use colored::Colorize;
                     "  not installed".dimmed().to_string()
                 } else {
                     "  not installed".to_string()
@@ -253,7 +248,6 @@ fn list_aliases(colored: bool) -> Result<()> {
         };
 
         if colored {
-            use colored::Colorize;
             println!("  git {:10} → {:45} [{}]", name.bold(), description, status);
         } else {
             println!("  git {:10} → {:45} [{}]", name, description, status);
@@ -285,7 +279,6 @@ fn remove_aliases(force: bool, colored: bool) -> Result<()> {
         for (name, _, _) in GCOP_ALIASES {
             if get_git_alias(name)?.is_some() {
                 if colored {
-                    use colored::Colorize;
                     println!("  - git {}", name.bold());
                 } else {
                     println!("  - git {}", name);
@@ -311,7 +304,6 @@ fn remove_aliases(force: bool, colored: bool) -> Result<()> {
 
             if status.success() {
                 if colored {
-                    use colored::Colorize;
                     println!("  {}  Removed git {}", "✓".green().bold(), name.bold());
                 } else {
                     println!("  ✓  Removed git {}", name);

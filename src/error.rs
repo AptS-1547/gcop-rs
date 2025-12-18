@@ -7,6 +7,9 @@ pub enum GcopError {
     #[error("Git error: {0}")]
     Git(#[from] git2::Error),
 
+    #[error("Git command failed: {0}")]
+    GitCommand(String),
+
     #[error("Configuration error: {0}")]
     Config(String),
 

@@ -1,36 +1,25 @@
-use git2::Repository;
+use std::process::Command;
 
-use crate::error::Result;
+use crate::error::{GcopError, Result};
 
 /// 执行 git commit
 ///
+/// 使用 git CLI 而非 git2，以支持：
+/// - GPG 签名 (commit.gpgsign, user.signingkey)
+/// - Git hooks (pre-commit, commit-msg 等)
+/// - 所有 git config 配置
+///
 /// # Arguments
-/// * `repo` - Git 仓库
 /// * `message` - Commit 消息
-pub fn commit_changes(repo: &Repository, message: &str) -> Result<()> {
-    // 1. 获取当前 index
-    let mut index = repo.index()?;
+pub fn commit_changes(message: &str) -> Result<()> {
+    let output = Command::new("git")
+        .args(["commit", "-m", message])
+        .output()?;
 
-    // 2. 写入 tree
-    let tree_id = index.write_tree()?;
-    let tree = repo.find_tree(tree_id)?;
-
-    // 3. 获取 signature（从 git config）
-    let signature = repo.signature()?;
-
-    // 4. 获取 HEAD commit 作为 parent
-    let head = repo.head()?;
-    let parent_commit = head.peel_to_commit()?;
-
-    // 5. 创建 commit
-    repo.commit(
-        Some("HEAD"),      // 更新 HEAD
-        &signature,        // author
-        &signature,        // committer
-        message,           // commit message
-        &tree,             // tree
-        &[&parent_commit], // parents
-    )?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(GcopError::GitCommand(stderr.trim().to_string()));
+    }
 
     Ok(())
 }
