@@ -22,6 +22,7 @@ AI-powered Git commit message generator and code reviewer, written in Rust.
 - ⚙️  **Flexible Config** - Configure via file or environment variables
 - 🎨 **Beautiful CLI** - Spinner animations, colored output, and interactive prompts
 - 🐛 **Debug Mode** - Verbose logging with full request/response inspection
+- 🔐 **GPG Signing** - Full support for GPG commit signing via native git
 
 ## Quick Start
 
@@ -168,9 +169,9 @@ gcop-rs -v commit           # Verbose mode
 
 After generating a commit message, you can choose:
 - **Accept** - Use the generated message
-- **Edit** - Open editor to manually modify
+- **Edit** - Open editor to manually modify (returns to menu after editing)
 - **Retry** - Regenerate without feedback
-- **Retry with feedback** - Provide custom instructions (e.g., "use Chinese", "be more concise")
+- **Retry with feedback** - Provide custom instructions (e.g., "use Chinese", "be more concise"). Feedback accumulates across retries for refined results
 - **Quit** - Cancel commit
 
 Example:

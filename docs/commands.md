@@ -99,9 +99,9 @@ Analyzes your staged changes, generates a conventional commit message using AI, 
 After generating a message, you'll see a menu:
 
 1. **Accept** - Use the generated message and create commit
-2. **Edit** - Open your `$EDITOR` to manually modify the message
+2. **Edit** - Open your `$EDITOR` to manually modify the message (returns to menu after editing)
 3. **Retry** - Regenerate a new message without additional instructions
-4. **Retry with feedback** - Provide instructions for regeneration (e.g., "use Chinese", "be more concise", "add more details")
+4. **Retry with feedback** - Provide instructions for regeneration (e.g., "use Chinese", "be more concise", "add more details"). Feedback accumulates across retries, allowing you to progressively refine the message
 5. **Quit** - Cancel the commit process
 
 **Examples**:
