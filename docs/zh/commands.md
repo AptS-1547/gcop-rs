@@ -265,8 +265,8 @@ gcop-rs config edit
 
 ? What would you like to do?
 > ✎ Re-edit the config file
-  ↩ Restore previous config
-  ⚠ Ignore errors and keep current (dangerous)
+  ↩ Keep original config
+  ⚠ Ignore errors and save anyway (dangerous)
 ```
 
 **恢复**: 即使配置文件损坏，`config edit` 仍然可以运行，让你修复它。

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5] - 2025-12-20
+
+### Changed
+- **Unified editor handling**: `config edit` now uses `edit` crate instead of raw `Command::new()`, matching the pattern used in commit message editing
+- **Simplified edit flow**: Removed backup/restore mechanism in favor of in-memory validation
+  - Original file is only modified after validation passes
+  - "Restore previous config" → "Keep original config" (file was never changed)
+  - Re-edit now preserves your changes instead of reloading from disk
+
 ## [0.1.4] - 2025-12-19
 
 ### Added

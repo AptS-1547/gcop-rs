@@ -265,8 +265,8 @@ gcop-rs config edit
 
 ? What would you like to do?
 > ✎ Re-edit the config file
-  ↩ Restore previous config
-  ⚠ Ignore errors and keep current (dangerous)
+  ↩ Keep original config
+  ⚠ Ignore errors and save anyway (dangerous)
 ```
 
 **Recovery**: Even if your config file is corrupted, `config edit` will still work, allowing you to fix it.
