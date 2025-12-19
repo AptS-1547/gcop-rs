@@ -30,8 +30,19 @@ fn main() -> Result<()> {
         )
         .init();
 
-    // 加载配置
-    let config = config::load_config()?;
+    // 判断是否需要加载配置
+    // config/init/alias 命令不需要完整配置，可以在配置损坏时运行
+    let needs_config = matches!(
+        &cli.command,
+        Commands::Commit { .. } | Commands::Review { .. }
+    );
+
+    // 加载配置（管理命令使用默认配置，允许在配置损坏时运行）
+    let config = if needs_config {
+        config::load_config()?
+    } else {
+        config::load_config().unwrap_or_default()
+    };
 
     // 创建 tokio 运行时
     let rt = Runtime::new()?;

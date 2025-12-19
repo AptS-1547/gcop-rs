@@ -212,7 +212,7 @@ gcop-rs review --file src/main.rs # 审查特定文件
 管理配置。
 
 ```bash
-# 在默认编辑器中编辑配置文件
+# 在默认编辑器中编辑配置文件（带校验）
 gcop-rs config edit
 
 # 验证配置并测试 provider 连接
@@ -221,6 +221,10 @@ gcop-rs config validate
 # 显示当前配置
 gcop-rs config show
 ```
+
+`config edit` 会在保存后校验配置（类似 `visudo`），即使配置损坏也能运行。
+
+> **提示**: 建议始终使用 `gcop-rs config edit` 而不是直接编辑配置文件，以避免语法错误。
 
 ---
 

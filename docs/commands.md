@@ -249,7 +249,7 @@ gcop-rs config <SUBCOMMAND>
 
 #### `config edit`
 
-Open configuration file in your default editor.
+Open configuration file in your default editor with validation.
 
 **Usage**:
 ```bash
@@ -258,7 +258,22 @@ gcop-rs config edit
 
 **Opens**: `~/.config/gcop/config.toml` in `$EDITOR` (falls back to `vi`)
 
+**Validation**: After saving, the configuration is automatically validated (like `visudo`). If validation fails, you'll see a menu:
+
+```
+✗ Config validation failed: TOML parse error...
+
+? What would you like to do?
+> ✎ Re-edit the config file
+  ↩ Restore previous config
+  ⚠ Ignore errors and keep current (dangerous)
+```
+
+**Recovery**: Even if your config file is corrupted, `config edit` will still work, allowing you to fix it.
+
 **When to use**: Modify API keys, models, or custom prompts.
+
+> **Tip**: Always use `gcop-rs config edit` instead of editing the config file directly to benefit from automatic validation.
 
 ---
 

@@ -249,7 +249,7 @@ gcop-rs config <子命令>
 
 #### `config edit`
 
-在默认编辑器中打开配置文件。
+在默认编辑器中打开配置文件，并在保存后校验。
 
 **用法**:
 ```bash
@@ -258,7 +258,22 @@ gcop-rs config edit
 
 **打开**: 在 `$EDITOR` 中打开 `~/.config/gcop/config.toml`（回退到 `vi`）
 
+**校验**: 保存后会自动校验配置（类似 `visudo`）。如果校验失败，会显示一个菜单：
+
+```
+✗ Config validation failed: TOML parse error...
+
+? What would you like to do?
+> ✎ Re-edit the config file
+  ↩ Restore previous config
+  ⚠ Ignore errors and keep current (dangerous)
+```
+
+**恢复**: 即使配置文件损坏，`config edit` 仍然可以运行，让你修复它。
+
 **何时使用**: 修改 API keys、模型或自定义 prompts。
+
+> **提示**: 建议始终使用 `gcop-rs config edit` 而不是直接编辑配置文件，以便自动校验。
 
 ---
 

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2025-12-19
+
+### Added
+- **Config validation on edit**: `gcop config edit` now validates configuration after saving (like `visudo`), with options to re-edit, restore backup, or ignore errors
+- Colored menu options for config edit validation prompts
+
+### Changed
+- **Lazy config loading**: `config`, `init`, and `alias` commands now use default config when config file is corrupted, allowing recovery via `config edit`
+- **Provider refactor**: Extracted common HTTP request logic into `send_llm_request()` function in `base.rs`, reducing ~50 lines of duplicate code
+
+### Fixed
+- OpenAI provider now returns explicit error when API response contains no choices (instead of silently returning empty string)
+- `config edit` can now run even when config file is corrupted (previously would fail to start)
+
 ## [0.1.2] - 2025-12-20
 
 ### Added
@@ -84,6 +98,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Edit action properly returns to menu without triggering regeneration
 - Commit message display no longer duplicates after editing
 
+[0.1.3]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.1.3
 [0.1.2]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.1.2
 [0.1.1]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.1.1
 [0.1.0]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.1.0

@@ -2,7 +2,16 @@ use crate::config::{self, load_config};
 use crate::error::{GcopError, Result};
 use crate::llm::provider::create_provider;
 use crate::ui;
+use colored::Colorize;
+use dialoguer::Select;
 use std::process::Command;
+
+/// 编辑后用户可选的操作
+enum EditAction {
+    Retry,   // 重新编辑
+    Restore, // 恢复原配置
+    Ignore,  // 忽略错误
+}
 
 pub async fn run(action: Option<crate::cli::ConfigAction>, colored: bool) -> Result<()> {
     // 默认行为：调用 edit
@@ -14,7 +23,7 @@ pub async fn run(action: Option<crate::cli::ConfigAction>, colored: bool) -> Res
     }
 }
 
-/// 打开编辑器编辑配置文件
+/// 打开编辑器编辑配置文件（带校验）
 fn edit(colored: bool) -> Result<()> {
     let config_dir = config::get_config_dir()
         .ok_or_else(|| GcopError::Config("Failed to determine config directory".to_string()))?;
@@ -34,26 +43,120 @@ fn edit(colored: bool) -> Result<()> {
         return Err(GcopError::Config("Config file not found".to_string()));
     }
 
+    // 备份当前配置
+    let backup_file = config_file.with_extension("toml.bak");
+    std::fs::copy(&config_file, &backup_file).map_err(|e| {
+        GcopError::Io(std::io::Error::new(
+            e.kind(),
+            format!("Failed to backup config: {}", e),
+        ))
+    })?;
+
     // 获取编辑器
     let editor = std::env::var("EDITOR")
         .or_else(|_| std::env::var("VISUAL"))
         .unwrap_or_else(|_| "vim".to_string());
 
-    // 打开编辑器
-    println!(
-        "{}",
-        ui::info(&format!("Opening {} ...", config_file.display()), colored)
-    );
+    // 编辑-校验循环
+    loop {
+        println!(
+            "{}",
+            ui::info(&format!("Opening {} ...", config_file.display()), colored)
+        );
 
-    let status = Command::new(&editor).arg(&config_file).status()?;
+        let status = Command::new(&editor).arg(&config_file).status()?;
 
-    if !status.success() {
-        return Err(GcopError::Other("Editor exited with error".to_string()));
+        if !status.success() {
+            // 编辑器异常退出，恢复备份
+            std::fs::copy(&backup_file, &config_file).ok();
+            std::fs::remove_file(&backup_file).ok();
+            return Err(GcopError::Other("Editor exited with error".to_string()));
+        }
+
+        // 校验配置
+        match load_config() {
+            Ok(_) => {
+                // 校验成功，删除备份
+                std::fs::remove_file(&backup_file).ok();
+                ui::success("Config file updated", colored);
+                return Ok(());
+            }
+            Err(e) => {
+                // 校验失败
+                println!();
+                ui::error(&format!("Config validation failed: {}", e), colored);
+                println!();
+
+                match prompt_edit_action(colored)? {
+                    EditAction::Retry => {
+                        // 继续循环，重新编辑
+                        continue;
+                    }
+                    EditAction::Restore => {
+                        std::fs::copy(&backup_file, &config_file).map_err(|e| {
+                            GcopError::Io(std::io::Error::new(
+                                e.kind(),
+                                format!("Failed to restore config: {}", e),
+                            ))
+                        })?;
+                        std::fs::remove_file(&backup_file).ok();
+                        ui::warning("Config restored to previous version", colored);
+                        return Ok(());
+                    }
+                    EditAction::Ignore => {
+                        std::fs::remove_file(&backup_file).ok();
+                        ui::warning("Config saved with errors", colored);
+                        return Ok(());
+                    }
+                }
+            }
+        }
     }
+}
 
-    ui::success("Config file updated", colored);
+/// 提示用户选择操作
+fn prompt_edit_action(colored: bool) -> Result<EditAction> {
+    let items: Vec<String> = if colored {
+        vec![
+            format!(
+                "{} {}",
+                "✎".yellow().bold(),
+                "Re-edit the config file".yellow()
+            ),
+            format!("{} {}", "↩".blue().bold(), "Restore previous config".blue()),
+            format!(
+                "{} {} {}",
+                "⚠".red().bold(),
+                "Ignore errors and keep current".red(),
+                "(dangerous)".red().bold()
+            ),
+        ]
+    } else {
+        vec![
+            "✎ Re-edit the config file".to_string(),
+            "↩ Restore previous config".to_string(),
+            "⚠ Ignore errors and keep current (dangerous)".to_string(),
+        ]
+    };
 
-    Ok(())
+    let prompt = if colored {
+        format!("{}", "What would you like to do?".cyan().bold())
+    } else {
+        "What would you like to do?".to_string()
+    };
+
+    let selection = Select::new()
+        .with_prompt(prompt)
+        .items(&items)
+        .default(0)
+        .interact()
+        .map_err(|e| GcopError::Other(format!("Failed to get user input: {}", e)))?;
+
+    Ok(match selection {
+        0 => EditAction::Retry,
+        1 => EditAction::Restore,
+        _ => EditAction::Ignore,
+    })
 }
 
 /// 验证配置

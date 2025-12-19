@@ -212,7 +212,7 @@ gcop-rs review --file src/main.rs # Review a file
 Manage configuration.
 
 ```bash
-# Edit config file in your default editor
+# Edit config file in your default editor (with validation)
 gcop-rs config edit
 
 # Validate configuration and test provider connection
@@ -221,6 +221,10 @@ gcop-rs config validate
 # Show current configuration
 gcop-rs config show
 ```
+
+`config edit` validates your config after saving (like `visudo`) and works even when config is corrupted.
+
+> **Tip**: Always use `gcop-rs config edit` instead of editing the config file directly to avoid syntax errors.
 
 ---
 
