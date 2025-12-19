@@ -30,7 +30,7 @@ AI-powered Git commit message generator and code reviewer, written in Rust.
 
 ```bash
 # Clone and build
-git clone https://github.com/your-repo/gcop-rs.git
+git clone https://github.com/AptS-1547/gcop-rs.git
 cd gcop-rs
 cargo build --release
 

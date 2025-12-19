@@ -29,6 +29,7 @@ const GCOP_ALIASES: &[(&str, &str, &str)] = &[
         "!git add -A && gcop-rs commit && git push",
         "Add all, commit with AI, and push",
     ),
+    ("amend", "!git commit --amend", "Amend last commit"),
     ("ghelp", "!gcop-rs --help", "Show gcop-rs help message"),
     (
         "gconfig",

@@ -30,7 +30,7 @@ AI 驱动的 Git 提交信息生成器和代码审查工具，使用 Rust 编写
 
 ```bash
 # 克隆并编译
-git clone https://github.com/your-repo/gcop-rs.git
+git clone https://github.com/AptS-1547/gcop-rs.git
 cd gcop-rs
 cargo build --release
 
