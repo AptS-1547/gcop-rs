@@ -1,6 +1,6 @@
 [package]
 name = "gcop-rs"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 license = "MIT"
 description = "AI-powered Git commit message generator and code reviewer"
@@ -61,3 +61,8 @@ path = "src/lib.rs"
 [[example]]
 name = "test_git_ops"
 path = "examples/test_git_ops.rs"
+
+[dev-dependencies]
+tempfile = "3.14"           # 临时文件/目录
+mockito = "1.6"             # HTTP API mock
+pretty_assertions = "1.4"   # 更好的 assert 输出

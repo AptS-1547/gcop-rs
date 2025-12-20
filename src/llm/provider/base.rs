@@ -129,6 +129,7 @@ where
 /// * `spinner` - 可选的进度 spinner（用于显示重试进度）
 /// * `max_retries` - 最大重试次数
 /// * `retry_delay_ms` - 初始重试延迟（毫秒）
+#[allow(clippy::too_many_arguments)]
 pub async fn send_llm_request<Req, Resp>(
     client: &Client,
     endpoint: &str,
@@ -336,4 +337,235 @@ pub fn parse_review_response(response: &str) -> Result<ReviewResult> {
             e, preview
         ))
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::llm::IssueSeverity;
+    use pretty_assertions::assert_eq;
+
+    // === clean_json_response 测试 ===
+
+    #[test]
+    fn test_clean_json_plain() {
+        let input = r#"{"key": "value"}"#;
+        assert_eq!(clean_json_response(input), r#"{"key": "value"}"#);
+    }
+
+    #[test]
+    fn test_clean_json_markdown_lowercase() {
+        let input = "```json\n{\"key\": \"value\"}\n```";
+        assert_eq!(clean_json_response(input), r#"{"key": "value"}"#);
+    }
+
+    #[test]
+    fn test_clean_json_markdown_uppercase() {
+        let input = "```JSON\n{\"key\": \"value\"}\n```";
+        assert_eq!(clean_json_response(input), r#"{"key": "value"}"#);
+    }
+
+    #[test]
+    fn test_clean_json_markdown_no_lang() {
+        let input = "```\n{\"key\": \"value\"}\n```";
+        assert_eq!(clean_json_response(input), r#"{"key": "value"}"#);
+    }
+
+    #[test]
+    fn test_clean_json_with_prefix_text() {
+        let input = "Here is the result:\n{\"key\": \"value\"}";
+        assert_eq!(clean_json_response(input), r#"{"key": "value"}"#);
+    }
+
+    #[test]
+    fn test_clean_json_with_suffix_text() {
+        let input = "{\"key\": \"value\"}\nHope this helps!";
+        assert_eq!(clean_json_response(input), r#"{"key": "value"}"#);
+    }
+
+    #[test]
+    fn test_clean_json_with_both_prefix_suffix() {
+        let input = "Result:\n{\"key\": \"value\"}\nDone.";
+        assert_eq!(clean_json_response(input), r#"{"key": "value"}"#);
+    }
+
+    #[test]
+    fn test_clean_json_nested_braces() {
+        let input = r#"{"outer": {"inner": "value"}}"#;
+        assert_eq!(
+            clean_json_response(input),
+            r#"{"outer": {"inner": "value"}}"#
+        );
+    }
+
+    #[test]
+    fn test_clean_json_empty_string() {
+        assert_eq!(clean_json_response(""), "");
+    }
+
+    #[test]
+    fn test_clean_json_no_braces() {
+        let input = "Just some text without JSON";
+        assert_eq!(clean_json_response(input), "Just some text without JSON");
+    }
+
+    // === is_retryable_error 测试 ===
+
+    #[test]
+    fn test_is_retryable_connection_failed() {
+        let err = GcopError::Llm("connection failed: timeout".to_string());
+        assert!(is_retryable_error(&err));
+    }
+
+    #[test]
+    fn test_is_retryable_429_rate_limit() {
+        let err = GcopError::Llm("API error (429): Rate limit exceeded".to_string());
+        assert!(is_retryable_error(&err));
+    }
+
+    #[test]
+    fn test_is_retryable_other_errors() {
+        let err = GcopError::Llm("API error (500): Internal server error".to_string());
+        assert!(!is_retryable_error(&err));
+
+        let err = GcopError::Config("Missing API key".to_string());
+        assert!(!is_retryable_error(&err));
+    }
+
+    #[test]
+    fn test_is_retryable_401_no_retry() {
+        let err = GcopError::Llm("API error (401): Unauthorized".to_string());
+        assert!(!is_retryable_error(&err));
+    }
+
+    // === truncate_for_preview 测试 ===
+
+    #[test]
+    fn test_truncate_short_string() {
+        let short = "This is a short string";
+        assert_eq!(truncate_for_preview(short), short);
+    }
+
+    #[test]
+    fn test_truncate_long_string() {
+        let long = "a".repeat(600);
+        let result = truncate_for_preview(&long);
+
+        assert!(result.len() < long.len());
+        assert!(result.ends_with("..."));
+        assert_eq!(result.len(), ERROR_PREVIEW_LENGTH + 3); // 500 + "..."
+    }
+
+    // === parse_review_response 测试 ===
+
+    #[test]
+    fn test_parse_review_valid_json() {
+        let json = r#"{
+            "summary": "Good code",
+            "issues": [
+                {
+                    "severity": "warning",
+                    "description": "Consider adding comments"
+                }
+            ],
+            "suggestions": ["Add tests"]
+        }"#;
+
+        let result = parse_review_response(json).unwrap();
+        assert_eq!(result.summary, "Good code");
+        assert_eq!(result.issues.len(), 1);
+        assert!(matches!(result.issues[0].severity, IssueSeverity::Warning));
+        assert_eq!(result.suggestions.len(), 1);
+    }
+
+    #[test]
+    fn test_parse_review_with_markdown() {
+        let json = r#"```json
+{
+    "summary": "Clean code",
+    "issues": [],
+    "suggestions": []
+}
+```"#;
+
+        let result = parse_review_response(json).unwrap();
+        assert_eq!(result.summary, "Clean code");
+        assert!(result.issues.is_empty());
+    }
+
+    #[test]
+    fn test_parse_review_invalid_json() {
+        let invalid = "This is not valid JSON";
+        let result = parse_review_response(invalid);
+
+        assert!(result.is_err());
+        if let Err(GcopError::Llm(msg)) = result {
+            assert!(msg.contains("Failed to parse review result"));
+        }
+    }
+
+    #[test]
+    fn test_parse_review_empty_issues() {
+        let json = r#"{
+            "summary": "Perfect!",
+            "issues": [],
+            "suggestions": ["Keep up the good work"]
+        }"#;
+
+        let result = parse_review_response(json).unwrap();
+        assert!(result.issues.is_empty());
+        assert_eq!(result.suggestions.len(), 1);
+    }
+
+    // === 额外的边界测试 ===
+
+    #[test]
+    fn test_clean_json_with_whitespace() {
+        let input = "   \n  {\"key\": \"value\"}  \n   ";
+        assert_eq!(clean_json_response(input), r#"{"key": "value"}"#);
+    }
+
+    #[test]
+    fn test_clean_json_complex_nested() {
+        let input = r#"Here's the review:
+{
+    "summary": "Test",
+    "issues": [{"severity": "info", "description": "ok"}],
+    "suggestions": []
+}
+Let me know if you need more."#;
+
+        let result = clean_json_response(input);
+        // 应该能正确解析
+        let parsed: serde_json::Value = serde_json::from_str(result).unwrap();
+        assert_eq!(parsed["summary"], "Test");
+    }
+
+    #[test]
+    fn test_parse_review_with_file_and_line() {
+        let json = r#"{
+            "summary": "Found issue",
+            "issues": [
+                {
+                    "severity": "critical",
+                    "description": "Memory leak",
+                    "file": "main.rs",
+                    "line": 42
+                }
+            ],
+            "suggestions": []
+        }"#;
+
+        let result = parse_review_response(json).unwrap();
+        assert_eq!(result.issues[0].file, Some("main.rs".to_string()));
+        assert_eq!(result.issues[0].line, Some(42));
+    }
+
+    #[test]
+    fn test_is_retryable_mixed_case() {
+        // 确保大小写匹配
+        let err = GcopError::Llm("Connection Failed".to_string());
+        // 当前实现是小写匹配，所以这应该不重试
+        assert!(!is_retryable_error(&err));
+    }
 }
