@@ -207,7 +207,7 @@ async fn generate_message(
     };
 
     let message = provider
-        .generate_commit_message(diff, Some(context))
+        .generate_commit_message(diff, Some(context), Some(&spinner))
         .await?;
 
     spinner.finish_and_clear();

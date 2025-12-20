@@ -65,7 +65,7 @@ impl ClaudeProvider {
         })
     }
 
-    async fn call_api(&self, prompt: &str) -> Result<String> {
+    async fn call_api(&self, prompt: &str, spinner: Option<&crate::ui::Spinner>) -> Result<String> {
         let request = ClaudeRequest {
             model: self.model.clone(),
             max_tokens: self.max_tokens,
@@ -92,6 +92,7 @@ impl ClaudeProvider {
             ],
             &request,
             "Claude",
+            spinner,
         )
         .await?;
 
@@ -113,6 +114,7 @@ impl LLMProvider for ClaudeProvider {
         &self,
         diff: &str,
         context: Option<CommitContext>,
+        spinner: Option<&crate::ui::Spinner>,
     ) -> Result<String> {
         let ctx = context.unwrap_or_default();
         let prompt =
@@ -120,7 +122,7 @@ impl LLMProvider for ClaudeProvider {
 
         tracing::debug!("Prompt ({} chars):\n{}", prompt.len(), prompt);
 
-        let response = self.call_api(&prompt).await?;
+        let response = self.call_api(&prompt, spinner).await?;
 
         tracing::debug!("Generated commit message: {}", response);
 
@@ -132,12 +134,13 @@ impl LLMProvider for ClaudeProvider {
         diff: &str,
         review_type: ReviewType,
         custom_prompt: Option<&str>,
+        spinner: Option<&crate::ui::Spinner>,
     ) -> Result<ReviewResult> {
         let prompt = crate::llm::prompt::build_review_prompt(diff, &review_type, custom_prompt);
 
         tracing::debug!("Review prompt ({} chars):\n{}", prompt.len(), prompt);
 
-        let response = self.call_api(&prompt).await?;
+        let response = self.call_api(&prompt, spinner).await?;
 
         tracing::debug!("LLM review response: {}", response);
 

@@ -68,7 +68,7 @@ where
             error_type = "decode error";
         }
 
-        tracing::error!(
+        tracing::debug!(
             "{} API request failed [{}]: {}",
             provider_name,
             error_type,
@@ -120,12 +120,14 @@ where
 /// * `headers` - 额外的请求头
 /// * `request_body` - 请求体
 /// * `provider_name` - Provider 名称（用于日志和错误信息）
+/// * `spinner` - 可选的进度 spinner（用于显示重试进度）
 pub async fn send_llm_request<Req, Resp>(
     client: &Client,
     endpoint: &str,
     headers: &[(&str, &str)],
     request_body: &Req,
     provider_name: &str,
+    spinner: Option<&crate::ui::Spinner>,
 ) -> Result<Resp>
 where
     Req: Serialize,
@@ -162,7 +164,7 @@ where
 
                 // 检查是否还有重试次数
                 if attempt > MAX_RETRY_ATTEMPTS {
-                    tracing::error!(
+                    tracing::debug!(
                         "{} API request failed after {} attempts",
                         provider_name,
                         attempt
@@ -170,11 +172,16 @@ where
                     return Err(e);
                 }
 
+                // 更新 spinner 显示重试进度
+                if let Some(s) = spinner {
+                    s.append_suffix(&format!("(Retrying {}/{})", attempt, MAX_RETRY_ATTEMPTS));
+                }
+
                 // 计算指数退避延迟：1s, 2s, 4s
                 let delay_ms = INITIAL_RETRY_DELAY_MS * (1 << (attempt - 1));
                 let delay = Duration::from_millis(delay_ms);
 
-                tracing::warn!(
+                tracing::debug!(
                     "{} API request failed (attempt {}/{}): {}. Retrying in {:.1}s...",
                     provider_name,
                     attempt,

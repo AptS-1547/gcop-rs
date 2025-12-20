@@ -15,6 +15,7 @@ pub trait LLMProvider: Send + Sync {
         &self,
         diff: &str,
         context: Option<CommitContext>,
+        spinner: Option<&crate::ui::Spinner>,
     ) -> Result<String>;
 
     /// 代码审查
@@ -23,6 +24,7 @@ pub trait LLMProvider: Send + Sync {
         diff: &str,
         review_type: ReviewType,
         custom_prompt: Option<&str>,
+        spinner: Option<&crate::ui::Spinner>,
     ) -> Result<ReviewResult>;
 
     /// Provider 名称

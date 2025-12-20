@@ -54,7 +54,12 @@ pub async fn run(cli: &Cli, config: &AppConfig, target: &ReviewTarget, format: &
     };
 
     let result = provider
-        .review_code(&diff, review_type, config.review.custom_prompt.as_deref())
+        .review_code(
+            &diff,
+            review_type,
+            config.review.custom_prompt.as_deref(),
+            Some(&spinner),
+        )
         .await?;
 
     spinner.finish_and_clear();
