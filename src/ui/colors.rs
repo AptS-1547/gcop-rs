@@ -85,3 +85,118 @@ pub fn format_diff_stats(stats: &DiffStats, colored: bool) -> String {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // === 文件数量单复数测试 ===
+
+    #[test]
+    fn test_format_diff_stats_single_file() {
+        let stats = DiffStats {
+            files_changed: vec!["main.rs".to_string()],
+            insertions: 5,
+            deletions: 3,
+        };
+        let result = format_diff_stats(&stats, false);
+        assert!(result.contains("1 file"));
+        assert!(!result.contains("1 files"));
+    }
+
+    #[test]
+    fn test_format_diff_stats_multiple_files() {
+        let stats = DiffStats {
+            files_changed: vec!["a.rs".to_string(), "b.rs".to_string(), "c.rs".to_string()],
+            insertions: 10,
+            deletions: 5,
+        };
+        let result = format_diff_stats(&stats, false);
+        assert!(result.contains("3 files"));
+    }
+
+    // === 插入/删除数量单复数测试 ===
+
+    #[test]
+    fn test_format_diff_stats_single_insertion() {
+        let stats = DiffStats {
+            files_changed: vec!["test.rs".to_string()],
+            insertions: 1,
+            deletions: 5,
+        };
+        let result = format_diff_stats(&stats, false);
+        assert!(result.contains("1 insertion(+)"));
+        assert!(!result.contains("1 insertions"));
+    }
+
+    #[test]
+    fn test_format_diff_stats_single_deletion() {
+        let stats = DiffStats {
+            files_changed: vec!["test.rs".to_string()],
+            insertions: 5,
+            deletions: 1,
+        };
+        let result = format_diff_stats(&stats, false);
+        assert!(result.contains("1 deletion(-)"));
+        assert!(!result.contains("1 deletions"));
+    }
+
+    // === 边界情况：零值 ===
+
+    #[test]
+    fn test_format_diff_stats_zero_insertions() {
+        let stats = DiffStats {
+            files_changed: vec!["deleted.rs".to_string()],
+            insertions: 0,
+            deletions: 50,
+        };
+        let result = format_diff_stats(&stats, false);
+        assert!(result.contains("0 insertions(+)"));
+        assert!(result.contains("50 deletions(-)"));
+    }
+
+    #[test]
+    fn test_format_diff_stats_zero_deletions() {
+        let stats = DiffStats {
+            files_changed: vec!["new.rs".to_string()],
+            insertions: 100,
+            deletions: 0,
+        };
+        let result = format_diff_stats(&stats, false);
+        assert!(result.contains("100 insertions(+)"));
+        assert!(result.contains("0 deletions(-)"));
+    }
+
+    // === 彩色输出测试 ===
+
+    #[test]
+    fn test_format_diff_stats_colored() {
+        let stats = DiffStats {
+            files_changed: vec!["test.rs".to_string()],
+            insertions: 10,
+            deletions: 5,
+        };
+        let colored = format_diff_stats(&stats, true);
+        let plain = format_diff_stats(&stats, false);
+
+        // 两个版本都应该包含核心信息
+        assert!(colored.contains("1 file"));
+        assert!(colored.contains("10 insertions(+)"));
+        assert!(colored.contains("5 deletions(-)"));
+
+        assert!(plain.contains("1 file"));
+        assert!(plain.contains("10 insertions(+)"));
+        assert!(plain.contains("5 deletions(-)"));
+    }
+
+    #[test]
+    fn test_format_diff_stats_empty_files() {
+        let stats = DiffStats {
+            files_changed: vec![],
+            insertions: 0,
+            deletions: 0,
+        };
+        let result = format_diff_stats(&stats, false);
+        assert!(result.contains("0 files")); // 复数形式用于0
+    }
+}
