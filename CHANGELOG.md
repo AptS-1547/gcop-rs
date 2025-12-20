@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.6] - 2025-12-20
+
+### Added
+
+- **HTTP timeout configuration**: Request timeout 120s, connection timeout 10s to prevent infinite hanging
+- **LLM API auto-retry**: Automatically retry on connection failures and 429 rate limits with exponential backoff (1s, 2s, 4s), up to 3 retries
+- **SOCKS proxy support**: Support HTTP/HTTPS/SOCKS5 proxy via environment variables
+- **Enhanced error messages**: Network errors now show detailed error types and resolution suggestions
+
+### Changed
+
+- **Constants refactor**: Extract all constants to `src/constants.rs`, add HTTP and retry related constant modules
+- **File size validation**: Optimize large file skip logic
+
+### Fixed
+
+- Network requests no longer hang indefinitely (timeout limits added)
+- Temporary network failures and API rate limits now automatically retry
+
 ## [0.1.5] - 2025-12-20
 
 ### Changed
