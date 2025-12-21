@@ -5,6 +5,23 @@ All notable changes to gcop-rs will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2025-12-21
+
+### Fixed
+
+- **Windows alias installation** (Issue #7): Fixed `gcop-rs alias` command failure on Windows by replacing Unix-specific `which` command with cross-platform `which` crate
+
+### Changed
+
+- **Cross-platform documentation**: Updated all docs to support Linux/macOS/Windows with platform-specific paths and commands
+- **Commit command refactoring**: Refactored to state machine pattern for better testability (no user-visible changes)
+
+### Added
+
+- Comprehensive unit and integration tests (500+ lines covering config, commit, error, git, llm modules)
+- `which` crate for cross-platform executable detection
+- `mockall` crate for testing (optional dependency)
+
 ## [0.2.0] - 2025-12-20
 
 ### Added
@@ -157,6 +174,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Edit action properly returns to menu without triggering regeneration
 - Commit message display no longer duplicates after editing
 
+[0.2.1]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.2.1
 [0.2.0]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.2.0
 [0.1.6]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.1.6
 [0.1.5]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.1.5
