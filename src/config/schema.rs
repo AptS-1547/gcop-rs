@@ -109,6 +109,10 @@ pub struct UIConfig {
     /// 是否显示详细信息
     #[serde(default)]
     pub verbose: bool,
+
+    /// 是否启用流式输出（实时打字效果）
+    #[serde(default = "default_true")]
+    pub streaming: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -205,6 +209,7 @@ impl Default for UIConfig {
         Self {
             colored: true,
             verbose: false,
+            streaming: true,
         }
     }
 }

@@ -100,6 +100,10 @@ min_severity = "info"  # critical | warning | info
 [ui]
 colored = true
 verbose = false
+streaming = true  # Enable streaming output (real-time typing effect)
+
+# Note: Streaming is only supported by OpenAI-style APIs.
+# For Claude and Ollama providers, it automatically falls back to spinner mode.
 
 # Network Settings
 [network]
@@ -158,6 +162,9 @@ Each provider under `[llm.providers.<name>]` supports:
 |--------|------|---------|-------------|
 | `colored` | Boolean | `true` | Enable colored output |
 | `verbose` | Boolean | `false` | Show verbose logs (same as `--verbose` flag) |
+| `streaming` | Boolean | `true` | Enable streaming output (real-time typing effect) |
+
+> **Note on Streaming:** Currently only OpenAI-style APIs support streaming. When using Claude or Ollama providers, the system automatically falls back to spinner mode (waiting for complete response). This is transparent to the user - no configuration change needed.
 
 ### Network Settings
 

@@ -88,7 +88,7 @@ async fn run_with_deps(
                 }
 
                 // 生成 message
-                let message =
+                let (message, already_displayed) =
                     generate_message(provider, repo, &diff, &stats, config, &feedbacks, attempt)
                         .await?;
 
@@ -97,8 +97,8 @@ async fn run_with_deps(
                 let result = GenerationResult::Success(message.clone());
                 let next_state = gen_state.handle_generation(result, yes)?;
 
-                // 显示生成的消息（除非 --yes 直接接受）
-                if !yes {
+                // 显示生成的消息（除非 --yes 直接接受，或流式模式已经显示过）
+                if !yes && !already_displayed {
                     display_message(&message, attempt, colored);
                 }
 
@@ -183,6 +183,8 @@ async fn run_with_deps(
 }
 
 /// 生成 commit message
+///
+/// 返回 (message, already_displayed) - 流式模式下 message 已经显示过了
 async fn generate_message(
     provider: &Arc<dyn LLMProvider>,
     repo: &dyn GitOperations,
@@ -191,13 +193,7 @@ async fn generate_message(
     config: &AppConfig,
     feedbacks: &[String],
     attempt: usize,
-) -> Result<String> {
-    let spinner = ui::Spinner::new(if attempt == 0 {
-        "Generating commit message..."
-    } else {
-        "Regenerating commit message..."
-    });
-
+) -> Result<(String, bool)> {
     let context = CommitContext {
         files_changed: stats.files_changed.clone(),
         insertions: stats.insertions,
@@ -207,12 +203,38 @@ async fn generate_message(
         user_feedback: feedbacks.to_vec(),
     };
 
-    let message = provider
-        .generate_commit_message(diff, Some(context), Some(&spinner))
-        .await?;
+    // 判断是否使用流式模式
+    let use_streaming = config.ui.streaming && provider.supports_streaming();
+    let colored = config.ui.colored;
 
-    spinner.finish_and_clear();
-    Ok(message)
+    if use_streaming {
+        // 流式模式：先显示标题，再流式输出
+        ui::step("2/4", "Generating commit message (streaming)...", colored);
+        println!("\n{}", ui::info(&format_message_header(attempt), colored));
+
+        let stream_handle = provider
+            .generate_commit_message_streaming(diff, Some(context))
+            .await?;
+
+        let mut output = ui::StreamingOutput::new(colored);
+        let message = output.process(stream_handle.receiver).await?;
+
+        Ok((message, true)) // 已经显示过了
+    } else {
+        // 非流式模式：使用 Spinner
+        let spinner = ui::Spinner::new(if attempt == 0 {
+            "Generating commit message..."
+        } else {
+            "Regenerating commit message..."
+        });
+
+        let message = provider
+            .generate_commit_message(diff, Some(context), Some(&spinner))
+            .await?;
+
+        spinner.finish_and_clear();
+        Ok((message, false)) // 还没显示
+    }
 }
 
 /// 格式化消息头部（纯函数，便于测试）

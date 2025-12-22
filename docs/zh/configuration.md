@@ -100,6 +100,10 @@ min_severity = "info"  # critical | warning | info
 [ui]
 colored = true
 verbose = false
+streaming = true  # 启用流式输出（实时打字效果）
+
+# 注意：流式输出仅支持 OpenAI 风格的 API。
+# Claude 和 Ollama 会自动回退到转圈圈模式。
 
 # 网络设置
 [network]
@@ -158,6 +162,9 @@ max_size = 10485760      # 最大文件大小（10MB）
 |------|------|--------|------|
 | `colored` | Boolean | `true` | 启用彩色输出 |
 | `verbose` | Boolean | `false` | 显示详细日志（等同于 `--verbose` 标志） |
+| `streaming` | Boolean | `true` | 启用流式输出（实时打字效果） |
+
+> **关于流式输出：** 目前仅 OpenAI 风格的 API 支持流式输出。使用 Claude 或 Ollama 时，系统会自动回退到转圈圈模式（等待完整响应）。这对用户是透明的，无需修改配置。
 
 ### 网络设置
 

@@ -2,6 +2,7 @@ pub mod base;
 pub mod claude;
 pub mod ollama;
 pub mod openai;
+pub mod streaming;
 pub mod utils;
 
 use std::sync::Arc;

@@ -1,15 +1,17 @@
 use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use tokio::sync::mpsc;
 
 use super::base::{
     build_endpoint, extract_api_key, get_max_tokens_optional, get_temperature,
     parse_review_response, send_llm_request,
 };
+use super::streaming::process_openai_stream;
 use super::utils::{DEFAULT_OPENAI_BASE, OPENAI_API_SUFFIX};
 use crate::config::{NetworkConfig, ProviderConfig};
 use crate::error::{GcopError, Result};
-use crate::llm::{CommitContext, LLMProvider, ReviewResult, ReviewType};
+use crate::llm::{CommitContext, LLMProvider, ReviewResult, ReviewType, StreamHandle};
 
 /// OpenAI API Provider
 pub struct OpenAIProvider {
@@ -30,6 +32,17 @@ struct OpenAIRequest {
     temperature: f32,
     #[serde(skip_serializing_if = "Option::is_none")]
     max_tokens: Option<u32>,
+}
+
+/// 流式请求结构体
+#[derive(Serialize)]
+struct OpenAIStreamRequest {
+    model: String,
+    messages: Vec<MessagePayload>,
+    temperature: f32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    max_tokens: Option<u32>,
+    stream: bool,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -115,6 +128,61 @@ impl OpenAIProvider {
             .map(|choice| choice.message.content)
             .ok_or_else(|| GcopError::Llm("OpenAI response contains no choices".to_string()))
     }
+
+    /// 流式 API 调用
+    async fn call_api_streaming(&self, prompt: &str) -> Result<StreamHandle> {
+        let (tx, rx) = mpsc::channel(64);
+
+        let request = OpenAIStreamRequest {
+            model: self.model.clone(),
+            messages: vec![MessagePayload {
+                role: "user".to_string(),
+                content: prompt.to_string(),
+            }],
+            temperature: self.temperature,
+            max_tokens: self.max_tokens,
+            stream: true,
+        };
+
+        tracing::debug!(
+            "OpenAI Streaming API request: model={}, temperature={}, max_tokens={:?}",
+            self.model,
+            self.temperature,
+            self.max_tokens
+        );
+
+        let auth_header = format!("Bearer {}", self.api_key);
+
+        let response = self
+            .client
+            .post(&self.endpoint)
+            .header("Content-Type", "application/json")
+            .header("Authorization", &auth_header)
+            .json(&request)
+            .send()
+            .await
+            .map_err(GcopError::Network)?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            return Err(GcopError::Llm(format!(
+                "OpenAI API error ({}): {}",
+                status, body
+            )));
+        }
+
+        // 在后台任务中处理流
+        // tx 会在任务结束时自动 drop，从而关闭 channel
+        tokio::spawn(async move {
+            if let Err(e) = process_openai_stream(response, tx).await {
+                tracing::error!("Stream processing error: {}", e);
+            }
+            // tx 在这里被 drop，channel 关闭
+        });
+
+        Ok(StreamHandle { receiver: rx })
+    }
 }
 
 #[async_trait]
@@ -165,5 +233,23 @@ impl LLMProvider for OpenAIProvider {
             return Err(GcopError::Config("API key is empty".to_string()));
         }
         Ok(())
+    }
+
+    fn supports_streaming(&self) -> bool {
+        true
+    }
+
+    async fn generate_commit_message_streaming(
+        &self,
+        diff: &str,
+        context: Option<CommitContext>,
+    ) -> Result<StreamHandle> {
+        let ctx = context.unwrap_or_default();
+        let prompt =
+            crate::llm::prompt::build_commit_prompt(diff, &ctx, ctx.custom_prompt.as_deref());
+
+        tracing::debug!("Streaming prompt ({} chars)", prompt.len());
+
+        self.call_api_streaming(&prompt).await
     }
 }

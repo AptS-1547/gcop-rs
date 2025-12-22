@@ -95,6 +95,9 @@ min_severity = "info"
 colored = true
 # Enable verbose logging
 verbose = false
+# Enable streaming output (real-time typing effect, like ChatGPT)
+# Only works with OpenAI-style APIs; other providers fallback to spinner
+streaming = true
 
 # ============================================
 # Network Configuration

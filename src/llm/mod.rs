@@ -4,8 +4,25 @@ pub mod provider;
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use tokio::sync::mpsc;
 
 use crate::error::Result;
+
+/// 流式响应的数据块
+#[derive(Debug, Clone)]
+pub enum StreamChunk {
+    /// 文本增量
+    Delta(String),
+    /// 流结束
+    Done,
+    /// 错误
+    Error(String),
+}
+
+/// 流式生成器句柄
+pub struct StreamHandle {
+    pub receiver: mpsc::Receiver<StreamChunk>,
+}
 
 /// LLM Provider 统一接口
 #[async_trait]
@@ -33,6 +50,36 @@ pub trait LLMProvider: Send + Sync {
 
     /// 验证配置
     async fn validate(&self) -> Result<()>;
+
+    /// 是否支持流式响应
+    fn supports_streaming(&self) -> bool {
+        false
+    }
+
+    /// 流式生成 commit message
+    /// 默认实现：fallback 到非流式方法
+    async fn generate_commit_message_streaming(
+        &self,
+        diff: &str,
+        context: Option<CommitContext>,
+    ) -> Result<StreamHandle> {
+        let (tx, rx) = mpsc::channel(32);
+
+        // 调用非流式方法，然后一次性发送
+        let result = self.generate_commit_message(diff, context, None).await;
+
+        match result {
+            Ok(message) => {
+                let _ = tx.send(StreamChunk::Delta(message)).await;
+                let _ = tx.send(StreamChunk::Done).await;
+            }
+            Err(e) => {
+                let _ = tx.send(StreamChunk::Error(e.to_string())).await;
+            }
+        }
+
+        Ok(StreamHandle { receiver: rx })
+    }
 }
 
 /// Commit 上下文信息
