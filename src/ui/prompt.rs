@@ -147,10 +147,13 @@ pub fn commit_action_menu(
 /// * `Ok(Some(String))` - 用户输入的反馈
 /// * `Ok(None)` - 用户未输入或取消
 /// * `Err(_)` - 发生错误
-pub fn get_retry_feedback() -> Result<Option<String>> {
-    println!(
-        "\nProvide instructions for regeneration (e.g., \"use Chinese\", \"be more concise\", \"include more details\")"
-    );
+pub fn get_retry_feedback(colored: bool) -> Result<Option<String>> {
+    let hint = "Provide instructions for regeneration (e.g., \"use Chinese\", \"be more concise\", \"include more details\")";
+    if colored {
+        println!("\n{}", hint.cyan());
+    } else {
+        println!("\n{}", hint);
+    }
 
     let feedback: String = Input::new()
         .with_prompt("Instructions")
@@ -163,10 +166,18 @@ pub fn get_retry_feedback() -> Result<Option<String>> {
     // 限制长度，防止 prompt 过长
     if trimmed.len() > MAX_FEEDBACK_LENGTH {
         let truncated = &trimmed[..MAX_FEEDBACK_LENGTH];
-        println!(
-            "⚠ Feedback too long, truncated to {} characters",
-            MAX_FEEDBACK_LENGTH
-        );
+        if colored {
+            println!(
+                "{} Feedback too long, truncated to {} characters",
+                "⚠".yellow(),
+                MAX_FEEDBACK_LENGTH
+            );
+        } else {
+            println!(
+                "⚠ Feedback too long, truncated to {} characters",
+                MAX_FEEDBACK_LENGTH
+            );
+        }
         Ok(Some(truncated.to_string()))
     } else if trimmed.is_empty() {
         Ok(None)

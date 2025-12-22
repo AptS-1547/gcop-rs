@@ -137,7 +137,7 @@ async fn run_with_deps(
                     ui::CommitAction::Retry => UserAction::Retry,
 
                     ui::CommitAction::RetryWithFeedback => {
-                        let new_feedback = ui::get_retry_feedback()?;
+                        let new_feedback = ui::get_retry_feedback(colored)?;
                         if new_feedback.is_none() {
                             ui::warning(
                                 "No feedback provided, will retry with existing instructions.",
