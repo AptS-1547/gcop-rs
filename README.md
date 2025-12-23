@@ -33,6 +33,9 @@ AI-powered Git commit message generator and code reviewer, written in Rust.
 brew tap AptS-1547/gcop-rs
 brew install gcop-rs
 
+# pipx (Python users)
+pipx install gcop-rs
+
 # cargo-binstall (no compilation required)
 cargo binstall gcop-rs
 

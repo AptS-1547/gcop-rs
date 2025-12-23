@@ -33,6 +33,9 @@ AI 驱动的 Git 提交信息生成器和代码审查工具，使用 Rust 编写
 brew tap AptS-1547/gcop-rs
 brew install gcop-rs
 
+# pipx (Python 用户)
+pipx install gcop-rs
+
 # cargo-binstall (无需编译)
 cargo binstall gcop-rs
 

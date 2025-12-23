@@ -1,0 +1,37 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "gcop-rs"
+version = "0.4.2"
+description = "AI-powered Git commit message generator and code reviewer (Rust version)"
+readme = "README.md"
+license = "MIT"
+authors = [
+    { name = "AptS-1547", email = "apts-1547@esaps.net" }
+]
+keywords = ["git", "commit", "ai", "code-review", "cli"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Rust",
+    "Topic :: Software Development :: Version Control :: Git",
+]
+requires-python = ">=3.8"
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/AptS-1547/gcop-rs"
+Repository = "https://github.com/AptS-1547/gcop-rs"
+Issues = "https://github.com/AptS-1547/gcop-rs/issues"
+
+[project.scripts]
+gcop-rs = "gcop_rs:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/gcop_rs"]

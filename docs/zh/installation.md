@@ -17,6 +17,18 @@ brew install gcop-rs
 
 支持 macOS (Intel/Apple Silicon) 和 Linux (x86_64/ARM64)。
 
+### pipx / pip (Python 用户)
+
+```bash
+# 使用 pipx（推荐用于 CLI 工具）
+pipx install gcop-rs
+
+# 使用 pip
+pip install gcop-rs
+```
+
+这是一个 Python 包装器，首次运行时会自动下载预编译的 Rust 二进制文件。
+
 ### cargo-binstall
 
 如果你安装了 [cargo-binstall](https://github.com/cargo-bins/cargo-binstall)：

@@ -1,6 +1,6 @@
 [package]
 name = "gcop-rs"
-version = "0.4.1"
+version = "0.4.2"
 edition = "2024"
 license = "MIT"
 description = "AI-powered Git commit message generator and code reviewer"

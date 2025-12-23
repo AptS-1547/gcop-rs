@@ -253,3 +253,32 @@ jobs:
               content: Buffer.from(formula).toString('base64'),
               sha: fileSha
             });
+
+  publish-pypi:
+    name: Publish to PyPI
+    needs: [create-release, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Update version in Python package
+        run: |
+          VERSION=${{ needs.create-release.outputs.version }}
+          sed -i "s/^version = .*/version = \"${VERSION}\"/" python/pyproject.toml
+          sed -i "s/^__version__ = .*/__version__ = \"${VERSION}\"/" python/src/gcop_rs/__init__.py
+
+      - name: Build Python package
+        run: |
+          cd python
+          pip install build
+          python -m build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: python/dist/
+          password: ${{ secrets.PYPI_API_TOKEN }}

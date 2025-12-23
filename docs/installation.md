@@ -17,6 +17,18 @@ brew install gcop-rs
 
 Supports macOS (Intel/Apple Silicon) and Linux (x86_64/ARM64).
 
+### pipx / pip (Python users)
+
+```bash
+# Using pipx (recommended for CLI tools)
+pipx install gcop-rs
+
+# Using pip
+pip install gcop-rs
+```
+
+This is a Python wrapper that automatically downloads the pre-compiled Rust binary on first run.
+
 ### cargo-binstall
 
 If you have [cargo-binstall](https://github.com/cargo-bins/cargo-binstall) installed:

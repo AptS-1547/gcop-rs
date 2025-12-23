@@ -1,8 +1,15 @@
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, builder::styling};
+
+const STYLES: styling::Styles = styling::Styles::styled()
+    .header(styling::AnsiColor::Green.on_default().bold())
+    .usage(styling::AnsiColor::Green.on_default().bold())
+    .literal(styling::AnsiColor::Cyan.on_default().bold())
+    .placeholder(styling::AnsiColor::Cyan.on_default());
 
 #[derive(Parser)]
 #[command(name = "gcop-rs")]
 #[command(author, version, about = "Git Copilot in Rust", long_about = None)]
+#[command(styles = STYLES)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
