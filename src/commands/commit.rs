@@ -65,9 +65,11 @@ async fn run_with_deps(
 
     // dry_run 模式：只生成并输出 commit message
     if dry_run {
-        let (message, _) =
+        let (message, already_displayed) =
             generate_message(provider, repo, &diff, &stats, config, &[], 0).await?;
-        println!("{}", message);
+        if !already_displayed {
+            display_message(&message, 0, config.ui.colored);
+        }
         return Ok(());
     }
 
