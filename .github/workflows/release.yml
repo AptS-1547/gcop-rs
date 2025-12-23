@@ -96,19 +96,6 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Install dependencies (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y pkg-config libssl-dev
-
-      - name: Setup OpenSSL (macOS)
-        if: matrix.os == 'macos-latest'
-        run: |
-          brew install openssl@3
-          echo "OPENSSL_DIR=$(brew --prefix openssl@3)" >> $GITHUB_ENV
-          echo "PKG_CONFIG_PATH=$(brew --prefix openssl@3)/lib/pkgconfig" >> $GITHUB_ENV
-
       - name: Build release binary
         run: cargo build --release --target ${{ matrix.target }} --verbose
 
