@@ -27,7 +27,7 @@ pipx install gcop-rs
 pip install gcop-rs
 ```
 
-这是一个 Python 包装器，首次运行时会自动下载预编译的 Rust 二进制文件。
+预编译二进制文件已打包在平台特定的 wheel 中，安装后即可使用，无需额外下载。
 
 ### cargo-binstall
 

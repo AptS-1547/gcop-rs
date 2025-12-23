@@ -9,7 +9,7 @@ AI 驱动的 Git 提交信息生成器和代码审查工具，使用 Rust 编写
 
 > **说明**: 这是对原 [gcop](https://github.com/Undertone0809/gcop) 项目（Python 版本）的 Rust 重写。由于原项目不再积极维护，本项目旨在提供更好的性能、可靠性和可维护性。
 
-**[English](README.md)** | **[文档](docs/zh/)**
+**[English](README.md)** | **[文档](docs/zh/guide/)**
 
 ## 功能特性
 
@@ -43,7 +43,7 @@ cargo binstall gcop-rs
 cargo install gcop-rs
 ```
 
-其他安装方式详见 [docs/zh/installation.md](docs/zh/installation.md)。
+其他安装方式详见 [docs/zh/guide/installation.md](docs/zh/guide/gui deinstallation.md)。
 
 ### 2. 配置
 
@@ -79,7 +79,7 @@ model = "claude-sonnet-4-5-20250929"
 export ANTHROPIC_API_KEY="sk-ant-your-key"
 ```
 
-详见 [docs/zh/configuration.md](docs/zh/configuration.md)。
+详见 [docs/zh/guide/configuration.md](docs/zh/guide/configuration.md)。
 
 ### 3. 使用
 
@@ -144,7 +144,7 @@ gcop-rs alias --force
 gcop-rs alias --remove --force
 ```
 
-详细信息见 [docs/zh/aliases.md](docs/zh/aliases.md)。
+详细信息见 [docs/zh/guide/aliases.md](docs/zh/guide/aliases.md)。
 
 ## 命令说明
 
@@ -252,7 +252,7 @@ gcop-rs alias --remove --force      # 删除所有别名
 
 提供便捷的快捷方式，如 `git c`、`git r`、`git acp` 等。
 
-详见 [docs/zh/aliases.md](docs/zh/aliases.md)。
+详见 [docs/zh/guide/aliases.md](docs/zh/guide/aliases.md)。
 
 ---
 
@@ -302,7 +302,7 @@ min_severity = "info"
 colored = true
 ```
 
-完整配置参考见 [docs/zh/configuration.md](docs/zh/configuration.md)。
+完整配置参考见 [docs/zh/guide/configuration.md](docs/zh/guide/configuration.md)。
 
 ## 高级功能
 
@@ -318,7 +318,7 @@ endpoint = "https://api.deepseek.com/v1/chat/completions"
 model = "deepseek-chat"
 ```
 
-更多示例见 [docs/zh/providers.md](docs/zh/providers.md)。
+更多示例见 [docs/zh/guide/providers.md](docs/zh/guide/providers.md)。
 
 ### 自定义 Prompt
 
@@ -335,7 +335,7 @@ custom_prompt = """
 """
 ```
 
-模板变量和示例见 [docs/zh/prompts.md](docs/zh/prompts.md)。
+模板变量和示例见 [docs/zh/guide/prompts.md](docs/zh/guide/prompts.md)。
 
 ### 调试模式
 
@@ -347,13 +347,13 @@ gcop-rs -v commit  # 显示 API 请求、响应和 prompts
 
 ## 文档
 
-- **[安装指南](docs/zh/installation.md)** - 详细的安装说明
-- **[Git 别名指南](docs/zh/aliases.md)** - Git 别名完整指南
-- **[命令参考](docs/zh/commands.md)** - 详细的命令文档
-- **[配置参考](docs/zh/configuration.md)** - 完整的配置指南
-- **[Provider 设置](docs/zh/providers.md)** - 配置 LLM 提供商
-- **[自定义 Prompt](docs/zh/prompts.md)** - 自定义 AI prompts
-- **[故障排除](docs/zh/troubleshooting.md)** - 常见问题和解决方案
+- **[安装指南](docs/zh/guide/installation.md)** - 详细的安装说明
+- **[Git 别名指南](docs/zh/guide/aliases.md)** - Git 别名完整指南
+- **[命令参考](docs/zh/guide/commands.md)** - 详细的命令文档
+- **[配置参考](docs/zh/guide/configuration.md)** - 完整的配置指南
+- **[Provider 设置](docs/zh/guide/providers.md)** - 配置 LLM 提供商
+- **[自定义 Prompt](docs/zh/guide/prompts.md)** - 自定义 AI prompts
+- **[故障排除](docs/zh/guide/troubleshooting.md)** - 常见问题和解决方案
 
 ## 系统要求
 

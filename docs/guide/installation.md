@@ -27,7 +27,7 @@ pipx install gcop-rs
 pip install gcop-rs
 ```
 
-This is a Python wrapper that automatically downloads the pre-compiled Rust binary on first run.
+Pre-compiled binaries are bundled in platform-specific wheels. No additional downloads required after installation.
 
 ### cargo-binstall
 

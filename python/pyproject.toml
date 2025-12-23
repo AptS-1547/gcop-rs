@@ -1,10 +1,10 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["maturin>=1.4,<2.0"]
+build-backend = "maturin"
 
 [project]
 name = "gcop-rs"
-version = "0.4.2"
+version = "0.4.3"
 description = "AI-powered Git commit message generator and code reviewer (Rust version)"
 readme = "README.md"
 license = "MIT"
@@ -23,15 +23,13 @@ classifiers = [
     "Topic :: Software Development :: Version Control :: Git",
 ]
 requires-python = ">=3.8"
-dependencies = []
 
 [project.urls]
 Homepage = "https://github.com/AptS-1547/gcop-rs"
 Repository = "https://github.com/AptS-1547/gcop-rs"
 Issues = "https://github.com/AptS-1547/gcop-rs/issues"
 
-[project.scripts]
-gcop-rs = "gcop_rs:main"
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/gcop_rs"]
+[tool.maturin]
+bindings = "bin"
+manifest-path = "../Cargo.toml"
+strip = true

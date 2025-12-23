@@ -9,7 +9,7 @@ AI-powered Git commit message generator and code reviewer, written in Rust.
 
 > **Note**: This is a Rust rewrite of the original [gcop](https://github.com/Undertone0809/gcop) project (Python). Since the original project is no longer actively maintained, this version was created to provide better performance, reliability, and maintainability.
 
-**[中文文档](README_ZH.md)** | **[Documentation](docs/)**
+**[中文文档](README_ZH.md)** | **[Documentation](docs/guide/)**
 
 ## Features
 
@@ -43,7 +43,7 @@ cargo binstall gcop-rs
 cargo install gcop-rs
 ```
 
-For other installation methods, see [docs/installation.md](docs/installation.md).
+For other installation methods, see [docs/guide/installation.md](docs/guide/installation.md).
 
 ### 2. Configure
 
@@ -79,7 +79,7 @@ Or use environment variables:
 export ANTHROPIC_API_KEY="sk-ant-your-key"
 ```
 
-See [docs/configuration.md](docs/configuration.md) for all options.
+See [docs/guide/configuration.md](docs/guide/configuration.md) for all options.
 
 ### 3. Use
 
@@ -144,7 +144,7 @@ gcop-rs alias --force
 gcop-rs alias --remove --force
 ```
 
-See [docs/aliases.md](docs/aliases.md) for detailed information on each alias.
+See [docs/guide/aliases.md](docs/guide/aliases.md) for detailed information on each alias.
 
 ## Commands
 
@@ -252,7 +252,7 @@ gcop-rs alias --remove --force      # Remove all aliases
 
 Provides convenient shortcuts like `git c`, `git r`, `git acp`, etc.
 
-See [docs/aliases.md](docs/aliases.md) for details.
+See [docs/guide/aliases.md](docs/guide/aliases.md) for details.
 
 ---
 
@@ -302,7 +302,7 @@ min_severity = "info"
 colored = true
 ```
 
-For complete configuration reference, see [docs/configuration.md](docs/configuration.md).
+For complete configuration reference, see [docs/guide/configuration.md](docs/guide/configuration.md).
 
 ## Advanced Features
 
@@ -318,7 +318,7 @@ endpoint = "https://api.deepseek.com/v1/chat/completions"
 model = "deepseek-chat"
 ```
 
-See [docs/providers.md](docs/providers.md) for more examples.
+See [docs/guide/providers.md](docs/guide/providers.md) for more examples.
 
 ### Custom Prompts
 
@@ -335,7 +335,7 @@ Stats: +{insertions} -{deletions}
 """
 ```
 
-See [docs/prompts.md](docs/prompts.md) for template variables and examples.
+See [docs/guide/prompts.md](docs/guide/prompts.md) for template variables and examples.
 
 ### Debug Mode
 
@@ -347,13 +347,13 @@ gcop-rs -v commit  # Shows API requests, responses, and prompts
 
 ## Documentation
 
-- **[Installation Guide](docs/installation.md)** - Detailed installation instructions
-- **[Git Aliases Guide](docs/aliases.md)** - Complete guide to git aliases
-- **[Command Reference](docs/commands.md)** - Detailed command documentation
-- **[Configuration Reference](docs/configuration.md)** - Complete configuration guide
-- **[Provider Setup](docs/providers.md)** - Configure LLM providers
-- **[Custom Prompts](docs/prompts.md)** - Customize AI prompts
-- **[Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions
+- **[Installation Guide](docs/guide/installation.md)** - Detailed installation instructions
+- **[Git Aliases Guide](docs/guide/aliases.md)** - Complete guide to git aliases
+- **[Command Reference](docs/guide/commands.md)** - Detailed command documentation
+- **[Configuration Reference](docs/guide/configuration.md)** - Complete configuration guide
+- **[Provider Setup](docs/guide/providers.md)** - Configure LLM providers
+- **[Custom Prompts](docs/guide/prompts.md)** - Customize AI prompts
+- **[Troubleshooting](docs/guide/troubleshooting.md)** - Common issues and solutions
 
 ## Requirements
 
