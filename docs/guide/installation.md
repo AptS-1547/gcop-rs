@@ -145,7 +145,25 @@ gcop-rs --help
 
 ## Update
 
-**If installed via cargo:**
+**If installed via Homebrew:**
+
+```bash
+brew upgrade gcop-rs
+```
+
+**If installed via pipx:**
+
+```bash
+pipx upgrade gcop-rs
+```
+
+**If installed via pip:**
+
+```bash
+pip install --upgrade gcop-rs
+```
+
+**If installed via cargo-binstall or cargo:**
 
 ```bash
 cargo install gcop-rs --force
@@ -173,7 +191,26 @@ Copy-Item target\release\gcop-rs.exe C:\Windows\System32\gcop-rs.exe
 
 ## Uninstall
 
-**If installed via cargo:**
+**If installed via Homebrew:**
+
+```bash
+brew uninstall gcop-rs
+brew untap AptS-1547/gcop-rs  # Optional, remove the tap
+```
+
+**If installed via pipx:**
+
+```bash
+pipx uninstall gcop-rs
+```
+
+**If installed via pip:**
+
+```bash
+pip uninstall gcop-rs
+```
+
+**If installed via cargo-binstall or cargo:**
 
 ```bash
 cargo uninstall gcop-rs

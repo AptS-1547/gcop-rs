@@ -145,7 +145,25 @@ gcop-rs --help
 
 ## 更新
 
-**如果通过 cargo 安装：**
+**如果通过 Homebrew 安装：**
+
+```bash
+brew upgrade gcop-rs
+```
+
+**如果通过 pipx 安装：**
+
+```bash
+pipx upgrade gcop-rs
+```
+
+**如果通过 pip 安装：**
+
+```bash
+pip install --upgrade gcop-rs
+```
+
+**如果通过 cargo-binstall 或 cargo 安装：**
 
 ```bash
 cargo install gcop-rs --force
@@ -171,7 +189,26 @@ Copy-Item target\release\gcop-rs.exe C:\Windows\System32\gcop-rs.exe
 
 ## 卸载
 
-**如果通过 cargo 安装：**
+**如果通过 Homebrew 安装：**
+
+```bash
+brew uninstall gcop-rs
+brew untap AptS-1547/gcop-rs  # 可选，移除 tap
+```
+
+**如果通过 pipx 安装：**
+
+```bash
+pipx uninstall gcop-rs
+```
+
+**如果通过 pip 安装：**
+
+```bash
+pip uninstall gcop-rs
+```
+
+**如果通过 cargo-binstall 或 cargo 安装：**
 
 ```bash
 cargo uninstall gcop-rs
