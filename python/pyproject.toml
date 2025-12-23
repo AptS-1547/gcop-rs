@@ -9,7 +9,9 @@ description = "AI-powered Git commit message generator and code reviewer (Rust v
 readme = "README.md"
 license = "MIT"
 authors = [
-    { name = "AptS-1547", email = "apts-1547@esaps.net" }
+    { name = "AptS-1547", email = "apts-1547@esaps.net" },
+    { name = "AptS-1738", email = "apts-1738@esaps.net" },
+    { name = "uaih3k9x", email="uaih3k9x@gmail.com" }
 ]
 keywords = ["git", "commit", "ai", "code-review", "cli"]
 classifiers = [

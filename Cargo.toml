@@ -4,7 +4,11 @@ version = "0.4.3"
 edition = "2024"
 license = "MIT"
 description = "AI-powered Git commit message generator and code reviewer"
-authors = ["AptS-1547 <apts-1547@esaps.net>"]
+authors = [
+    "AptS-1547 <apts-1547@esaps.net>",
+    "AptS-1738 <apts-1738@esaps.net>",
+    "uaih3k9x <uaih3k9x@gmail.com>"
+]
 repository = "https://github.com/AptS-1547/gcop-rs"
 homepage = "https://github.com/AptS-1547/gcop-rs"
 keywords = ["git", "commit", "ai", "code-review", "cli"]
