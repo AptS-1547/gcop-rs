@@ -287,14 +287,15 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: --release --out dist -m python/pyproject.toml
+          args: --release --out dist
+          working-directory: python
           manylinux: auto
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
           name: wheels-${{ matrix.target }}
-          path: dist
+          path: python/dist
 
   publish-pypi-upload:
     name: Upload to PyPI
