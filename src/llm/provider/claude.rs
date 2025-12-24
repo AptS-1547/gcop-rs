@@ -1,15 +1,17 @@
 use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use tokio::sync::mpsc;
 
 use super::base::{
     build_endpoint, extract_api_key, get_max_tokens, get_temperature, parse_review_response,
     send_llm_request,
 };
+use super::streaming::process_claude_stream;
 use super::utils::{CLAUDE_API_SUFFIX, DEFAULT_CLAUDE_BASE};
 use crate::config::{NetworkConfig, ProviderConfig};
 use crate::error::{GcopError, Result};
-use crate::llm::{CommitContext, LLMProvider, ReviewResult, ReviewType};
+use crate::llm::{CommitContext, LLMProvider, ReviewResult, ReviewType, StreamHandle};
 
 /// Claude API Provider
 pub struct ClaudeProvider {
@@ -29,6 +31,15 @@ struct ClaudeRequest {
     max_tokens: u32,
     temperature: f32,
     messages: Vec<MessagePayload>,
+}
+
+#[derive(Serialize)]
+struct ClaudeStreamRequest {
+    model: String,
+    max_tokens: u32,
+    temperature: f32,
+    messages: Vec<MessagePayload>,
+    stream: bool,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -116,6 +127,58 @@ impl ClaudeProvider {
 
         Ok(text)
     }
+
+    /// 流式 API 调用
+    async fn call_api_streaming(&self, prompt: &str) -> Result<StreamHandle> {
+        let (tx, rx) = mpsc::channel(64);
+
+        let request = ClaudeStreamRequest {
+            model: self.model.clone(),
+            max_tokens: self.max_tokens,
+            temperature: self.temperature,
+            messages: vec![MessagePayload {
+                role: "user".to_string(),
+                content: prompt.to_string(),
+            }],
+            stream: true,
+        };
+
+        tracing::debug!(
+            "Claude Streaming API request: model={}, max_tokens={}, temperature={}",
+            self.model,
+            self.max_tokens,
+            self.temperature
+        );
+
+        let response = self
+            .client
+            .post(&self.endpoint)
+            .header("Content-Type", "application/json")
+            .header("x-api-key", &self.api_key)
+            .header("anthropic-version", "2023-06-01")
+            .json(&request)
+            .send()
+            .await
+            .map_err(GcopError::Network)?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            return Err(GcopError::Llm(format!(
+                "Claude API error ({}): {}",
+                status, body
+            )));
+        }
+
+        // 在后台任务中处理流
+        tokio::spawn(async move {
+            if let Err(e) = process_claude_stream(response, tx).await {
+                tracing::error!("Claude stream processing error: {}", e);
+            }
+        });
+
+        Ok(StreamHandle { receiver: rx })
+    }
 }
 
 #[async_trait]
@@ -166,5 +229,23 @@ impl LLMProvider for ClaudeProvider {
             return Err(GcopError::Config("API key is empty".to_string()));
         }
         Ok(())
+    }
+
+    fn supports_streaming(&self) -> bool {
+        true
+    }
+
+    async fn generate_commit_message_streaming(
+        &self,
+        diff: &str,
+        context: Option<CommitContext>,
+    ) -> Result<StreamHandle> {
+        let ctx = context.unwrap_or_default();
+        let prompt =
+            crate::llm::prompt::build_commit_prompt(diff, &ctx, ctx.custom_prompt.as_deref());
+
+        tracing::debug!("Claude streaming prompt ({} chars)", prompt.len());
+
+        self.call_api_streaming(&prompt).await
     }
 }
