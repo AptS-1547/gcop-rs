@@ -37,6 +37,7 @@ pub fn create_provider(
     provider_name: Option<&str>,
 ) -> Result<Arc<dyn LLMProvider>> {
     let name = provider_name.unwrap_or(&config.llm.default_provider);
+    let colored = config.ui.colored;
 
     let provider_config = config
         .llm
@@ -51,15 +52,18 @@ pub fn create_provider(
     // 根据 API 风格创建对应的 Provider 实现
     match api_style {
         "claude" => {
-            let provider = claude::ClaudeProvider::new(provider_config, name, &config.network)?;
+            let provider =
+                claude::ClaudeProvider::new(provider_config, name, &config.network, colored)?;
             Ok(Arc::new(provider))
         }
         "openai" => {
-            let provider = openai::OpenAIProvider::new(provider_config, name, &config.network)?;
+            let provider =
+                openai::OpenAIProvider::new(provider_config, name, &config.network, colored)?;
             Ok(Arc::new(provider))
         }
         "ollama" => {
-            let provider = ollama::OllamaProvider::new(provider_config, name, &config.network)?;
+            let provider =
+                ollama::OllamaProvider::new(provider_config, name, &config.network, colored)?;
             Ok(Arc::new(provider))
         }
         _ => Err(GcopError::Config(format!(

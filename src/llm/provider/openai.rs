@@ -25,6 +25,7 @@ pub struct OpenAIProvider {
     max_retries: usize,
     retry_delay_ms: u64,
     max_retry_delay_ms: u64,
+    colored: bool,
 }
 
 #[derive(Serialize)]
@@ -73,6 +74,7 @@ impl OpenAIProvider {
         config: &ProviderConfig,
         _provider_name: &str,
         network_config: &NetworkConfig,
+        colored: bool,
     ) -> Result<Self> {
         let api_key = extract_api_key(config, "OPENAI_API_KEY", "OpenAI")?;
         let endpoint = build_endpoint(config, DEFAULT_OPENAI_BASE, OPENAI_API_SUFFIX);
@@ -90,6 +92,7 @@ impl OpenAIProvider {
             max_retries: network_config.max_retries,
             retry_delay_ms: network_config.retry_delay_ms,
             max_retry_delay_ms: network_config.max_retry_delay_ms,
+            colored,
         })
     }
 
@@ -178,9 +181,10 @@ impl OpenAIProvider {
 
         // 在后台任务中处理流
         // tx 会在任务结束时自动 drop，从而关闭 channel
+        let colored = self.colored;
         tokio::spawn(async move {
-            if let Err(e) = process_openai_stream(response, tx).await {
-                eprintln!("Stream processing error: {}", e);
+            if let Err(e) = process_openai_stream(response, tx, colored).await {
+                crate::ui::colors::error(&format!("Stream processing error: {}", e), colored);
             }
             // tx 在这里被 drop，channel 关闭
         });

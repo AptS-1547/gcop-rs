@@ -9,6 +9,7 @@ use tokio::sync::mpsc;
 
 use crate::error::{GcopError, Result};
 use crate::llm::StreamChunk;
+use crate::ui::colors;
 
 /// OpenAI 流式响应的 delta 结构
 #[derive(Debug, serde::Deserialize)]
@@ -45,6 +46,7 @@ fn parse_sse_line(line: &str) -> Option<&str> {
 pub async fn process_openai_stream(
     response: Response,
     tx: mpsc::Sender<StreamChunk>,
+    colored: bool,
 ) -> Result<()> {
     let mut stream = response.bytes_stream();
     let mut buffer = String::new();
@@ -66,9 +68,12 @@ pub async fn process_openai_stream(
             if let Some(data) = parse_sse_line(&line) {
                 if data == "[DONE]" {
                     if parse_errors > 0 {
-                        println!(
-                            "OpenAI stream completed with {} parse error(s)",
-                            parse_errors
+                        colors::warning(
+                            &format!(
+                                "OpenAI stream completed with {} parse error(s)",
+                                parse_errors
+                            ),
+                            colored,
                         );
                     }
                     let _ = tx.send(StreamChunk::Done).await;
@@ -86,9 +91,12 @@ pub async fn process_openai_stream(
                             }
                             if choice.finish_reason.is_some() {
                                 if parse_errors > 0 {
-                                    println!(
-                                        "OpenAI stream completed with {} parse error(s)",
-                                        parse_errors
+                                    colors::warning(
+                                        &format!(
+                                            "OpenAI stream completed with {} parse error(s)",
+                                            parse_errors
+                                        ),
+                                        colored,
                                     );
                                 }
                                 let _ = tx.send(StreamChunk::Done).await;
@@ -107,9 +115,12 @@ pub async fn process_openai_stream(
 
     // 流结束但没有收到 [DONE]
     if parse_errors > 0 {
-        eprintln!(
-            "Warning: OpenAI stream completed with {} parse error(s)",
-            parse_errors
+        colors::warning(
+            &format!(
+                "OpenAI stream completed with {} parse error(s)",
+                parse_errors
+            ),
+            colored,
         );
     }
     let _ = tx.send(StreamChunk::Done).await;
@@ -157,6 +168,7 @@ pub struct ClaudeTextDelta {
 pub async fn process_claude_stream(
     response: Response,
     tx: mpsc::Sender<StreamChunk>,
+    colored: bool,
 ) -> Result<()> {
     let mut stream = response.bytes_stream();
     let mut buffer = String::new();
@@ -182,9 +194,12 @@ pub async fn process_claude_stream(
                         }
                         Ok(ClaudeSSEEvent::MessageStop) => {
                             if parse_errors > 0 {
-                                eprintln!(
-                                    "Warning: Claude stream completed with {} parse error(s)",
-                                    parse_errors
+                                colors::warning(
+                                    &format!(
+                                        "Claude stream completed with {} parse error(s)",
+                                        parse_errors
+                                    ),
+                                    colored,
                                 );
                             }
                             let _ = tx.send(StreamChunk::Done).await;
@@ -209,12 +224,15 @@ pub async fn process_claude_stream(
 
     // 流结束但没有收到 message_stop
     if parse_errors > 0 {
-        eprintln!(
-            "Warning: Claude stream ended without message_stop, {} parse error(s)",
-            parse_errors
+        colors::warning(
+            &format!(
+                "Claude stream ended without message_stop, {} parse error(s)",
+                parse_errors
+            ),
+            colored,
         );
     } else {
-        eprintln!("Warning: Claude stream ended without message_stop event");
+        colors::warning("Claude stream ended without message_stop event", colored);
     }
     let _ = tx.send(StreamChunk::Done).await;
     Ok(())

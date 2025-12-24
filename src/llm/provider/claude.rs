@@ -25,6 +25,7 @@ pub struct ClaudeProvider {
     max_retries: usize,
     retry_delay_ms: u64,
     max_retry_delay_ms: u64,
+    colored: bool,
 }
 
 #[derive(Serialize)]
@@ -67,6 +68,7 @@ impl ClaudeProvider {
         config: &ProviderConfig,
         _provider_name: &str,
         network_config: &NetworkConfig,
+        colored: bool,
     ) -> Result<Self> {
         let api_key = extract_api_key(config, "ANTHROPIC_API_KEY", "Claude")?;
         let endpoint = build_endpoint(config, DEFAULT_CLAUDE_BASE, CLAUDE_API_SUFFIX);
@@ -84,6 +86,7 @@ impl ClaudeProvider {
             max_retries: network_config.max_retries,
             retry_delay_ms: network_config.retry_delay_ms,
             max_retry_delay_ms: network_config.max_retry_delay_ms,
+            colored,
         })
     }
 
@@ -175,9 +178,13 @@ impl ClaudeProvider {
         }
 
         // 在后台任务中处理流
+        let colored = self.colored;
         tokio::spawn(async move {
-            if let Err(e) = process_claude_stream(response, tx).await {
-                eprintln!("Claude stream processing error: {}", e);
+            if let Err(e) = process_claude_stream(response, tx, colored).await {
+                crate::ui::colors::error(
+                    &format!("Claude stream processing error: {}", e),
+                    colored,
+                );
             }
         });
 
