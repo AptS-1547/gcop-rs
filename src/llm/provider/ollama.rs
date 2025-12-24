@@ -18,6 +18,7 @@ pub struct OllamaProvider {
     temperature: Option<f32>,
     max_retries: usize,
     retry_delay_ms: u64,
+    max_retry_delay_ms: u64,
 }
 
 #[derive(Serialize)]
@@ -60,6 +61,7 @@ impl OllamaProvider {
             temperature,
             max_retries: network_config.max_retries,
             retry_delay_ms: network_config.retry_delay_ms,
+            max_retry_delay_ms: network_config.max_retry_delay_ms,
         })
     }
 
@@ -90,6 +92,7 @@ impl OllamaProvider {
             spinner,
             self.max_retries,
             self.retry_delay_ms,
+            self.max_retry_delay_ms,
         )
         .await?;
 

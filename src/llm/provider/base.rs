@@ -5,7 +5,7 @@
 use reqwest::Client;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 use crate::config::ProviderConfig;
 use crate::error::{GcopError, Result};
@@ -22,32 +22,50 @@ const DEFAULT_TEMPERATURE: f32 = 0.3;
 /// 错误预览最大长度
 const ERROR_PREVIEW_LENGTH: usize = 500;
 
-/// 判断错误是否应该重试
+/// 判断错误是否应该重试（仅用于网络层错误）
 fn is_retryable_error(error: &GcopError) -> bool {
     match error {
         // 连接失败 -> 重试
         GcopError::Llm(msg) if msg.contains("connection failed") => true,
-
-        // 429 限流 -> 重试
-        GcopError::Llm(msg) if msg.contains("429") => true,
 
         // 其他错误 -> 不重试
         _ => false,
     }
 }
 
-/// 尝试发送一次 LLM API 请求（不包含重试逻辑）
-async fn try_send_request<Req, Resp>(
+/// 解析 Retry-After header 值
+///
+/// 支持两种格式：
+/// - 秒数：`120`
+/// - HTTP 日期：`Wed, 21 Oct 2015 07:28:00 GMT`
+///
+/// 返回值：
+/// - `Some(secs)`: 解析成功，返回等待秒数（日期早于当前时间时返回 0）
+/// - `None`: 格式无效，无法解析
+fn parse_retry_after(value: &str) -> Option<u64> {
+    // 先尝试解析为秒数
+    if let Ok(secs) = value.parse::<u64>() {
+        return Some(secs);
+    }
+
+    // 再尝试解析为 HTTP 日期
+    if let Ok(date) = httpdate::parse_http_date(value) {
+        let now = SystemTime::now();
+        // 如果日期早于当前时间，返回 0（立即重试）
+        return Some(date.duration_since(now).map(|d| d.as_secs()).unwrap_or(0));
+    }
+
+    None
+}
+
+/// 尝试发送一次 HTTP 请求（只处理网络层错误）
+async fn try_send_request<Req: Serialize>(
     client: &Client,
     endpoint: &str,
     headers: &[(&str, &str)],
     request_body: &Req,
     provider_name: &str,
-) -> Result<Resp>
-where
-    Req: Serialize,
-    Resp: DeserializeOwned,
-{
+) -> Result<reqwest::Response> {
     let mut req = client
         .post(endpoint)
         .header("Content-Type", "application/json");
@@ -58,7 +76,7 @@ where
 
     tracing::debug!("Sending request to: {}", endpoint);
 
-    let response = req.json(request_body).send().await.map_err(|e| {
+    req.json(request_body).send().await.map_err(|e| {
         let error_details = format!("{}", e);
         let mut error_type = "unknown";
 
@@ -95,26 +113,6 @@ where
         } else {
             GcopError::Network(e)
         }
-    })?;
-
-    let status = response.status();
-    let response_text = response.text().await?;
-
-    tracing::debug!("{} API response status: {}", provider_name, status);
-    tracing::debug!("{} API response body: {}", provider_name, response_text);
-
-    if !status.is_success() {
-        return Err(GcopError::Llm(format!(
-            "{} API error ({}): {}",
-            provider_name, status, response_text
-        )));
-    }
-
-    serde_json::from_str(&response_text).map_err(|e| {
-        GcopError::Llm(format!(
-            "Failed to parse {} response: {}. Raw response: {}",
-            provider_name, e, response_text
-        ))
     })
 }
 
@@ -129,6 +127,7 @@ where
 /// * `spinner` - 可选的进度 spinner（用于显示重试进度）
 /// * `max_retries` - 最大重试次数
 /// * `retry_delay_ms` - 初始重试延迟（毫秒）
+/// * `max_retry_delay_ms` - 最大重试延迟（毫秒）
 #[allow(clippy::too_many_arguments)]
 pub async fn send_llm_request<Req, Resp>(
     client: &Client,
@@ -139,6 +138,7 @@ pub async fn send_llm_request<Req, Resp>(
     spinner: Option<&crate::ui::Spinner>,
     max_retries: usize,
     retry_delay_ms: u64,
+    max_retry_delay_ms: u64,
 ) -> Result<Resp>
 where
     Req: Serialize,
@@ -150,61 +150,155 @@ where
         attempt += 1;
 
         // 尝试发送请求
-        match try_send_request(client, endpoint, headers, request_body, provider_name).await {
-            Ok(resp) => {
-                if attempt > 1 {
-                    tracing::info!(
-                        "{} API request succeeded after {} attempts",
-                        provider_name,
-                        attempt
-                    );
-                }
-                return Ok(resp);
-            }
-            Err(e) => {
-                // 判断是否应该重试
-                let should_retry = is_retryable_error(&e);
+        let response =
+            match try_send_request(client, endpoint, headers, request_body, provider_name).await {
+                Ok(resp) => resp,
+                Err(e) => {
+                    // 网络错误：判断是否应该重试
+                    if !is_retryable_error(&e) || attempt > max_retries {
+                        return Err(e);
+                    }
 
-                if !should_retry {
+                    // 更新 spinner 显示重试进度
+                    if let Some(s) = spinner {
+                        s.append_suffix(&format!("(Retrying {}/{})", attempt, max_retries));
+                    }
+
+                    // 网络错误使用指数退避
+                    let delay =
+                        calculate_exponential_backoff(attempt, retry_delay_ms, max_retry_delay_ms);
                     tracing::debug!(
-                        "{} API request failed with non-retryable error",
-                        provider_name
-                    );
-                    return Err(e);
-                }
-
-                // 检查是否还有重试次数
-                if attempt > max_retries {
-                    tracing::debug!(
-                        "{} API request failed after {} attempts",
+                        "{} API network error (attempt {}/{}): {}. Retrying in {:.1}s...",
                         provider_name,
-                        attempt
+                        attempt,
+                        max_retries + 1,
+                        e,
+                        delay.as_secs_f64()
                     );
-                    return Err(e);
+                    tokio::time::sleep(delay).await;
+                    continue;
                 }
+            };
 
-                // 更新 spinner 显示重试进度
-                if let Some(s) = spinner {
-                    s.append_suffix(&format!("(Retrying {}/{})", attempt, max_retries));
-                }
+        let status = response.status();
 
-                // 计算指数退避延迟：1s, 2s, 4s
-                let delay_ms = retry_delay_ms * (1 << (attempt - 1));
-                let delay = Duration::from_millis(delay_ms);
+        // 429 限流：解析 Retry-After 并重试
+        if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
+            let retry_after = response
+                .headers()
+                .get("Retry-After")
+                .and_then(|v| v.to_str().ok())
+                .and_then(|v| {
+                    let result = parse_retry_after(v);
+                    if result.is_none() {
+                        eprintln!(
+                            "Warning: Invalid Retry-After header value: '{}', falling back to exponential backoff",
+                            v
+                        );
+                    }
+                    result
+                });
 
-                tracing::debug!(
-                    "{} API request failed (attempt {}/{}): {}. Retrying in {:.1}s...",
-                    provider_name,
-                    attempt,
-                    max_retries + 1,
-                    e,
-                    delay.as_secs_f64()
-                );
+            let body = response.text().await.unwrap_or_else(|e| {
+                eprintln!("Warning: Failed to read 429 response body: {}", e);
+                format!("<body read error: {}>", e)
+            });
 
-                tokio::time::sleep(delay).await;
+            tracing::debug!(
+                "{} API rate limited (429), Retry-After: {:?}",
+                provider_name,
+                retry_after
+            );
+
+            // 检查是否还有重试次数
+            if attempt > max_retries {
+                return Err(GcopError::Llm(format!(
+                    "{} API rate limited (429): {}",
+                    provider_name, body
+                )));
             }
+
+            // 更新 spinner 显示重试进度
+            if let Some(s) = spinner {
+                s.append_suffix(&format!("(Retrying {}/{})", attempt, max_retries));
+            }
+
+            // 计算延迟：优先使用 Retry-After，否则使用指数退避
+            let delay = if let Some(secs) = retry_after {
+                let retry_after_ms = secs.saturating_mul(1000);
+                if retry_after_ms > max_retry_delay_ms {
+                    // Retry-After 超过限制，直接返回错误
+                    eprintln!(
+                        "Warning: Retry-After ({} seconds) exceeds max_retry_delay ({} ms), giving up",
+                        secs, max_retry_delay_ms
+                    );
+                    return Err(GcopError::Llm(format!(
+                        "Rate limited: API requested {} second wait, which exceeds configured limit. Try again later.",
+                        secs
+                    )));
+                }
+                tracing::debug!("Using Retry-After header: {} seconds", secs);
+                Duration::from_secs(secs)
+            } else {
+                calculate_exponential_backoff(attempt, retry_delay_ms, max_retry_delay_ms)
+            };
+
+            tracing::debug!(
+                "{} API rate limited (attempt {}/{}). Retrying in {:.1}s...",
+                provider_name,
+                attempt,
+                max_retries + 1,
+                delay.as_secs_f64()
+            );
+            tokio::time::sleep(delay).await;
+            continue;
         }
+
+        // 读取响应 body
+        let response_text = response.text().await?;
+
+        tracing::debug!("{} API response status: {}", provider_name, status);
+        tracing::debug!("{} API response body: {}", provider_name, response_text);
+
+        // 其他错误状态码
+        if !status.is_success() {
+            return Err(GcopError::Llm(format!(
+                "{} API error ({}): {}",
+                provider_name, status, response_text
+            )));
+        }
+
+        // 成功：解析 JSON
+        if attempt > 1 {
+            tracing::info!(
+                "{} API request succeeded after {} attempts",
+                provider_name,
+                attempt
+            );
+        }
+
+        return serde_json::from_str(&response_text).map_err(|e| {
+            GcopError::Llm(format!(
+                "Failed to parse {} response: {}. Raw response: {}",
+                provider_name, e, response_text
+            ))
+        });
     }
+}
+
+/// 计算指数退避延迟
+fn calculate_exponential_backoff(
+    attempt: usize,
+    retry_delay_ms: u64,
+    max_retry_delay_ms: u64,
+) -> Duration {
+    const MIN_RETRY_DELAY_MS: u64 = 100;
+    let multiplier = 1u64.checked_shl((attempt - 1) as u32).unwrap_or(u64::MAX);
+    let delay_ms = retry_delay_ms
+        .saturating_mul(multiplier)
+        .min(max_retry_delay_ms)
+        .max(MIN_RETRY_DELAY_MS);
+    Duration::from_millis(delay_ms)
 }
 
 /// 提取 API key（配置优先，环境变量 fallback）
@@ -414,12 +508,6 @@ mod tests {
     #[test]
     fn test_is_retryable_connection_failed() {
         let err = GcopError::Llm("connection failed: timeout".to_string());
-        assert!(is_retryable_error(&err));
-    }
-
-    #[test]
-    fn test_is_retryable_429_rate_limit() {
-        let err = GcopError::Llm("API error (429): Rate limit exceeded".to_string());
         assert!(is_retryable_error(&err));
     }
 

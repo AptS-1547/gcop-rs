@@ -132,6 +132,10 @@ pub struct NetworkConfig {
     /// 重试初始延迟（毫秒）
     #[serde(default = "default_retry_delay_ms")]
     pub retry_delay_ms: u64,
+
+    /// 重试最大延迟（毫秒）
+    #[serde(default = "default_max_retry_delay_ms")]
+    pub max_retry_delay_ms: u64,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -167,6 +171,10 @@ fn default_network_max_retries() -> usize {
 
 fn default_retry_delay_ms() -> u64 {
     1000
+}
+
+fn default_max_retry_delay_ms() -> u64 {
+    60_000 // 60 秒
 }
 
 fn default_max_file_size() -> u64 {
@@ -221,6 +229,7 @@ impl Default for NetworkConfig {
             connect_timeout: default_connect_timeout(),
             max_retries: default_network_max_retries(),
             retry_delay_ms: default_retry_delay_ms(),
+            max_retry_delay_ms: default_max_retry_delay_ms(),
         }
     }
 }

@@ -51,6 +51,7 @@ directories = "6.0"
 edit = "0.1"
 futures = "0.3"
 git2 = {version = "0.20", default-features = false }
+httpdate = "1.0"
 indicatif = "0.18.3"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "socks", "stream"] }
 serde = { version = "1.0", features = ["derive"] }
