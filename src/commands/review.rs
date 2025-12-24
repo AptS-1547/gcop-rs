@@ -44,7 +44,7 @@ pub async fn run(cli: &Cli, config: &AppConfig, target: &ReviewTarget, format: &
     };
 
     // 调用 LLM 进行审查
-    let spinner = ui::Spinner::new("Reviewing code with AI...");
+    let spinner = ui::Spinner::new("Reviewing code with AI...", colored);
 
     let review_type = match target {
         ReviewTarget::Changes => ReviewType::UncommittedChanges,

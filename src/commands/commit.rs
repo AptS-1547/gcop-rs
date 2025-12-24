@@ -60,9 +60,17 @@ async fn run_with_deps(
     }
 
     // 3. 获取 diff 和统计
-    ui::step("1/4", "Analyzing staged changes...", colored);
     let diff = repo.get_staged_diff()?;
     let stats = repo.get_diff_stats(&diff)?;
+    ui::step(
+        "1/4",
+        &format!(
+            "Analyzed {} file(s), {} change(s)",
+            stats.files_changed.len(),
+            stats.insertions + stats.deletions
+        ),
+        colored,
+    );
 
     // 4. 显示预览（可选）
     if config.commit.show_diff_preview {
@@ -228,7 +236,12 @@ async fn generate_message(
 
     if use_streaming {
         // 流式模式：先显示标题，再流式输出
-        ui::step("2/4", "Generating commit message (streaming)...", colored);
+        let step_msg = if attempt == 0 {
+            "Generating commit message (streaming)... (Ctrl+C to cancel)"
+        } else {
+            "Regenerating commit message (streaming)... (Ctrl+C to cancel)"
+        };
+        ui::step("2/4", step_msg, colored);
         println!("\n{}", ui::info(&format_message_header(attempt), colored));
 
         let stream_handle = provider
@@ -240,12 +253,16 @@ async fn generate_message(
 
         Ok((message, true)) // 已经显示过了
     } else {
-        // 非流式模式：使用 Spinner
-        let spinner = ui::Spinner::new(if attempt == 0 {
-            "Generating commit message..."
-        } else {
-            "Regenerating commit message..."
-        });
+        // 非流式模式：使用 Spinner（带取消提示和时间显示）
+        let mut spinner = ui::Spinner::new_with_cancel_hint(
+            if attempt == 0 {
+                "Generating commit message..."
+            } else {
+                "Regenerating commit message..."
+            },
+            colored,
+        );
+        spinner.start_time_display();
 
         let message = provider
             .generate_commit_message(diff, Some(context), Some(&spinner))
