@@ -164,7 +164,7 @@ Each provider under `[llm.providers.<name>]` supports:
 | `verbose` | Boolean | `false` | Show verbose logs (same as `--verbose` flag) |
 | `streaming` | Boolean | `true` | Enable streaming output (real-time typing effect) |
 
-> **Note on Streaming:** Currently only OpenAI-style APIs support streaming. When using Claude or Ollama providers, the system automatically falls back to spinner mode (waiting for complete response). This is transparent to the user - no configuration change needed.
+> **Note on Streaming:** Currently only OpenAI or Claude style APIs support streaming. When using Ollama providers, the system automatically falls back to spinner mode (waiting for complete response).
 
 ### Network Settings
 

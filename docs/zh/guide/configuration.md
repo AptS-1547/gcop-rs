@@ -164,7 +164,7 @@ max_size = 10485760      # 最大文件大小（10MB）
 | `verbose` | Boolean | `false` | 显示详细日志（等同于 `--verbose` 标志） |
 | `streaming` | Boolean | `true` | 启用流式输出（实时打字效果） |
 
-> **关于流式输出：** 目前仅 OpenAI 风格的 API 支持流式输出。使用 Claude 或 Ollama 时，系统会自动回退到转圈圈模式（等待完整响应）。这对用户是透明的，无需修改配置。
+> **关于流式输出：** 目前仅 OpenAI 和 Claude 风格的 API 支持流式输出。使用 Ollama 时，系统会自动回退到转圈圈模式（等待完整响应）。
 
 ### 网络设置
 

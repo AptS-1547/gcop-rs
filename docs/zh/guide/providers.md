@@ -89,10 +89,10 @@ model = "qwen-max"
 ### Claude 代理/镜像
 
 ```toml
-[llm.providers.claude-proxy]
+[llm.providers.claude-code-hub]
 api_style = "claude"
 api_key = "your-key"
-endpoint = "https://your-claude-proxy.com/v1/messages"
+endpoint = "https://your-claude-code-hub.com/v1/messages"
 model = "claude-sonnet-4-5-20250929"
 ```
 
