@@ -212,10 +212,10 @@ where
 
             // 检查是否还有重试次数
             if attempt > max_retries {
-                return Err(GcopError::Llm(format!(
-                    "{} API rate limited (429): {}",
-                    provider_name, body
-                )));
+                return Err(GcopError::LlmApi {
+                    status: 429,
+                    message: format!("{}: {}", provider_name, body),
+                });
             }
 
             // 更新 spinner 显示重试进度
@@ -262,10 +262,10 @@ where
 
         // 其他错误状态码
         if !status.is_success() {
-            return Err(GcopError::Llm(format!(
-                "{} API error ({}): {}",
-                provider_name, status, response_text
-            )));
+            return Err(GcopError::LlmApi {
+                status: status.as_u16(),
+                message: format!("{}: {}", provider_name, response_text),
+            });
         }
 
         // 成功：解析 JSON

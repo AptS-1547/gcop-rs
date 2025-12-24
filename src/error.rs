@@ -16,6 +16,9 @@ pub enum GcopError {
     #[error("LLM provider error: {0}")]
     Llm(String),
 
+    #[error("LLM API error ({status}): {message}")]
+    LlmApi { status: u16, message: String },
+
     #[error("Network error: {0}")]
     Network(#[from] reqwest::Error),
 
@@ -39,6 +42,9 @@ pub enum GcopError {
 
     #[error("Invalid input: {0}")]
     InvalidInput(String),
+
+    #[error("Max retries exceeded after {0} attempts")]
+    MaxRetriesExceeded(usize),
 
     /// 通用错误类型，用于不适合其他分类的错误
     #[error("{0}")]
@@ -69,24 +75,29 @@ impl GcopError {
             GcopError::Network(_) => {
                 Some("Check your network connection, proxy settings, or API endpoint configuration")
             }
+            // 结构化 HTTP 状态码匹配
+            GcopError::LlmApi { status: 401, .. } => {
+                Some("Check if your API key is valid and has not expired")
+            }
+            GcopError::LlmApi { status: 429, .. } => {
+                Some("Rate limit exceeded. Wait a moment and try again, or upgrade your API plan")
+            }
+            GcopError::LlmApi { status, .. } if *status >= 500 => {
+                Some("API service is temporarily unavailable. Try again in a few moments")
+            }
+            // 非 HTTP 错误的字符串匹配
             GcopError::Llm(msg) if msg.contains("timeout") => {
                 Some("The API request timed out. Check network or try again later")
             }
             GcopError::Llm(msg) if msg.contains("connection failed") => {
                 Some("Cannot connect to API server. Check endpoint URL, network, or DNS settings")
             }
-            GcopError::Llm(msg) if msg.contains("401") => {
-                Some("Check if your API key is valid and has not expired")
-            }
-            GcopError::Llm(msg) if msg.contains("429") => {
-                Some("Rate limit exceeded. Wait a moment and try again, or upgrade your API plan")
-            }
-            GcopError::Llm(msg) if msg.contains("500") || msg.contains("503") => {
-                Some("API service is temporarily unavailable. Try again in a few moments")
-            }
             GcopError::Llm(msg) if msg.contains("Failed to parse") => {
                 Some("Try using --verbose flag to see the full LLM response and debug the issue")
             }
+            GcopError::MaxRetriesExceeded(_) => Some(
+                "The LLM failed to generate a satisfactory message. Try providing clearer feedback or check if the diff is too complex",
+            ),
             _ => None,
         }
     }
@@ -170,25 +181,37 @@ mod tests {
     }
 
     #[test]
-    fn test_suggestion_llm_401_unauthorized() {
-        let err = GcopError::Llm("API returned 401 Unauthorized".to_string());
+    fn test_suggestion_llm_api_401_unauthorized() {
+        let err = GcopError::LlmApi {
+            status: 401,
+            message: "Unauthorized".to_string(),
+        };
         let suggestion = err.suggestion().unwrap();
         assert!(suggestion.contains("API key"));
         assert!(suggestion.contains("expired"));
     }
 
     #[test]
-    fn test_suggestion_llm_429_rate_limit() {
-        let err = GcopError::Llm("API returned 429 Too Many Requests".to_string());
+    fn test_suggestion_llm_api_429_rate_limit() {
+        let err = GcopError::LlmApi {
+            status: 429,
+            message: "Too Many Requests".to_string(),
+        };
         let suggestion = err.suggestion().unwrap();
         assert!(suggestion.contains("Rate limit"));
         assert!(suggestion.contains("API plan"));
     }
 
     #[test]
-    fn test_suggestion_llm_500_503_service_unavailable() {
-        let err_500 = GcopError::Llm("API returned 500 Internal Server Error".to_string());
-        let err_503 = GcopError::Llm("API returned 503 Service Unavailable".to_string());
+    fn test_suggestion_llm_api_5xx_service_unavailable() {
+        let err_500 = GcopError::LlmApi {
+            status: 500,
+            message: "Internal Server Error".to_string(),
+        };
+        let err_503 = GcopError::LlmApi {
+            status: 503,
+            message: "Service Unavailable".to_string(),
+        };
 
         let suggestion_500 = err_500.suggestion().unwrap();
         let suggestion_503 = err_503.suggestion().unwrap();
@@ -202,6 +225,13 @@ mod tests {
         let err = GcopError::Llm("Failed to parse LLM response as JSON".to_string());
         let suggestion = err.suggestion().unwrap();
         assert!(suggestion.contains("--verbose"));
+    }
+
+    #[test]
+    fn test_suggestion_max_retries_exceeded() {
+        let err = GcopError::MaxRetriesExceeded(5);
+        let suggestion = err.suggestion().unwrap();
+        assert!(suggestion.contains("feedback"));
     }
 
     // === 无建议的分支 ===

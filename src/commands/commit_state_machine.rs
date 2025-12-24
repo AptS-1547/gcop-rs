@@ -48,9 +48,7 @@ impl CommitState {
     pub fn handle_generation(self, result: GenerationResult, auto_accept: bool) -> Result<Self> {
         match self {
             CommitState::Generating { attempt, feedbacks } => match result {
-                GenerationResult::MaxRetriesExceeded => {
-                    Err(GcopError::Other("Too many retries".to_string()))
-                }
+                GenerationResult::MaxRetriesExceeded => Err(GcopError::MaxRetriesExceeded(attempt)),
                 GenerationResult::Success(message) => {
                     if auto_accept {
                         Ok(CommitState::Accepted { message })

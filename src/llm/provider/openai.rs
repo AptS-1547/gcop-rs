@@ -170,10 +170,10 @@ impl OpenAIProvider {
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
-            return Err(GcopError::Llm(format!(
-                "OpenAI API error ({}): {}",
-                status, body
-            )));
+            return Err(GcopError::LlmApi {
+                status: status.as_u16(),
+                message: format!("OpenAI: {}", body),
+            });
         }
 
         // 在后台任务中处理流
