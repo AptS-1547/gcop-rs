@@ -63,6 +63,7 @@ model = "claude-sonnet-4-5-20250929"
 # LLM Configuration
 [llm]
 default_provider = "claude"
+# fallback_providers = ["openai", "ollama"]  # Auto-fallback when main provider fails
 
 # Claude Provider
 [llm.providers.claude]
@@ -111,6 +112,7 @@ request_timeout = 120    # HTTP request timeout in seconds
 connect_timeout = 10     # HTTP connection timeout in seconds
 max_retries = 3          # Max retry attempts for failed API requests
 retry_delay_ms = 1000    # Initial retry delay (exponential backoff)
+max_retry_delay_ms = 60000  # Max retry delay; also limits Retry-After header
 
 # File Settings
 [file]
@@ -124,6 +126,7 @@ max_size = 10485760      # Max file size for review (10MB)
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `default_provider` | String | `"claude"` | Default LLM provider to use |
+| `fallback_providers` | Array | `[]` | Fallback provider list; automatically tries next when main provider fails |
 
 ### Provider Settings
 
@@ -174,6 +177,7 @@ Each provider under `[llm.providers.<name>]` supports:
 | `connect_timeout` | Integer | `10` | HTTP connection timeout in seconds |
 | `max_retries` | Integer | `3` | Max retry attempts for failed API requests |
 | `retry_delay_ms` | Integer | `1000` | Initial retry delay in milliseconds (exponential backoff) |
+| `max_retry_delay_ms` | Integer | `60000` | Max retry delay in ms; also limits Retry-After header |
 
 ### File Settings
 

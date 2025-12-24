@@ -13,6 +13,7 @@ use crate::llm::{CommitContext, LLMProvider, ReviewResult, ReviewType};
 
 /// Ollama API Provider
 pub struct OllamaProvider {
+    name: String,
     client: Client,
     endpoint: String,
     model: String,
@@ -49,7 +50,7 @@ struct OllamaResponse {
 impl OllamaProvider {
     pub fn new(
         config: &ProviderConfig,
-        _provider_name: &str,
+        provider_name: &str,
         network_config: &NetworkConfig,
         colored: bool,
     ) -> Result<Self> {
@@ -59,6 +60,7 @@ impl OllamaProvider {
         let temperature = get_temperature_optional(config);
 
         Ok(Self {
+            name: provider_name.to_string(),
             client: super::create_http_client(network_config)?,
             endpoint,
             model,
@@ -131,7 +133,7 @@ impl LLMProvider for OllamaProvider {
     }
 
     fn name(&self) -> &str {
-        "ollama"
+        &self.name
     }
 
     async fn validate(&self) -> Result<()> {

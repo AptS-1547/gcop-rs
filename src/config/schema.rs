@@ -27,6 +27,10 @@ pub struct LLMConfig {
     /// 默认使用的 provider: "claude" | "openai" | "ollama"
     pub default_provider: String,
 
+    /// 备用 provider 列表，当主 provider 失败时按顺序尝试
+    #[serde(default)]
+    pub fallback_providers: Vec<String>,
+
     /// 各 provider 的配置
     #[serde(default)]
     pub providers: HashMap<String, ProviderConfig>,
@@ -185,6 +189,7 @@ impl Default for LLMConfig {
     fn default() -> Self {
         Self {
             default_provider: "claude".to_string(),
+            fallback_providers: Vec::new(),
             providers: HashMap::new(),
         }
     }

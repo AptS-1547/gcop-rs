@@ -11,6 +11,9 @@
 # 默认 provider: "claude" | "openai" | "ollama"
 default_provider = "claude"
 
+# 备用 provider 列表：主 provider 失败时自动尝试下一个
+# fallback_providers = ["openai", "ollama"]
+
 # Claude Provider
 [llm.providers.claude]
 # API key（或使用环境变量 ANTHROPIC_API_KEY）
@@ -114,6 +117,10 @@ max_retries = 3
 
 # 初始重试延迟（毫秒，指数退避）(默认: 1000)
 retry_delay_ms = 1000
+
+# 最大重试延迟（毫秒）(默认: 60000 = 60秒)
+# 防止等待时间过长，也作为 Retry-After 头的上限
+max_retry_delay_ms = 60000
 
 # ============================================
 # 文件配置

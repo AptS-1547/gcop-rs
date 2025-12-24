@@ -1,50 +1,80 @@
 pub mod base;
 pub mod claude;
+pub mod fallback;
 pub mod ollama;
 pub mod openai;
 pub mod streaming;
 pub mod utils;
 
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use reqwest::Client;
 
-use crate::config::{AppConfig, NetworkConfig};
+use crate::config::{AppConfig, NetworkConfig, ProviderConfig};
 use crate::error::{GcopError, Result};
 use crate::llm::LLMProvider;
 
-/// 创建带有自定义 User-Agent 的 HTTP 客户端
-pub(crate) fn create_http_client(network_config: &NetworkConfig) -> Result<Client> {
-    let user_agent = format!(
-        "{}/{} ({})",
-        env!("CARGO_PKG_NAME"),
-        env!("CARGO_PKG_VERSION"),
-        std::env::consts::OS
-    );
+/// 全局 HTTP 客户端（共享连接池）
+static HTTP_CLIENT: OnceLock<Client> = OnceLock::new();
 
-    Client::builder()
-        .user_agent(user_agent)
-        .timeout(Duration::from_secs(network_config.request_timeout))
-        .connect_timeout(Duration::from_secs(network_config.connect_timeout))
-        .build()
-        .map_err(GcopError::Network)
+/// 获取或创建全局 HTTP 客户端
+///
+/// 使用 OnceLock 确保只创建一次，所有 provider 共享同一个连接池。
+/// 第一次调用时的 NetworkConfig 决定 timeout 配置。
+pub(crate) fn create_http_client(network_config: &NetworkConfig) -> Result<Client> {
+    Ok(HTTP_CLIENT
+        .get_or_init(|| {
+            let user_agent = format!(
+                "{}/{} ({})",
+                env!("CARGO_PKG_NAME"),
+                env!("CARGO_PKG_VERSION"),
+                std::env::consts::OS
+            );
+
+            Client::builder()
+                .user_agent(user_agent)
+                .timeout(Duration::from_secs(network_config.request_timeout))
+                .connect_timeout(Duration::from_secs(network_config.connect_timeout))
+                .build()
+                .expect("Failed to create HTTP client")
+        })
+        .clone())
 }
 
 /// 根据配置创建 LLM Provider
+///
+/// 如果配置了 fallback_providers，会创建一个 FallbackProvider 包装多个 provider。
+/// 当主 provider 失败时，会自动尝试 fallback 列表中的 provider。
 pub fn create_provider(
     config: &AppConfig,
     provider_name: Option<&str>,
 ) -> Result<Arc<dyn LLMProvider>> {
-    let name = provider_name.unwrap_or(&config.llm.default_provider);
-    let colored = config.ui.colored;
+    fallback::FallbackProvider::from_config(config, provider_name)
+}
 
+/// 创建单个 Provider
+pub fn create_single_provider(
+    config: &AppConfig,
+    name: &str,
+    colored: bool,
+) -> Result<Arc<dyn LLMProvider>> {
     let provider_config = config
         .llm
         .providers
         .get(name)
         .ok_or_else(|| GcopError::Config(format!("Provider '{}' not found in config", name)))?;
 
+    create_provider_from_config(provider_config, name, &config.network, colored)
+}
+
+/// 根据配置创建具体的 Provider 实现
+fn create_provider_from_config(
+    provider_config: &ProviderConfig,
+    name: &str,
+    network_config: &NetworkConfig,
+    colored: bool,
+) -> Result<Arc<dyn LLMProvider>> {
     // 决定使用哪种 API 风格
     // 优先使用 api_style 字段，否则使用 provider 名称（向后兼容）
     let api_style = provider_config.api_style.as_deref().unwrap_or(name);
@@ -53,17 +83,17 @@ pub fn create_provider(
     match api_style {
         "claude" => {
             let provider =
-                claude::ClaudeProvider::new(provider_config, name, &config.network, colored)?;
+                claude::ClaudeProvider::new(provider_config, name, network_config, colored)?;
             Ok(Arc::new(provider))
         }
         "openai" => {
             let provider =
-                openai::OpenAIProvider::new(provider_config, name, &config.network, colored)?;
+                openai::OpenAIProvider::new(provider_config, name, network_config, colored)?;
             Ok(Arc::new(provider))
         }
         "ollama" => {
             let provider =
-                ollama::OllamaProvider::new(provider_config, name, &config.network, colored)?;
+                ollama::OllamaProvider::new(provider_config, name, network_config, colored)?;
             Ok(Arc::new(provider))
         }
         _ => Err(GcopError::Config(format!(

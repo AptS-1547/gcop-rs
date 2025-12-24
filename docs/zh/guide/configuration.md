@@ -63,6 +63,7 @@ model = "claude-sonnet-4-5-20250929"
 # LLM 配置
 [llm]
 default_provider = "claude"
+# fallback_providers = ["openai", "ollama"]  # 主 provider 失败时自动切换
 
 # Claude Provider
 [llm.providers.claude]
@@ -111,6 +112,7 @@ request_timeout = 120    # HTTP 请求超时（秒）
 connect_timeout = 10     # HTTP 连接超时（秒）
 max_retries = 3          # API 请求失败时的最大重试次数
 retry_delay_ms = 1000    # 初始重试延迟（毫秒，指数退避）
+max_retry_delay_ms = 60000  # 最大重试延迟，也作为 Retry-After 头的上限
 
 # 文件设置
 [file]
@@ -124,6 +126,7 @@ max_size = 10485760      # 最大文件大小（10MB）
 | 选项 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `default_provider` | String | `"claude"` | 默认使用的 LLM provider |
+| `fallback_providers` | Array | `[]` | 备用 provider 列表，主 provider 失败时自动切换 |
 
 ### Provider 设置
 
@@ -174,6 +177,7 @@ max_size = 10485760      # 最大文件大小（10MB）
 | `connect_timeout` | Integer | `10` | HTTP 连接超时（秒） |
 | `max_retries` | Integer | `3` | API 请求失败时的最大重试次数 |
 | `retry_delay_ms` | Integer | `1000` | 初始重试延迟（毫秒，指数退避） |
+| `max_retry_delay_ms` | Integer | `60000` | 最大重试延迟（毫秒），也作为 Retry-After 头的上限 |
 
 ### 文件设置
 

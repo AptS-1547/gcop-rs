@@ -16,6 +16,7 @@ use crate::llm::{CommitContext, LLMProvider, ReviewResult, ReviewType, StreamHan
 
 /// Claude API Provider
 pub struct ClaudeProvider {
+    name: String,
     client: Client,
     api_key: String,
     endpoint: String,
@@ -66,7 +67,7 @@ struct ContentBlock {
 impl ClaudeProvider {
     pub fn new(
         config: &ProviderConfig,
-        _provider_name: &str,
+        provider_name: &str,
         network_config: &NetworkConfig,
         colored: bool,
     ) -> Result<Self> {
@@ -77,6 +78,7 @@ impl ClaudeProvider {
         let temperature = get_temperature(config);
 
         Ok(Self {
+            name: provider_name.to_string(),
             client: super::create_http_client(network_config)?,
             api_key,
             endpoint,
@@ -218,7 +220,7 @@ impl LLMProvider for ClaudeProvider {
     }
 
     fn name(&self) -> &str {
-        "claude"
+        &self.name
     }
 
     async fn validate(&self) -> Result<()> {
