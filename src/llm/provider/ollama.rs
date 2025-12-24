@@ -3,7 +3,8 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
 use super::base::{
-    build_endpoint, get_temperature_optional, parse_review_response, send_llm_request,
+    build_commit_prompt_with_log, build_endpoint, build_review_prompt_with_log,
+    get_temperature_optional, process_commit_response, process_review_response, send_llm_request,
 };
 use super::utils::{DEFAULT_OLLAMA_BASE, OLLAMA_API_SUFFIX};
 use crate::config::{NetworkConfig, ProviderConfig};
@@ -108,17 +109,9 @@ impl LLMProvider for OllamaProvider {
         context: Option<CommitContext>,
         spinner: Option<&crate::ui::Spinner>,
     ) -> Result<String> {
-        let ctx = context.unwrap_or_default();
-        let prompt =
-            crate::llm::prompt::build_commit_prompt(diff, &ctx, ctx.custom_prompt.as_deref());
-
-        tracing::debug!("Prompt ({} chars):\n{}", prompt.len(), prompt);
-
+        let prompt = build_commit_prompt_with_log(diff, context);
         let response = self.call_api(&prompt, spinner).await?;
-
-        tracing::debug!("Generated commit message: {}", response);
-
-        Ok(response)
+        Ok(process_commit_response(response))
     }
 
     async fn review_code(
@@ -128,15 +121,9 @@ impl LLMProvider for OllamaProvider {
         custom_prompt: Option<&str>,
         spinner: Option<&crate::ui::Spinner>,
     ) -> Result<ReviewResult> {
-        let prompt = crate::llm::prompt::build_review_prompt(diff, &review_type, custom_prompt);
-
-        tracing::debug!("Review prompt ({} chars):\n{}", prompt.len(), prompt);
-
+        let prompt = build_review_prompt_with_log(diff, &review_type, custom_prompt);
         let response = self.call_api(&prompt, spinner).await?;
-
-        tracing::debug!("LLM review response: {}", response);
-
-        parse_review_response(&response)
+        process_review_response(&response)
     }
 
     fn name(&self) -> &str {
