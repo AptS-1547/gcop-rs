@@ -177,7 +177,7 @@ impl ClaudeProvider {
         // 在后台任务中处理流
         tokio::spawn(async move {
             if let Err(e) = process_claude_stream(response, tx).await {
-                tracing::error!("Claude stream processing error: {}", e);
+                eprintln!("Claude stream processing error: {}", e);
             }
         });
 

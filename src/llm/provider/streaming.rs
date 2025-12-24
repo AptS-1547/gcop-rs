@@ -48,6 +48,7 @@ pub async fn process_openai_stream(
 ) -> Result<()> {
     let mut stream = response.bytes_stream();
     let mut buffer = String::new();
+    let mut parse_errors = 0usize;
 
     while let Some(chunk_result) = stream.next().await {
         let chunk: bytes::Bytes = chunk_result.map_err(GcopError::Network)?;
@@ -64,6 +65,12 @@ pub async fn process_openai_stream(
 
             if let Some(data) = parse_sse_line(&line) {
                 if data == "[DONE]" {
+                    if parse_errors > 0 {
+                        println!(
+                            "OpenAI stream completed with {} parse error(s)",
+                            parse_errors
+                        );
+                    }
                     let _ = tx.send(StreamChunk::Done).await;
                     return Ok(());
                 }
@@ -78,12 +85,19 @@ pub async fn process_openai_stream(
                                 let _ = tx.send(StreamChunk::Delta(content.clone())).await;
                             }
                             if choice.finish_reason.is_some() {
+                                if parse_errors > 0 {
+                                    println!(
+                                        "OpenAI stream completed with {} parse error(s)",
+                                        parse_errors
+                                    );
+                                }
                                 let _ = tx.send(StreamChunk::Done).await;
                                 return Ok(());
                             }
                         }
                     }
                     Err(e) => {
+                        parse_errors += 1;
                         tracing::warn!("Failed to parse SSE data: {}, line: {}", e, data);
                     }
                 }
@@ -92,6 +106,12 @@ pub async fn process_openai_stream(
     }
 
     // 流结束但没有收到 [DONE]
+    if parse_errors > 0 {
+        eprintln!(
+            "Warning: OpenAI stream completed with {} parse error(s)",
+            parse_errors
+        );
+    }
     let _ = tx.send(StreamChunk::Done).await;
     Ok(())
 }
@@ -140,6 +160,7 @@ pub async fn process_claude_stream(
 ) -> Result<()> {
     let mut stream = response.bytes_stream();
     let mut buffer = String::new();
+    let mut parse_errors = 0usize;
 
     while let Some(chunk_result) = stream.next().await {
         let chunk: bytes::Bytes = chunk_result.map_err(GcopError::Network)?;
@@ -160,6 +181,12 @@ pub async fn process_claude_stream(
                             }
                         }
                         Ok(ClaudeSSEEvent::MessageStop) => {
+                            if parse_errors > 0 {
+                                eprintln!(
+                                    "Warning: Claude stream completed with {} parse error(s)",
+                                    parse_errors
+                                );
+                            }
                             let _ = tx.send(StreamChunk::Done).await;
                             return Ok(());
                         }
@@ -167,6 +194,7 @@ pub async fn process_claude_stream(
                             // 忽略其他事件类型
                         }
                         Err(e) => {
+                            parse_errors += 1;
                             tracing::warn!(
                                 "Failed to parse Claude SSE data: {}, line: {}",
                                 e,
@@ -180,7 +208,14 @@ pub async fn process_claude_stream(
     }
 
     // 流结束但没有收到 message_stop
-    tracing::warn!("Claude stream ended without message_stop event");
+    if parse_errors > 0 {
+        eprintln!(
+            "Warning: Claude stream ended without message_stop, {} parse error(s)",
+            parse_errors
+        );
+    } else {
+        eprintln!("Warning: Claude stream ended without message_stop event");
+    }
     let _ = tx.send(StreamChunk::Done).await;
     Ok(())
 }

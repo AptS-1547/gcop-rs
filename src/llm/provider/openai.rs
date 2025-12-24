@@ -180,7 +180,7 @@ impl OpenAIProvider {
         // tx 会在任务结束时自动 drop，从而关闭 channel
         tokio::spawn(async move {
             if let Err(e) = process_openai_stream(response, tx).await {
-                tracing::error!("Stream processing error: {}", e);
+                eprintln!("Stream processing error: {}", e);
             }
             // tx 在这里被 drop，channel 关闭
         });

@@ -270,7 +270,7 @@ where
 
         // 成功：解析 JSON
         if attempt > 1 {
-            tracing::info!(
+            tracing::debug!(
                 "{} API request succeeded after {} attempts",
                 provider_name,
                 attempt

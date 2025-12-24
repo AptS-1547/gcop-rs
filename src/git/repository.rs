@@ -196,7 +196,14 @@ impl GitOperations for GitRepository {
             let timestamp: DateTime<Local> = Local
                 .timestamp_opt(git_time.seconds(), 0)
                 .single()
-                .unwrap_or_else(Local::now);
+                .unwrap_or_else(|| {
+                    eprintln!(
+                        "Warning: Invalid timestamp {} in commit {}, using current time",
+                        git_time.seconds(),
+                        commit.id()
+                    );
+                    Local::now()
+                });
 
             let message = commit
                 .message()
