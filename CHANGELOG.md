@@ -5,6 +5,38 @@ All notable changes to gcop-rs will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2025-12-24
+
+### Added
+
+- **Provider Fallback Support**: New `fallback_providers` config option for automatic failover
+  - When primary provider fails, automatically tries the next provider in list
+  - Shows warning messages when switching providers
+  - Supports both streaming and non-streaming modes
+- **Claude Streaming Support**: Claude provider now supports streaming responses
+  - Real-time typing effect like ChatGPT when generating commit messages
+  - Uses SSE (Server-Sent Events) for efficient streaming
+- **Retry-After Header Support**: Enhanced API retry mechanism
+  - Respects `Retry-After` header from API responses (429 rate limits)
+  - New `max_retry_delay_ms` config option to cap maximum wait time (default: 60s)
+- **Colored Provider Output**: LLM providers now display colored warning/info messages
+
+### Changed
+
+- **Improved User Experience**: Enhanced commit and review command interactions
+- **Better Error Handling**: Restructured error types for clearer, more user-friendly messages
+- **Refactored LLM Module**: Extracted common prompt building and response processing logic
+
+### Fixed
+
+- **Streaming Error Handling**: Improved error handling and log levels for streaming responses
+
+### Documentation
+
+- Updated streaming output documentation
+- Added Claude configuration examples
+- Added installation update/uninstall instructions for various package managers
+
 ## [0.4.3] - 2025-12-24
 
 ### Changed
@@ -272,6 +304,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Edit action properly returns to menu without triggering regeneration
 - Commit message display no longer duplicates after editing
 
+[0.5.0]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.5.0
 [0.4.3]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.4.3
 [0.4.2]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.4.2
 [0.4.1]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.4.1
