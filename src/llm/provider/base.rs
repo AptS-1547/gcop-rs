@@ -25,8 +25,8 @@ const ERROR_PREVIEW_LENGTH: usize = 500;
 /// 判断错误是否应该重试（仅用于网络层错误）
 fn is_retryable_error(error: &GcopError) -> bool {
     match error {
-        // 连接失败 -> 重试
-        GcopError::Llm(msg) if msg.contains("connection failed") => true,
+        // 连接失败 -> 重试（大小写不敏感）
+        GcopError::Llm(msg) => msg.to_lowercase().contains("connection failed"),
 
         // 其他错误 -> 不重试
         _ => false,
@@ -682,9 +682,17 @@ Let me know if you need more."#;
 
     #[test]
     fn test_is_retryable_mixed_case() {
-        // 确保大小写匹配
-        let err = GcopError::Llm("Connection Failed".to_string());
-        // 当前实现是小写匹配，所以这应该不重试
-        assert!(!is_retryable_error(&err));
+        // 测试各种大小写变体都能匹配
+        let cases = vec![
+            "Connection Failed",
+            "CONNECTION FAILED",
+            "connection failed",
+            "API connection failed: timeout",
+        ];
+
+        for msg in cases {
+            let err = GcopError::Llm(msg.to_string());
+            assert!(is_retryable_error(&err), "Should retry for: {}", msg);
+        }
     }
 }

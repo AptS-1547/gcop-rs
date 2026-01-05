@@ -345,6 +345,13 @@ custom_prompt = """
 gcop-rs -v commit  # 显示 API 请求、响应和 prompts
 ```
 
+> **安全提示**: verbose 模式（`-v` 或 `RUST_LOG=debug`）会在日志中打印完整的 API 请求和响应，可能包含：
+> - 你的代码 diff 和变更内容
+> - 错误信息中的部分 API key
+> - 生成的 commit message
+>
+> 不要公开分享这些日志或将其提交到版本控制中。
+
 ## 文档
 
 - **[安装指南](docs/zh/guide/installation.md)** - 详细的安装说明

@@ -345,6 +345,13 @@ Use `--verbose` to see detailed logs:
 gcop-rs -v commit  # Shows API requests, responses, and prompts
 ```
 
+> **Security Notice**: Verbose mode (`-v` or `RUST_LOG=debug`) logs full API requests and responses, which may include:
+> - Your code diffs and changes
+> - Partial API keys in error messages
+> - Generated commit messages
+>
+> Do not share verbose logs publicly or commit them to version control.
+
 ## Documentation
 
 - **[Installation Guide](docs/guide/installation.md)** - Detailed installation instructions

@@ -18,28 +18,53 @@ use crate::llm::LLMProvider;
 /// 全局 HTTP 客户端（共享连接池）
 static HTTP_CLIENT: OnceLock<Client> = OnceLock::new();
 
+/// 全局 HTTP 客户端初始化错误信息
+///
+/// 如果第一次创建失败，保存错误字符串以避免后续重复创建与潜在 panic。
+static HTTP_CLIENT_ERROR: OnceLock<String> = OnceLock::new();
+
 /// 获取或创建全局 HTTP 客户端
 ///
 /// 使用 OnceLock 确保只创建一次，所有 provider 共享同一个连接池。
 /// 第一次调用时的 NetworkConfig 决定 timeout 配置。
 pub(crate) fn create_http_client(network_config: &NetworkConfig) -> Result<Client> {
-    Ok(HTTP_CLIENT
-        .get_or_init(|| {
-            let user_agent = format!(
-                "{}/{} ({})",
-                env!("CARGO_PKG_NAME"),
-                env!("CARGO_PKG_VERSION"),
-                std::env::consts::OS
-            );
+    if let Some(client) = HTTP_CLIENT.get() {
+        return Ok(client.clone());
+    }
 
-            Client::builder()
-                .user_agent(user_agent)
-                .timeout(Duration::from_secs(network_config.request_timeout))
-                .connect_timeout(Duration::from_secs(network_config.connect_timeout))
-                .build()
-                .expect("Failed to create HTTP client")
-        })
-        .clone())
+    if let Some(err_msg) = HTTP_CLIENT_ERROR.get() {
+        return Err(GcopError::Llm(format!(
+            "HTTP client initialization failed: {}",
+            err_msg
+        )));
+    }
+
+    let user_agent = format!(
+        "{}/{} ({})",
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION"),
+        std::env::consts::OS
+    );
+
+    match Client::builder()
+        .user_agent(user_agent)
+        .timeout(Duration::from_secs(network_config.request_timeout))
+        .connect_timeout(Duration::from_secs(network_config.connect_timeout))
+        .build()
+    {
+        Ok(client) => {
+            let _ = HTTP_CLIENT.set(client.clone());
+            Ok(client)
+        }
+        Err(e) => {
+            let err_msg = e.to_string();
+            let _ = HTTP_CLIENT_ERROR.set(err_msg.clone());
+            Err(GcopError::Llm(format!(
+                "Failed to create HTTP client: {}",
+                err_msg
+            )))
+        }
+    }
 }
 
 /// 根据配置创建 LLM Provider

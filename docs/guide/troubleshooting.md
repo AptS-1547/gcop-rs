@@ -315,6 +315,13 @@ This shows:
 - Prompt sent to LLM
 - Response parsing
 
+> **Security Notice**: Verbose mode (`-v` or `RUST_LOG=debug`) logs full API requests and responses, which may include:
+> - Your code diffs and changes
+> - Partial API keys in error messages
+> - Generated commit messages
+>
+> Do not share verbose logs publicly or commit them to version control.
+
 ## Getting Help
 
 If you encounter an issue not listed here:

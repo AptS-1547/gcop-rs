@@ -1,6 +1,37 @@
 use crate::error::Result;
 use crate::git::DiffStats;
 
+fn extract_filename_from_diff_header(line: &str) -> Option<String> {
+    const PREFIX: &str = "diff --git ";
+    if !line.starts_with(PREFIX) {
+        return None;
+    }
+
+    let rest = &line[PREFIX.len()..];
+
+    // 通过 " b/" 分隔符定位 a/ 和 b/ 的边界，避免空格路径被截断。
+    if let Some(b_pos) = rest.find(" b/") {
+        return rest[..b_pos]
+            .strip_prefix("a/")
+            .map(|filename| filename.to_string());
+    }
+
+    // 处理带引号的路径：diff --git "a/path with spaces.rs" "b/path with spaces.rs"
+    if let Some(stripped) = rest.strip_prefix('"')
+        && let Some(end) = stripped.find('"')
+    {
+        return stripped[..end]
+            .strip_prefix("a/")
+            .map(|filename| filename.to_string());
+    }
+
+    // Fallback：保持兼容性
+    rest.split_whitespace()
+        .next()
+        .and_then(|s| s.strip_prefix("a/"))
+        .map(|s| s.to_string())
+}
+
 /// 从 diff 文本中提取统计信息
 pub fn parse_diff_stats(diff: &str) -> Result<DiffStats> {
     let mut files_changed = Vec::new();
@@ -9,12 +40,8 @@ pub fn parse_diff_stats(diff: &str) -> Result<DiffStats> {
 
     for line in diff.lines() {
         if line.starts_with("diff --git") {
-            // 提取文件名：diff --git a/file.rs b/file.rs
-            if let Some(file_part) = line.split_whitespace().nth(2) {
-                // 去掉 "a/" 前缀
-                if let Some(filename) = file_part.strip_prefix("a/") {
-                    files_changed.push(filename.to_string());
-                }
+            if let Some(filename) = extract_filename_from_diff_header(line) {
+                files_changed.push(filename);
             }
         } else if line.starts_with('+') && !line.starts_with("+++") {
             insertions += 1;
@@ -126,11 +153,8 @@ diff --git a/Cargo.toml b/Cargo.toml
 +new content
 "#;
         let stats = parse_diff_stats(diff).unwrap();
-        // 注意：当前实现使用 split_whitespace().nth(2)，空格路径会被截断
-        // 这是一个已知局限，测试验证当前行为
         assert_eq!(stats.files_changed.len(), 1);
-        // 会提取 "a/path"（第三个 token）
-        assert_eq!(stats.files_changed[0], "path");
+        assert_eq!(stats.files_changed[0], "path with spaces/file name.rs");
         assert_eq!(stats.insertions, 1);
     }
 

@@ -141,3 +141,103 @@ impl LLMProvider for OllamaProvider {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mockito::Server;
+    use pretty_assertions::assert_eq;
+    use std::collections::HashMap;
+
+    use crate::config::{NetworkConfig, ProviderConfig};
+    use crate::error::GcopError;
+
+    fn test_network_config_no_retry() -> NetworkConfig {
+        NetworkConfig {
+            max_retries: 0,
+            ..Default::default()
+        }
+    }
+
+    fn test_provider_config(base_url: String) -> ProviderConfig {
+        ProviderConfig {
+            api_style: None,
+            endpoint: Some(base_url),
+            api_key: None,
+            model: "llama3".to_string(),
+            max_tokens: None,
+            temperature: None,
+            extra: HashMap::new(),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_ollama_success_response_parsing() {
+        let mut server = Server::new_async().await;
+        let mock = server
+            .mock("POST", "/api/generate")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"response":"Hello from Ollama","done":true}"#)
+            .create_async()
+            .await;
+
+        let provider = OllamaProvider::new(
+            &test_provider_config(server.url()),
+            "ollama",
+            &test_network_config_no_retry(),
+            false,
+        )
+        .unwrap();
+
+        let result = provider.call_api("hi", None).await.unwrap();
+        assert_eq!(result, "Hello from Ollama");
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn test_ollama_api_error_401() {
+        let mut server = Server::new_async().await;
+        let mock = server
+            .mock("POST", "/api/generate")
+            .with_status(401)
+            .with_body("Unauthorized")
+            .create_async()
+            .await;
+
+        let provider = OllamaProvider::new(
+            &test_provider_config(server.url()),
+            "ollama",
+            &test_network_config_no_retry(),
+            false,
+        )
+        .unwrap();
+
+        let err = provider.call_api("hi", None).await.unwrap_err();
+        assert!(matches!(err, GcopError::LlmApi { status: 401, .. }));
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn test_ollama_api_error_429() {
+        let mut server = Server::new_async().await;
+        let mock = server
+            .mock("POST", "/api/generate")
+            .with_status(429)
+            .with_body("Too Many Requests")
+            .create_async()
+            .await;
+
+        let provider = OllamaProvider::new(
+            &test_provider_config(server.url()),
+            "ollama",
+            &test_network_config_no_retry(),
+            false,
+        )
+        .unwrap();
+
+        let err = provider.call_api("hi", None).await.unwrap_err();
+        assert!(matches!(err, GcopError::LlmApi { status: 429, .. }));
+        mock.assert_async().await;
+    }
+}

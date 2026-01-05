@@ -315,6 +315,13 @@ gcop-rs -v review changes
 - 发送给 LLM 的 prompt
 - 响应解析过程
 
+> **安全提示**: verbose 模式（`-v` 或 `RUST_LOG=debug`）会在日志中打印完整的 API 请求和响应，可能包含：
+> - 你的代码 diff 和变更内容
+> - 错误信息中的部分 API key
+> - 生成的 commit message
+>
+> 不要公开分享这些日志或将其提交到版本控制中。
+
 ## 获取帮助
 
 如果遇到这里未列出的问题：

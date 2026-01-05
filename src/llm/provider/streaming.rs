@@ -237,3 +237,46 @@ pub async fn process_claude_stream(
     let _ = tx.send(StreamChunk::Done).await;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pretty_assertions::assert_eq;
+
+    #[test]
+    fn test_parse_sse_line() {
+        assert_eq!(parse_sse_line("data: hello"), Some("hello"));
+        assert_eq!(parse_sse_line("data: [DONE]"), Some("[DONE]"));
+
+        // 不符合 "data: " 前缀的行应返回 None
+        assert_eq!(parse_sse_line("event: message_start"), None);
+        assert_eq!(parse_sse_line("data:").is_some(), false);
+    }
+
+    #[test]
+    fn test_openai_delta_parse() {
+        let json = r#"{"choices":[{"delta":{"content":"Hello"},"finish_reason":null}]}"#;
+        let delta: OpenAIDelta = serde_json::from_str(json).unwrap();
+        assert_eq!(delta.choices.len(), 1);
+        assert_eq!(delta.choices[0].delta.content.as_deref(), Some("Hello"));
+        assert_eq!(delta.choices[0].finish_reason, None);
+    }
+
+    #[test]
+    fn test_claude_sse_event_parse() {
+        let delta_json =
+            r#"{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hi"}}"#;
+        let event: ClaudeSSEEvent = serde_json::from_str(delta_json).unwrap();
+        match event {
+            ClaudeSSEEvent::ContentBlockDelta { delta } => {
+                assert_eq!(delta.delta_type, "text_delta");
+                assert_eq!(delta.text, "Hi");
+            }
+            _ => panic!("unexpected event: {:?}", event),
+        }
+
+        let stop_json = r#"{"type":"message_stop"}"#;
+        let event: ClaudeSSEEvent = serde_json::from_str(stop_json).unwrap();
+        assert!(matches!(event, ClaudeSSEEvent::MessageStop));
+    }
+}
