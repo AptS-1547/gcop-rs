@@ -50,6 +50,9 @@ pub trait GitOperations {
 
     /// 获取 commit 历史
     fn get_commit_history(&self) -> Result<Vec<CommitInfo>>;
+
+    /// 检查仓库是否为空（未初始化任何 commit）
+    fn is_empty(&self) -> Result<bool>;
 }
 
 /// Diff 统计信息

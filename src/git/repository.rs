@@ -55,12 +55,21 @@ impl GitRepository {
 
 impl GitOperations for GitRepository {
     fn get_staged_diff(&self) -> Result<String> {
+        // 获取 index
+        let index = self.repo.index()?;
+
+        // 空仓库时，对比 empty tree (None) 和 index
+        if self.is_empty()? {
+            let mut opts = DiffOptions::new();
+            let diff = self
+                .repo
+                .diff_tree_to_index(None, Some(&index), Some(&mut opts))?;
+            return self.diff_to_string(&diff);
+        }
+
         // 获取 HEAD tree
         let head = self.repo.head()?;
         let head_tree = head.peel_to_tree()?;
-
-        // 获取 index
-        let index = self.repo.index()?;
 
         // 创建 diff（HEAD tree vs index）
         let mut opts = DiffOptions::new();
@@ -155,6 +164,11 @@ impl GitOperations for GitRepository {
     }
 
     fn get_current_branch(&self) -> Result<Option<String>> {
+        // Unborn branch 没有真正的分支信息
+        if self.is_empty()? {
+            return Ok(None);
+        }
+
         let head = self.repo.head()?;
 
         if head.is_branch() {
@@ -177,6 +191,11 @@ impl GitOperations for GitRepository {
     }
 
     fn get_commit_history(&self) -> Result<Vec<CommitInfo>> {
+        // 空仓库没有历史记录
+        if self.is_empty()? {
+            return Ok(Vec::new());
+        }
+
         let mut revwalk = self.repo.revwalk()?;
         revwalk.push_head()?;
         revwalk.set_sorting(Sort::TIME)?;
@@ -222,5 +241,14 @@ impl GitOperations for GitRepository {
         }
 
         Ok(commits)
+    }
+
+    fn is_empty(&self) -> Result<bool> {
+        // 检测 unborn branch：尝试获取 HEAD，如果失败且错误码是 UnbornBranch，则为空仓库
+        match self.repo.head() {
+            Ok(_) => Ok(false),
+            Err(e) if e.code() == git2::ErrorCode::UnbornBranch => Ok(true),
+            Err(e) => Err(e.into()),
+        }
     }
 }
