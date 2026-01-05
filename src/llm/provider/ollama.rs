@@ -8,7 +8,7 @@ use super::base::{
 };
 use super::utils::{DEFAULT_OLLAMA_BASE, OLLAMA_API_SUFFIX};
 use crate::config::{NetworkConfig, ProviderConfig};
-use crate::error::Result;
+use crate::error::{GcopError, Result};
 use crate::llm::{CommitContext, LLMProvider, ReviewResult, ReviewType};
 
 /// Ollama API Provider
@@ -137,7 +137,51 @@ impl LLMProvider for OllamaProvider {
     }
 
     async fn validate(&self) -> Result<()> {
-        // Ollama 本地部署，无需验证 API key
+        // Validate Ollama connection and model availability
+        tracing::debug!("Validating Ollama connection...");
+
+        // Ollama health check endpoint: /api/tags
+        let health_endpoint = self.endpoint.replace("/api/generate", "/api/tags");
+
+        let response = self
+            .client
+            .get(&health_endpoint)
+            .send()
+            .await
+            .map_err(GcopError::Network)?;
+
+        let status = response.status();
+        if !status.is_success() {
+            let body = response.text().await.unwrap_or_default();
+            return Err(GcopError::LlmApi {
+                status: status.as_u16(),
+                message: format!("Ollama validation failed: {}", body),
+            });
+        }
+
+        // Check if configured model exists
+        #[derive(Deserialize)]
+        struct TagsResponse {
+            models: Vec<ModelInfo>,
+        }
+
+        #[derive(Deserialize)]
+        struct ModelInfo {
+            name: String,
+        }
+
+        let tags: TagsResponse = response.json().await.map_err(|e| {
+            GcopError::Llm(format!("Failed to parse Ollama tags response: {}", e))
+        })?;
+
+        if !tags.models.iter().any(|m| m.name.starts_with(&self.model)) {
+            return Err(GcopError::Config(format!(
+                "Model '{}' not found in Ollama. Run 'ollama pull {}' first.",
+                self.model, self.model
+            )));
+        }
+
+        tracing::debug!("Ollama connection validated successfully");
         Ok(())
     }
 }

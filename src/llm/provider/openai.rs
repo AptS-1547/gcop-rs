@@ -228,6 +228,43 @@ impl LLMProvider for OpenAIProvider {
         if self.api_key.is_empty() {
             return Err(GcopError::Config("API key is empty".to_string()));
         }
+
+        // Send minimal test request to validate API connection
+        tracing::debug!("Validating OpenAI API connection...");
+
+        let test_request = OpenAIRequest {
+            model: self.model.clone(),
+            messages: vec![MessagePayload {
+                role: "user".to_string(),
+                content: "test".to_string(),
+            }],
+            temperature: 1.0,
+            max_tokens: Some(1), // Minimize API cost
+        };
+
+        // Direct request without retry (fast fail)
+        let auth_header = format!("Bearer {}", self.api_key);
+        let response = self
+            .client
+            .post(&self.endpoint)
+            .header("Content-Type", "application/json")
+            .header("Authorization", &auth_header)
+            .json(&test_request)
+            .send()
+            .await
+            .map_err(GcopError::Network)?;
+
+        // Check status code
+        let status = response.status();
+        if !status.is_success() {
+            let body = response.text().await.unwrap_or_default();
+            return Err(GcopError::LlmApi {
+                status: status.as_u16(),
+                message: format!("OpenAI API validation failed: {}", body),
+            });
+        }
+
+        tracing::debug!("OpenAI API connection validated successfully");
         Ok(())
     }
 

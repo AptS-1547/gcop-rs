@@ -43,7 +43,7 @@ cargo binstall gcop-rs
 cargo install gcop-rs
 ```
 
-其他安装方式详见 [docs/zh/guide/installation.md](docs/zh/guide/gui deinstallation.md)。
+其他安装方式详见 [docs/zh/guide/installation.md](docs/zh/guide/installation.md)。
 
 ### 2. 配置
 
@@ -364,8 +364,8 @@ gcop-rs -v commit  # 显示 API 请求、响应和 prompts
 
 ## 系统要求
 
-- Rust 1.70 或更高版本
-- Git
+- Rust 1.92.0 或更高版本（Rust 2024 edition）
+- Git 2.0 或更高版本
 - 至少一个 provider 的 API key（Claude、OpenAI 或本地 Ollama）
 
 ## 许可证

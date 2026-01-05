@@ -2,20 +2,32 @@ use crate::cli::{Cli, ReviewTarget};
 use crate::config::AppConfig;
 use crate::error::{GcopError, Result};
 use crate::git::{GitOperations, repository::GitRepository};
-use crate::llm::{IssueSeverity, ReviewResult, ReviewType, provider::create_provider};
+use crate::llm::{IssueSeverity, LLMProvider, ReviewResult, ReviewType, provider::create_provider};
 use crate::ui;
 
-/// 执行 review 命令
+/// 执行 review 命令（公开接口）
 pub async fn run(cli: &Cli, config: &AppConfig, target: &ReviewTarget, format: &str) -> Result<()> {
-    let colored = config.ui.colored;
     let repo = GitRepository::open(Some(&config.file))?;
     let provider = create_provider(config, cli.provider.as_deref())?;
+    run_internal(config, target, format, &repo, provider.as_ref()).await
+}
+
+/// 内部实现，接受依赖注入（用于测试）
+#[cfg_attr(not(feature = "test-utils"), allow(dead_code))]
+pub async fn run_internal(
+    config: &AppConfig,
+    target: &ReviewTarget,
+    format: &str,
+    git: &dyn GitOperations,
+    llm: &dyn LLMProvider,
+) -> Result<()> {
+    let colored = config.ui.colored;
 
     // 根据目标类型路由
     let (diff, description) = match target {
         ReviewTarget::Changes => {
             ui::step("1/3", "Analyzing uncommitted changes...", colored);
-            let diff = repo.get_uncommitted_diff()?;
+            let diff = git.get_uncommitted_diff()?;
             if diff.trim().is_empty() {
                 ui::error("No uncommitted changes found.", colored);
                 return Err(GcopError::InvalidInput(
@@ -26,17 +38,17 @@ pub async fn run(cli: &Cli, config: &AppConfig, target: &ReviewTarget, format: &
         }
         ReviewTarget::Commit { hash } => {
             ui::step("1/3", &format!("Analyzing commit {}...", hash), colored);
-            let diff = repo.get_commit_diff(hash)?;
+            let diff = git.get_commit_diff(hash)?;
             (diff, format!("Commit {}", hash))
         }
         ReviewTarget::Range { range } => {
             ui::step("1/3", &format!("Analyzing range {}...", range), colored);
-            let diff = repo.get_range_diff(range)?;
+            let diff = git.get_range_diff(range)?;
             (diff, format!("Commit range {}", range))
         }
         ReviewTarget::File { path } => {
             ui::step("1/3", &format!("Analyzing file {}...", path), colored);
-            let content = repo.get_file_content(path)?;
+            let content = git.get_file_content(path)?;
             // 文件审查需要特殊处理，将内容包装成 diff 格式
             let diff = format!("--- {}\n+++ {}\n{}", path, path, content);
             (diff, format!("File {}", path))
@@ -53,7 +65,7 @@ pub async fn run(cli: &Cli, config: &AppConfig, target: &ReviewTarget, format: &
         ReviewTarget::File { path } => ReviewType::FileOrDir(path.clone()),
     };
 
-    let result = provider
+    let result = llm
         .review_code(
             &diff,
             review_type,

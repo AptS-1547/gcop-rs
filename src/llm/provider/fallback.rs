@@ -88,12 +88,35 @@ impl LLMProvider for FallbackProvider {
     }
 
     async fn validate(&self) -> Result<()> {
-        // 验证第一个 provider
-        if let Some(provider) = self.providers.first() {
-            provider.validate().await
-        } else {
-            Err(GcopError::Config("No providers configured".into()))
+        if self.providers.is_empty() {
+            return Err(GcopError::Config("No providers configured".into()));
         }
+
+        // Validate all providers and collect results
+        let mut all_failed = true;
+
+        for provider in &self.providers {
+            tracing::debug!("Validating provider '{}'...", provider.name());
+
+            match provider.validate().await {
+                Ok(_) => {
+                    all_failed = false;
+                    tracing::debug!("Provider '{}' validated successfully", provider.name());
+                }
+                Err(e) => {
+                    tracing::debug!("Provider '{}' validation failed: {}", provider.name(), e);
+                }
+            }
+        }
+
+        if all_failed {
+            return Err(GcopError::Config(format!(
+                "All {} provider(s) failed validation. Check your API keys and network.",
+                self.providers.len()
+            )));
+        }
+
+        Ok(())
     }
 
     async fn generate_commit_message(

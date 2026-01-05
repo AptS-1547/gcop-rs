@@ -24,6 +24,11 @@ AI-powered Git commit message generator and code reviewer, written in Rust.
 - 🐛 **Debug Mode** - Verbose logging with full request/response inspection
 - 🔐 **GPG Signing** - Full support for GPG commit signing via native git
 
+## Requirements
+
+- **Rust 1.92.0 or later** (Rust 2024 edition)
+- **Git 2.0 or later**
+
 ## Quick Start
 
 ### 1. Installation

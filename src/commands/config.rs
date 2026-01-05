@@ -156,18 +156,29 @@ async fn validate(colored: bool) -> Result<()> {
     println!();
 
     // 测试默认 provider 连接
-    ui::step("2/2", "Testing default provider connection...", colored);
+    ui::step("2/2", "Testing provider connection...", colored);
 
     let provider = create_provider(&config, None)?;
-    provider.validate().await?;
 
-    ui::success(
-        &format!(
-            "Provider '{}' validated successfully",
-            config.llm.default_provider
-        ),
-        colored,
-    );
+    match provider.validate().await {
+        Ok(_) => {
+            ui::success(
+                &format!(
+                    "Provider '{}' validated successfully",
+                    config.llm.default_provider
+                ),
+                colored,
+            );
+        }
+        Err(e) => {
+            ui::error(&format!("Validation failed: {}", e), colored);
+            if let Some(suggestion) = e.suggestion() {
+                println!();
+                println!("💡 Suggestion: {}", suggestion);
+            }
+            return Err(e);
+        }
+    }
 
     Ok(())
 }

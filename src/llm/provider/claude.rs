@@ -227,6 +227,43 @@ impl LLMProvider for ClaudeProvider {
         if self.api_key.is_empty() {
             return Err(GcopError::Config("API key is empty".to_string()));
         }
+
+        // Send minimal test request to validate API connection
+        tracing::debug!("Validating Claude API connection...");
+
+        let test_request = ClaudeRequest {
+            model: self.model.clone(),
+            max_tokens: 1, // Minimize API cost
+            temperature: 1.0,
+            messages: vec![MessagePayload {
+                role: "user".to_string(),
+                content: "test".to_string(),
+            }],
+        };
+
+        // Direct request without retry (fast fail)
+        let response = self
+            .client
+            .post(&self.endpoint)
+            .header("Content-Type", "application/json")
+            .header("x-api-key", &self.api_key)
+            .header("anthropic-version", "2023-06-01")
+            .json(&test_request)
+            .send()
+            .await
+            .map_err(GcopError::Network)?;
+
+        // Check status code
+        let status = response.status();
+        if !status.is_success() {
+            let body = response.text().await.unwrap_or_default();
+            return Err(GcopError::LlmApi {
+                status: status.as_u16(),
+                message: format!("Claude API validation failed: {}", body),
+            });
+        }
+
+        tracing::debug!("Claude API connection validated successfully");
         Ok(())
     }
 
