@@ -5,6 +5,57 @@ All notable changes to gcop-rs will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2025-01-05
+
+### Added
+
+- **Real API Health Checks for Providers**: Enhanced `validate()` methods for all LLM providers
+  - Claude/OpenAI: Send minimal test requests (`max_tokens=1`) to verify API connectivity
+  - Ollama: Check `/api/tags` endpoint and verify configured model exists
+  - FallbackProvider: Validate all providers and aggregate results
+  - `gcop config validate` now provides detailed status and helpful error suggestions
+  - New test suite: `tests/provider_validation_test.rs` with 9 comprehensive tests
+
+- **Git Repository Test Coverage**: New comprehensive test suite for repository operations
+  - Added `tests/git_repository_test.rs` with 14 tests covering edge cases
+  - Tests: empty repos, large file limits, Unicode paths, first commit, invalid inputs
+  - Tests: Detached HEAD state, error handling, concurrent test safety (using `serial_test`)
+
+- **Review Command Tests**: Added integration tests for code review functionality
+  - New `tests/review_command_test.rs` with 6 tests
+  - Tests all 4 target types: Changes/Commit/Range/File routing
+  - Tests error handling: empty diff validation, LLM failure propagation
+  - Refactored `review.rs` with dependency injection support for testability
+
+- **MSRV Declaration**: Fixed Minimum Supported Rust Version to 1.92.0
+  - Added `rust-toolchain.toml` for consistent toolchain across environments
+  - Added `rust-version = "1.92.0"` in `Cargo.toml` for crates.io compliance
+  - Added MSRV check job in CI/CD pipeline
+  - Updated all documentation (README, installation guides) with Rust 1.92.0 requirement
+
+### Changed
+
+- **Review Command Architecture**: Refactored for better testability
+  - Split `run()` (public API) and `run_internal()` (accepts trait objects)
+  - Enables dependency injection for testing without changing public interface
+
+- **Config Validation Output**: Improved error messages and suggestions
+  - More detailed provider validation status display
+  - Better error messages with actionable suggestions
+
+### Improved
+
+- **Test Coverage**: Increased from 248 to 277 tests (+29 tests, +11.7%)
+  - All P0 and P1 priority improvements from TODO completed
+  - Code quality score improved: A- with comprehensive test coverage
+
+### Documentation
+
+- Added verbose mode security warnings to troubleshooting guides
+- Updated system requirements in all documentation (English/Chinese)
+- Fixed typo in Chinese README link
+- Added detailed release notes (English/Chinese)
+
 ## [0.5.1] - 2025-01-05
 
 ### Fixed
@@ -315,6 +366,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Edit action properly returns to menu without triggering regeneration
 - Commit message display no longer duplicates after editing
 
+[0.6.0]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.6.0
 [0.5.1]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.5.1
 [0.5.0]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.5.0
 [0.4.3]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.4.3
