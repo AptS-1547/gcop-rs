@@ -6,8 +6,8 @@ use gcop_rs::config::{NetworkConfig, ProviderConfig};
 use gcop_rs::error::{GcopError, Result};
 use gcop_rs::llm::LLMProvider;
 use gcop_rs::llm::provider::claude::ClaudeProvider;
-use gcop_rs::llm::provider::openai::OpenAIProvider;
 use gcop_rs::llm::provider::ollama::OllamaProvider;
+use gcop_rs::llm::provider::openai::OpenAIProvider;
 use mockito::Server;
 use std::collections::HashMap;
 
@@ -41,13 +41,8 @@ async fn test_claude_validate_success() {
         extra: HashMap::new(),
     };
 
-    let provider = ClaudeProvider::new(
-        &provider_config,
-        "claude",
-        &test_network_config(),
-        false,
-    )
-    .unwrap();
+    let provider =
+        ClaudeProvider::new(&provider_config, "claude", &test_network_config(), false).unwrap();
 
     assert!(provider.validate().await.is_ok());
     mock.assert_async().await;
@@ -73,13 +68,8 @@ async fn test_claude_validate_401_unauthorized() {
         extra: HashMap::new(),
     };
 
-    let provider = ClaudeProvider::new(
-        &provider_config,
-        "claude",
-        &test_network_config(),
-        false,
-    )
-    .unwrap();
+    let provider =
+        ClaudeProvider::new(&provider_config, "claude", &test_network_config(), false).unwrap();
 
     let result: Result<()> = provider.validate().await;
     assert!(result.is_err());
@@ -114,13 +104,8 @@ async fn test_claude_validate_429_rate_limit() {
         extra: HashMap::new(),
     };
 
-    let provider = ClaudeProvider::new(
-        &provider_config,
-        "claude",
-        &test_network_config(),
-        false,
-    )
-    .unwrap();
+    let provider =
+        ClaudeProvider::new(&provider_config, "claude", &test_network_config(), false).unwrap();
 
     let result: Result<()> = provider.validate().await;
     assert!(result.is_err());
@@ -147,13 +132,8 @@ async fn test_claude_validate_empty_api_key() {
         extra: HashMap::new(),
     };
 
-    let provider = ClaudeProvider::new(
-        &provider_config,
-        "claude",
-        &test_network_config(),
-        false,
-    )
-    .unwrap();
+    let provider =
+        ClaudeProvider::new(&provider_config, "claude", &test_network_config(), false).unwrap();
 
     let result: Result<()> = provider.validate().await;
     assert!(result.is_err());
@@ -189,13 +169,8 @@ async fn test_openai_validate_success() {
         extra: HashMap::new(),
     };
 
-    let provider = OpenAIProvider::new(
-        &provider_config,
-        "openai",
-        &test_network_config(),
-        false,
-    )
-    .unwrap();
+    let provider =
+        OpenAIProvider::new(&provider_config, "openai", &test_network_config(), false).unwrap();
 
     assert!(provider.validate().await.is_ok());
     mock.assert_async().await;
@@ -221,13 +196,8 @@ async fn test_openai_validate_401_unauthorized() {
         extra: HashMap::new(),
     };
 
-    let provider = OpenAIProvider::new(
-        &provider_config,
-        "openai",
-        &test_network_config(),
-        false,
-    )
-    .unwrap();
+    let provider =
+        OpenAIProvider::new(&provider_config, "openai", &test_network_config(), false).unwrap();
 
     let result: Result<()> = provider.validate().await;
     assert!(result.is_err());
@@ -265,13 +235,8 @@ async fn test_ollama_validate_success() {
         extra: HashMap::new(),
     };
 
-    let provider = OllamaProvider::new(
-        &provider_config,
-        "ollama",
-        &test_network_config(),
-        false,
-    )
-    .unwrap();
+    let provider =
+        OllamaProvider::new(&provider_config, "ollama", &test_network_config(), false).unwrap();
 
     assert!(provider.validate().await.is_ok());
     mock.assert_async().await;
@@ -298,13 +263,8 @@ async fn test_ollama_validate_model_not_found() {
         extra: HashMap::new(),
     };
 
-    let provider = OllamaProvider::new(
-        &provider_config,
-        "ollama",
-        &test_network_config(),
-        false,
-    )
-    .unwrap();
+    let provider =
+        OllamaProvider::new(&provider_config, "ollama", &test_network_config(), false).unwrap();
 
     let result: Result<()> = provider.validate().await;
     assert!(result.is_err());
@@ -332,13 +292,8 @@ async fn test_ollama_validate_connection_error() {
         extra: HashMap::new(),
     };
 
-    let provider = OllamaProvider::new(
-        &provider_config,
-        "ollama",
-        &test_network_config(),
-        false,
-    )
-    .unwrap();
+    let provider =
+        OllamaProvider::new(&provider_config, "ollama", &test_network_config(), false).unwrap();
 
     let result: Result<()> = provider.validate().await;
     assert!(result.is_err());

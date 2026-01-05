@@ -49,14 +49,7 @@ fn create_commit(
 
     let parent_commits: Vec<&git2::Commit> = parents.iter().copied().collect();
 
-    let oid = repo.commit(
-        Some("HEAD"),
-        &sig,
-        &sig,
-        message,
-        &tree,
-        &parent_commits,
-    )?;
+    let oid = repo.commit(Some("HEAD"), &sig, &sig, message, &tree, &parent_commits)?;
 
     Ok(oid)
 }

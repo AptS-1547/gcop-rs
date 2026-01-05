@@ -170,9 +170,10 @@ impl LLMProvider for OllamaProvider {
             name: String,
         }
 
-        let tags: TagsResponse = response.json().await.map_err(|e| {
-            GcopError::Llm(format!("Failed to parse Ollama tags response: {}", e))
-        })?;
+        let tags: TagsResponse = response
+            .json()
+            .await
+            .map_err(|e| GcopError::Llm(format!("Failed to parse Ollama tags response: {}", e)))?;
 
         if !tags.models.iter().any(|m| m.name.starts_with(&self.model)) {
             return Err(GcopError::Config(format!(

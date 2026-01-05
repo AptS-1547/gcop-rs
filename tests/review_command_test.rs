@@ -111,14 +111,9 @@ async fn test_review_target_uncommitted_changes() {
     let config = AppConfig::default();
     let target = ReviewTarget::Changes;
 
-    let result = gcop_rs::commands::review::run_internal(
-        &config,
-        &target,
-        "text",
-        &mock_git,
-        &mock_llm,
-    )
-    .await;
+    let result =
+        gcop_rs::commands::review::run_internal(&config, &target, "text", &mock_git, &mock_llm)
+            .await;
 
     assert!(result.is_ok());
 }
@@ -139,14 +134,9 @@ async fn test_review_target_single_commit() {
         hash: "abc123".to_string(),
     };
 
-    let result = gcop_rs::commands::review::run_internal(
-        &config,
-        &target,
-        "text",
-        &mock_git,
-        &mock_llm,
-    )
-    .await;
+    let result =
+        gcop_rs::commands::review::run_internal(&config, &target, "text", &mock_git, &mock_llm)
+            .await;
 
     assert!(result.is_ok());
 }
@@ -167,14 +157,9 @@ async fn test_review_target_range() {
         range: "main..feature".to_string(),
     };
 
-    let result = gcop_rs::commands::review::run_internal(
-        &config,
-        &target,
-        "text",
-        &mock_git,
-        &mock_llm,
-    )
-    .await;
+    let result =
+        gcop_rs::commands::review::run_internal(&config, &target, "text", &mock_git, &mock_llm)
+            .await;
 
     assert!(result.is_ok());
 }
@@ -195,14 +180,9 @@ async fn test_review_target_file() {
         path: "src/main.rs".to_string(),
     };
 
-    let result = gcop_rs::commands::review::run_internal(
-        &config,
-        &target,
-        "text",
-        &mock_git,
-        &mock_llm,
-    )
-    .await;
+    let result =
+        gcop_rs::commands::review::run_internal(&config, &target, "text", &mock_git, &mock_llm)
+            .await;
 
     assert!(result.is_ok());
 }
@@ -222,14 +202,9 @@ async fn test_review_empty_uncommitted_changes_error() {
     let config = AppConfig::default();
     let target = ReviewTarget::Changes;
 
-    let result = gcop_rs::commands::review::run_internal(
-        &config,
-        &target,
-        "text",
-        &mock_git,
-        &mock_llm,
-    )
-    .await;
+    let result =
+        gcop_rs::commands::review::run_internal(&config, &target, "text", &mock_git, &mock_llm)
+            .await;
 
     assert!(result.is_err());
     match result.unwrap_err() {
@@ -253,14 +228,9 @@ async fn test_review_llm_failure() {
     let config = AppConfig::default();
     let target = ReviewTarget::Changes;
 
-    let result = gcop_rs::commands::review::run_internal(
-        &config,
-        &target,
-        "text",
-        &mock_git,
-        &mock_llm,
-    )
-    .await;
+    let result =
+        gcop_rs::commands::review::run_internal(&config, &target, "text", &mock_git, &mock_llm)
+            .await;
 
     assert!(result.is_err());
     match result.unwrap_err() {
