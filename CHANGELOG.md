@@ -131,7 +131,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Homebrew tap support**: Install via `brew tap AptS-1547/gcop-rs && brew install gcop-rs`
+- **Homebrew tap support**: Install via `brew tap AptS-1547/tap && brew install gcop-rs`
   - Supports macOS (Intel/Apple Silicon) and Linux (x86_64/ARM64)
   - Auto-updated on each release via GitHub Actions
 - **cargo-binstall support**: Install pre-compiled binaries via `cargo binstall gcop-rs`

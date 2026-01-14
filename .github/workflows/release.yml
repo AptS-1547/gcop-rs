@@ -235,7 +235,7 @@ jobs:
             try {
               const { data } = await github.rest.repos.getContent({
                 owner: 'AptS-1547',
-                repo: 'homebrew-gcop-rs',
+                repo: 'homebrew-tap',
                 path: 'Formula/gcop-rs.rb'
               });
               fileSha = data.sha;

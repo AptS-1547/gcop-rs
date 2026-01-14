@@ -36,7 +36,7 @@ For native installation without Python:
 
 ```bash
 # Homebrew (macOS/Linux)
-brew tap AptS-1547/gcop-rs
+brew tap AptS-1547/tap
 brew install gcop-rs
 
 # cargo-binstall

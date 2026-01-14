@@ -11,7 +11,7 @@
 ### Homebrew (macOS/Linux)
 
 ```bash
-brew tap AptS-1547/gcop-rs
+brew tap AptS-1547/tap
 brew install gcop-rs
 ```
 
@@ -193,7 +193,7 @@ Copy-Item target\release\gcop-rs.exe C:\Windows\System32\gcop-rs.exe
 
 ```bash
 brew uninstall gcop-rs
-brew untap AptS-1547/gcop-rs  # 可选，移除 tap
+brew untap AptS-1547/tap  # 可选，移除 tap
 ```
 
 **如果通过 pipx 安装：**
