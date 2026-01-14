@@ -46,6 +46,7 @@ export default defineConfig({
         nav: [
           { text: '指南', link: '/zh/guide/installation' },
           { text: '发布说明', link: releaseNotesZh[0]?.link || '/zh/release-notes/' },
+          { text: '关于', link: '/zh/guide/about' },
         ],
         sidebar: {
           '/zh/guide/': [
@@ -54,6 +55,7 @@ export default defineConfig({
               items: [
                 { text: '安装', link: '/zh/guide/installation' },
                 { text: '命令', link: '/zh/guide/commands' },
+                { text: '关于', link: '/zh/guide/about' },
               ],
             },
             {
@@ -87,6 +89,7 @@ export default defineConfig({
     nav: [
       { text: 'Guide', link: '/guide/installation' },
       { text: 'Release Notes', link: releaseNotes[0]?.link || '/release-notes/' },
+      { text: 'About', link: '/guide/about' },
     ],
 
     sidebar: {
@@ -96,6 +99,7 @@ export default defineConfig({
           items: [
             { text: 'Installation', link: '/guide/installation' },
             { text: 'Commands', link: '/guide/commands' },
+            { text: 'About', link: '/guide/about' },
           ],
         },
         {

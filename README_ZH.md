@@ -7,7 +7,7 @@
 
 AI 驱动的 Git 提交信息生成器和代码审查工具，使用 Rust 编写。
 
-> **说明**: 这是对原 [gcop](https://github.com/Undertone0809/gcop) 项目（Python 版本）的 Rust 重写。由于原项目不再积极维护，本项目旨在提供更好的性能、可靠性和可维护性。
+> **说明**: 本项目是受 [gcop](https://github.com/Undertone0809/gcop) 启发的 Rust 重写版本，原 Python 版本由 [Undertone0809](https://github.com/Undertone0809) 创作。Rust 版本旨在基于原项目的理念，提供更好的性能和可靠性。
 
 **[English](README.md)** | **[文档](docs/zh/guide/)**
 
@@ -30,7 +30,7 @@ AI 驱动的 Git 提交信息生成器和代码审查工具，使用 Rust 编写
 
 ```bash
 # Homebrew (macOS/Linux)
-brew tap AptS-1547/gcop-rs
+brew tap AptS-1547/tap
 brew install gcop-rs
 
 # pipx (Python 用户)
@@ -372,9 +372,23 @@ gcop-rs -v commit  # 显示 API 请求、响应和 prompts
 
 MIT License - 详见 LICENSE 文件。
 
-## 作者
+## 贡献者
 
-AptS:1547 (Yuhan Bian / 卞雨涵) <apts-1547@esaps.net>
+### 原作者
+
+**[Undertone0809](https://github.com/Undertone0809)** - [gcop](https://github.com/Undertone0809/gcop)（Python 版本）的创建者
+
+### Rust 重写
+
+**AptS:1547**（卞雨涵 / Yuhan Bian）<apts-1547@esaps.net>
+
+## 致谢
+
+本项目离不开 [Undertone0809](https://github.com/Undertone0809) 创作的原版 [gcop](https://github.com/Undertone0809/gcop)。使用 AI 生成有意义的 commit message 这一核心理念源自于该项目。
+
+特别感谢：
+- **Undertone0809** 创建 gcop 并开创了 AI 驱动的 commit message 工作流
+- gcop 社区证明了这个工具的价值
 
 ---
 

@@ -7,7 +7,7 @@
 
 AI-powered Git commit message generator and code reviewer, written in Rust.
 
-> **Note**: This is a Rust rewrite of the original [gcop](https://github.com/Undertone0809/gcop) project (Python). Since the original project is no longer actively maintained, this version was created to provide better performance, reliability, and maintainability.
+> **Note**: This project is a Rust rewrite inspired by [gcop](https://github.com/Undertone0809/gcop), the original Python implementation by [Undertone0809](https://github.com/Undertone0809). The Rust version aims to build upon that foundation with improved performance and reliability.
 
 **[中文文档](README_ZH.md)** | **[Documentation](docs/guide/)**
 
@@ -35,7 +35,7 @@ AI-powered Git commit message generator and code reviewer, written in Rust.
 
 ```bash
 # Homebrew (macOS/Linux)
-brew tap AptS-1547/gcop-rs
+brew tap AptS-1547/tap
 brew install gcop-rs
 
 # pipx (Python users)
@@ -377,9 +377,23 @@ gcop-rs -v commit  # Shows API requests, responses, and prompts
 
 MIT License - see LICENSE file for details.
 
-## Author
+## Credits
 
-AptS:1547 (Yuhan Bian / 卞雨涵) <apts-1547@esaps.net>
+### Original Author
+
+**[Undertone0809](https://github.com/Undertone0809)** - Creator of [gcop](https://github.com/Undertone0809/gcop) (Python)
+
+### Rust Rewrite
+
+**AptS:1547** (Yuhan Bian / 卞雨涵) <apts-1547@esaps.net>
+
+## Acknowledgments
+
+This project would not exist without the original [gcop](https://github.com/Undertone0809/gcop) by [Undertone0809](https://github.com/Undertone0809). The core concept of using AI to generate meaningful commit messages originated from that project.
+
+Special thanks to:
+- **Undertone0809** for creating gcop and pioneering the AI-powered commit message workflow
+- The gcop community for proving the value of this tool
 
 ---
 
