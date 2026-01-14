@@ -44,4 +44,4 @@ gcop-rs is released under the MIT License, same as the original gcop project.
 
 - **gcop-rs Repository**: [github.com/AptS-1547/gcop-rs](https://github.com/AptS-1547/gcop-rs)
 - **Original gcop**: [github.com/Undertone0809/gcop](https://github.com/Undertone0809/gcop)
-- **Documentation**: [gcop-rs.esaps.net](https://gcop-rs.esaps.net)
+- **Documentation**: [gcop.docs.esap.cc](https://gcop.docs.esap.cc)

@@ -44,4 +44,4 @@ gcop-rs 采用 MIT 许可证发布，与原 gcop 项目相同。
 
 - **gcop-rs 仓库**：[github.com/AptS-1547/gcop-rs](https://github.com/AptS-1547/gcop-rs)
 - **原版 gcop**：[github.com/Undertone0809/gcop](https://github.com/Undertone0809/gcop)
-- **文档网站**：[gcop-rs.esaps.net](https://gcop-rs.esaps.net)
+- **文档网站**：[gcop.docs.esap.cc](https://gcop.docs.esap.cc)
