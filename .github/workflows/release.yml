@@ -247,7 +247,7 @@ jobs:
             // Create or update the formula file
             await github.rest.repos.createOrUpdateFileContents({
               owner: 'AptS-1547',
-              repo: 'homebrew-gcop-rs',
+              repo: 'homebrew-tap',
               path: 'Formula/gcop-rs.rb',
               message: `chore: bump gcop-rs to v${version}`,
               content: Buffer.from(formula).toString('base64'),
