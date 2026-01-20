@@ -47,7 +47,7 @@ fn create_commit(
     let tree = repo.find_tree(tree_id)?;
     let sig = git2::Signature::now("Test User", "test@example.com")?;
 
-    let parent_commits: Vec<&git2::Commit> = parents.iter().copied().collect();
+    let parent_commits: Vec<&git2::Commit> = parents.to_vec();
 
     let oid = repo.commit(Some("HEAD"), &sig, &sig, message, &tree, &parent_commits)?;
 
