@@ -83,7 +83,7 @@ $ gcop-rs init
 
 **语法**:
 ```bash
-gcop-rs commit [OPTIONS]
+gcop-rs commit [OPTIONS] [FEEDBACK...]
 ```
 
 **说明**:
@@ -94,10 +94,26 @@ gcop-rs commit [OPTIONS]
 
 | 选项 | 说明 |
 |------|------|
+| `--format <FORMAT>`, `-f` | 输出格式: `text`（默认）或 `json`（json 模式不会创建提交） |
+| `--json` | `--format json` 的快捷方式 |
 | `--no-edit`, `-n` | 跳过打开编辑器手动编辑 |
 | `--yes`, `-y` | 跳过确认菜单并接受生成的信息 |
 | `--dry-run`, `-d` | 仅生成并输出提交信息，不实际提交 |
 | `--provider <NAME>`, `-p` | 使用特定的 provider（覆盖默认值） |
+
+**反馈（可选）**:
+
+你可以在选项后面追加一段自由文本，作为提交信息生成的额外指令。
+
+```bash
+# 推荐：使用引号
+gcop-rs commit "用中文并保持简洁"
+
+# 或不加引号（会被合并为一条指令）
+gcop-rs commit 用中文 并 保持 简洁
+```
+
+> **注意**：在 JSON 模式（`--json` / `--format json`）下，gcop-rs 会以非交互方式运行，且**不会创建提交**（只输出 JSON）。
 
 **交互式操作**:
 
@@ -125,6 +141,9 @@ gcop-rs commit --provider openai
 
 # 详细模式（查看 API 调用）
 gcop-rs -v commit
+
+# JSON 输出用于自动化（不会创建提交）
+gcop-rs commit --json > commit.json
 ```
 
 **工作流**:
@@ -159,7 +178,26 @@ feat(auth): 实现 JWT 令牌验证
 **提示**:
 - 运行前只暂存你想包含在此提交中的变更
 - 在 CI/CD 流水线中使用 `--yes` 跳过交互式提示
+- 使用 `--json` / `--format json` 生成提交信息用于脚本集成（不创建提交）
 - 如果信息没有捕捉到你的意图，尝试"带反馈重试"
+
+**输出格式 (json)**:
+
+```json
+{
+  "success": true,
+  "data": {
+    "message": "feat(auth): 实现 JWT 令牌验证",
+    "diff_stats": {
+      "files_changed": ["src/auth.rs", "src/middleware.rs"],
+      "insertions": 45,
+      "deletions": 12,
+      "total_changes": 57
+    },
+    "committed": false
+  }
+}
+```
 
 ---
 
@@ -179,13 +217,14 @@ gcop-rs review [OPTIONS] <COMMAND>
 | 变更 | `gcop-rs review changes` | 审查工作区未暂存变更（类似 `git diff`） |
 | 提交 | `gcop-rs review commit <HASH>` | 审查特定提交 |
 | 范围 | `gcop-rs review range <RANGE>` | 审查提交范围（如 `HEAD~3..HEAD`） |
-| 文件 | `gcop-rs review file <PATH>` | 审查文件或目录 |
+| 文件 | `gcop-rs review file <PATH>` | 审查单个文件 |
 
 **选项**:
 
 | 选项 | 说明 |
 |------|------|
 | `--format <FORMAT>`, `-f` | 输出格式: `text`（默认）、`json` 或 `markdown` |
+| `--json` | `--format json` 的快捷方式 |
 | `--provider <NAME>`, `-p` | 使用特定的 provider |
 
 **示例**:
@@ -201,9 +240,8 @@ gcop-rs review commit abc123
 # 审查最近 3 次提交
 gcop-rs review range HEAD~3..HEAD
 
-# 审查文件或目录
+# 审查单个文件
 gcop-rs review file src/auth.rs
-gcop-rs review file src/
 
 # 输出为 JSON 用于自动化
 gcop-rs review changes --format json > review.json
@@ -213,6 +251,8 @@ gcop-rs review changes --format markdown > REVIEW.md
 ```
 
 > **注意**：当前 `review changes` 只会审查未暂存的变更（类似 `git diff`），不会包含已暂存的变更。
+>
+> **注意**：`review file <PATH>` 当前仅支持文件（不支持目录）。
 
 **输出格式 (text)**:
 
@@ -299,8 +339,8 @@ gcop-rs config validate
 **检查**:
 - 加载并解析配置（默认值 + 配置文件 + `GCOP_*` 环境变量覆盖）
 - 列出已配置的 providers
-- 通过一次最小化的测试请求验证默认 provider
-- 如果配置了 `fallback_providers`，可能也会尝试备用 providers
+- 通过最小化测试请求验证 provider 连接（默认 provider + 配置的 `fallback_providers`）
+- 只要至少有一个配置的 provider 验证成功就会返回成功
 
 **示例输出**:
 ```
@@ -426,6 +466,7 @@ gcop-rs stats [OPTIONS]
 | 选项 | 说明 |
 |------|------|
 | `--format <FORMAT>`, `-f` | 输出格式: `text`（默认）、`json` 或 `markdown` |
+| `--json` | `--format json` 的快捷方式 |
 | `--author <NAME>` | 按作者名称或邮箱过滤统计 |
 
 **示例**:
@@ -436,6 +477,7 @@ gcop-rs stats
 
 # 输出为 JSON 用于自动化
 gcop-rs stats --format json
+gcop-rs stats --json
 
 # 输出为 Markdown 用于文档
 gcop-rs stats --format markdown > STATS.md
@@ -472,19 +514,22 @@ gcop-rs stats --author "john@example.com"
 
 ```json
 {
-  "total_commits": 156,
-  "total_authors": 3,
-  "first_commit_date": "2024-06-15T10:30:00+08:00",
-  "last_commit_date": "2025-12-23T15:43:34+08:00",
-  "authors": [
-    {"name": "AptS-1547", "email": "esaps@esaps.net", "commits": 142},
-    {"name": "bot", "email": "noreply@github.com", "commits": 8}
-  ],
-  "commits_by_week": {
-    "2025-W49": 16,
-    "2025-W50": 6,
-    "2025-W51": 20,
-    "2025-W52": 12
+  "success": true,
+  "data": {
+    "total_commits": 156,
+    "total_authors": 3,
+    "first_commit_date": "2024-06-15T10:30:00+08:00",
+    "last_commit_date": "2025-12-23T15:43:34+08:00",
+    "authors": [
+      {"name": "AptS-1547", "email": "esaps@esaps.net", "commits": 142},
+      {"name": "bot", "email": "noreply@github.com", "commits": 8}
+    ],
+    "commits_by_week": {
+      "2025-W49": 16,
+      "2025-W50": 6,
+      "2025-W51": 20,
+      "2025-W52": 12
+    }
   }
 }
 ```

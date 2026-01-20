@@ -5,6 +5,40 @@ All notable changes to gcop-rs will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2025-01-21
+
+### Added
+
+- **JSON Output Format Support** (#9): All commands now support structured JSON output
+  - New `--format json` option and `--json` shorthand for `commit`, `review`, and `stats` commands
+  - Unified JSON structure with `success`, `data`, and `error` fields
+  - JSON mode automatically disables colored output and UI progress indicators
+  - `commit` command in JSON mode implicitly enables dry-run, directly outputting the generated message
+  - New `json` module providing error code mapping and unified error output format
+  - Errors in JSON mode are output in structured format for easy parsing
+
+- **Commit Feedback Parameter** (#13): Pass initial feedback via command line
+  - New optional `--feedback` parameter for `commit` command
+  - Allows users to provide initial instructions/feedback without interactive prompts
+  - Useful for scripting and automation workflows
+  - Example: `gcop-rs commit --feedback "use conventional commits format"`
+
+- **Git Error Suggestions** (#14): Enhanced error messages with actionable suggestions
+  - New `GitErrorWrapper` type wrapping `git2::Error` with user-friendly display
+  - Detailed suggestions for various Git error codes including:
+    - Repository state issues (dirty worktree, unborn branch)
+    - Merge conflicts and rebase in progress
+    - Authentication and permission errors
+    - Network and remote operation failures
+
+### Changed
+
+- Updated Homebrew tap repository name from `homebrew-gcop-rs` to `homebrew-tap`
+
+### Dependencies
+
+- Updated tokio, bytes, serial_test and other dependencies
+
 ## [0.6.1] - 2025-01-21
 
 ### Added
@@ -394,6 +428,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Edit action properly returns to menu without triggering regeneration
 - Commit message display no longer duplicates after editing
 
+[0.7.0]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.7.0
 [0.6.1]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.6.1
 [0.6.0]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.6.0
 [0.5.1]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.5.1

@@ -103,6 +103,14 @@ async fn run_with_deps(
     // JSON 模式禁用彩色输出
     let colored = if is_json { false } else { config.ui.colored };
 
+    // 将命令行参数合并为一条反馈（便于不加引号时使用）
+    // e.g. `gcop-rs commit use Chinese` -> "use Chinese"
+    let initial_feedbacks = if feedback.is_empty() {
+        vec![]
+    } else {
+        vec![feedback.join(" ")]
+    };
+
     // 2. 检查 staged changes
     if !repo.has_staged_changes()? {
         if is_json {
@@ -144,7 +152,7 @@ async fn run_with_deps(
             &diff,
             &stats,
             config,
-            &feedback,
+            &initial_feedbacks,
             cli.verbose,
         )
         .await;
@@ -163,8 +171,17 @@ async fn run_with_deps(
 
     // dry_run 模式：只生成并输出 commit message
     if dry_run {
-        let (message, already_displayed) =
-            generate_message(provider, repo, &diff, &stats, config, &[], 0, cli.verbose).await?;
+        let (message, already_displayed) = generate_message(
+            provider,
+            repo,
+            &diff,
+            &stats,
+            config,
+            &initial_feedbacks,
+            0,
+            cli.verbose,
+        )
+        .await?;
         if !already_displayed {
             display_message(&message, 0, config.ui.colored);
         }
@@ -174,13 +191,6 @@ async fn run_with_deps(
     // 5. 状态机主循环
     let should_edit = config.commit.allow_edit && !no_edit;
     let max_retries = config.commit.max_retries;
-
-    // 初始化 feedback：将命令行参数合并为单个 feedback
-    let initial_feedbacks = if feedback.is_empty() {
-        vec![]
-    } else {
-        vec![feedback.join(" ")]
-    };
 
     let mut state = CommitState::Generating {
         attempt: 0,

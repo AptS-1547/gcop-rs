@@ -83,7 +83,7 @@ Generate AI-powered commit message and create a commit.
 
 **Synopsis**:
 ```bash
-gcop-rs commit [OPTIONS]
+gcop-rs commit [OPTIONS] [FEEDBACK...]
 ```
 
 **Description**:
@@ -94,10 +94,26 @@ Analyzes your staged changes, generates a conventional commit message using AI, 
 
 | Option | Description |
 |--------|-------------|
+| `--format <FORMAT>`, `-f` | Output format: `text` (default) or `json` (json implies no commit) |
+| `--json` | Shortcut for `--format json` |
 | `--no-edit`, `-n` | Skip opening editor for manual editing |
 | `--yes`, `-y` | Skip confirmation menu and accept generated message |
 | `--dry-run`, `-d` | Only generate and print commit message, do not commit |
 | `--provider <NAME>`, `-p` | Use specific provider (overrides default) |
+
+**Feedback (optional)**:
+
+You can append free-form text after the options to guide commit message generation.
+
+```bash
+# With quotes (recommended)
+gcop-rs commit "use Chinese and be concise"
+
+# Or without quotes (will be treated as one combined instruction)
+gcop-rs commit use Chinese and be concise
+```
+
+> **Note**: In JSON mode (`--json` / `--format json`), gcop-rs runs non-interactively and **does not create a commit** (it only prints JSON output).
 
 **Interactive Actions**:
 
@@ -125,6 +141,9 @@ gcop-rs commit --provider openai
 
 # Verbose mode (see API calls)
 gcop-rs -v commit
+
+# JSON output for automation (does not create commit)
+gcop-rs commit --json > commit.json
 ```
 
 **Workflow**:
@@ -159,7 +178,26 @@ Choose next action:
 **Tips**:
 - Stage only the changes you want in this commit before running
 - Use `--yes` in CI/CD pipelines to skip interactive prompts
+- Use `--json` / `--format json` to generate a message for automation (no commit)
 - Try "Retry with feedback" if the message doesn't capture your intent
+
+**Output Format (json)**:
+
+```json
+{
+  "success": true,
+  "data": {
+    "message": "feat(auth): implement JWT token validation",
+    "diff_stats": {
+      "files_changed": ["src/auth.rs", "src/middleware.rs"],
+      "insertions": 45,
+      "deletions": 12,
+      "total_changes": 57
+    },
+    "committed": false
+  }
+}
+```
 
 ---
 
@@ -179,13 +217,14 @@ gcop-rs review [OPTIONS] <COMMAND>
 | Changes | `gcop-rs review changes` | Review working tree changes (similar to `git diff`) |
 | Commit | `gcop-rs review commit <HASH>` | Review a specific commit |
 | Range | `gcop-rs review range <RANGE>` | Review commit range (e.g., `HEAD~3..HEAD`) |
-| File | `gcop-rs review file <PATH>` | Review a file or directory |
+| File | `gcop-rs review file <PATH>` | Review a single file |
 
 **Options**:
 
 | Option | Description |
 |--------|-------------|
 | `--format <FORMAT>`, `-f` | Output format: `text` (default), `json`, or `markdown` |
+| `--json` | Shortcut for `--format json` |
 | `--provider <NAME>`, `-p` | Use specific provider |
 
 **Examples**:
@@ -201,9 +240,8 @@ gcop-rs review commit abc123
 # Review last 3 commits
 gcop-rs review range HEAD~3..HEAD
 
-# Review file or directory
+# Review a file
 gcop-rs review file src/auth.rs
-gcop-rs review file src/
 
 # Output as JSON for automation
 gcop-rs review changes --format json > review.json
@@ -213,6 +251,8 @@ gcop-rs review changes --format markdown > REVIEW.md
 ```
 
 > **Note**: `review changes` currently reviews unstaged changes only (index → working tree). Staged changes are not included.
+>
+> **Note**: `review file <PATH>` currently supports files only (directories are not supported).
 
 **Output Format (text)**:
 
@@ -299,8 +339,8 @@ gcop-rs config validate
 **Checks**:
 - Loads and parses configuration (defaults + config file + `GCOP_*` env overrides)
 - Lists configured providers
-- Validates the default provider by sending a minimal test request
-- If `fallback_providers` is configured, validation may attempt those providers as well
+- Validates provider connections by sending minimal test requests (default provider + configured `fallback_providers`)
+- Succeeds if at least one configured provider validates
 
 **Example output**:
 ```
@@ -426,6 +466,7 @@ Analyzes commit history and displays statistics including total commits, contrib
 | Option | Description |
 |--------|-------------|
 | `--format <FORMAT>`, `-f` | Output format: `text` (default), `json`, or `markdown` |
+| `--json` | Shortcut for `--format json` |
 | `--author <NAME>` | Filter statistics by author name or email |
 
 **Examples**:
@@ -436,6 +477,7 @@ gcop-rs stats
 
 # Output as JSON for automation
 gcop-rs stats --format json
+gcop-rs stats --json
 
 # Output as Markdown for documentation
 gcop-rs stats --format markdown > STATS.md
@@ -472,19 +514,22 @@ gcop-rs stats --author "john@example.com"
 
 ```json
 {
-  "total_commits": 156,
-  "total_authors": 3,
-  "first_commit_date": "2024-06-15T10:30:00+08:00",
-  "last_commit_date": "2025-12-23T15:43:34+08:00",
-  "authors": [
-    {"name": "AptS-1547", "email": "esaps@esaps.net", "commits": 142},
-    {"name": "bot", "email": "noreply@github.com", "commits": 8}
-  ],
-  "commits_by_week": {
-    "2025-W49": 16,
-    "2025-W50": 6,
-    "2025-W51": 20,
-    "2025-W52": 12
+  "success": true,
+  "data": {
+    "total_commits": 156,
+    "total_authors": 3,
+    "first_commit_date": "2024-06-15T10:30:00+08:00",
+    "last_commit_date": "2025-12-23T15:43:34+08:00",
+    "authors": [
+      {"name": "AptS-1547", "email": "esaps@esaps.net", "commits": 142},
+      {"name": "bot", "email": "noreply@github.com", "commits": 8}
+    ],
+    "commits_by_week": {
+      "2025-W49": 16,
+      "2025-W50": 6,
+      "2025-W51": 20,
+      "2025-W52": 12
+    }
   }
 }
 ```
