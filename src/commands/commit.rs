@@ -80,7 +80,7 @@ async fn run_with_deps(
     // dry_run 模式：只生成并输出 commit message
     if dry_run {
         let (message, already_displayed) =
-            generate_message(provider, repo, &diff, &stats, config, &[], 0).await?;
+            generate_message(provider, repo, &diff, &stats, config, &[], 0, cli.verbose).await?;
         if !already_displayed {
             display_message(&message, 0, config.ui.colored);
         }
@@ -116,7 +116,7 @@ async fn run_with_deps(
 
                 // 生成 message
                 let (message, already_displayed) =
-                    generate_message(provider, repo, &diff, &stats, config, &feedbacks, attempt)
+                    generate_message(provider, repo, &diff, &stats, config, &feedbacks, attempt, cli.verbose)
                         .await?;
 
                 // 使用状态机方法处理生成结果
@@ -220,6 +220,7 @@ async fn generate_message(
     config: &AppConfig,
     feedbacks: &[String],
     attempt: usize,
+    verbose: bool,
 ) -> Result<(String, bool)> {
     let context = CommitContext {
         files_changed: stats.files_changed.clone(),
@@ -229,6 +230,21 @@ async fn generate_message(
         custom_prompt: config.commit.custom_prompt.clone(),
         user_feedback: feedbacks.to_vec(),
     };
+
+    // verbose 模式下显示 prompt
+    if verbose {
+        let (system, user) = crate::llm::prompt::build_commit_prompt_split(
+            diff,
+            &context,
+            context.custom_prompt.as_deref(),
+        );
+        println!("\n{}", "=== Verbose: Generated Prompt ===".cyan().bold());
+        println!("{}", "--- System Prompt ---".cyan());
+        println!("{}", system);
+        println!("{}", "--- User Message ---".cyan());
+        println!("{}", user);
+        println!("{}\n", "=================================".cyan().bold());
+    }
 
     // 判断是否使用流式模式
     let use_streaming = config.ui.streaming && provider.supports_streaming();
