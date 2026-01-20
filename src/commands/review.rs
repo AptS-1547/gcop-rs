@@ -1,9 +1,22 @@
+use serde::Serialize;
+
 use crate::cli::{Cli, ReviewTarget};
+use crate::commands::json::ErrorJson;
 use crate::config::AppConfig;
 use crate::error::{GcopError, Result};
 use crate::git::{GitOperations, repository::GitRepository};
 use crate::llm::{IssueSeverity, LLMProvider, ReviewResult, ReviewType, provider::create_provider};
 use crate::ui;
+
+/// JSON 输出格式（统一结构）
+#[derive(Debug, Serialize)]
+pub struct ReviewJsonOutput {
+    pub success: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub data: Option<ReviewResult>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<ErrorJson>,
+}
 
 /// 执行 review 命令（公开接口）
 pub async fn run(cli: &Cli, config: &AppConfig, target: &ReviewTarget, format: &str) -> Result<()> {
@@ -21,15 +34,20 @@ pub async fn run_internal(
     git: &dyn GitOperations,
     llm: &dyn LLMProvider,
 ) -> Result<()> {
-    let colored = config.ui.colored;
+    let is_json = format == "json";
+    let colored = if is_json { false } else { config.ui.colored };
 
     // 根据目标类型路由
     let (diff, description) = match target {
         ReviewTarget::Changes => {
-            ui::step("1/3", "Analyzing uncommitted changes...", colored);
+            if !is_json {
+                ui::step("1/3", "Analyzing uncommitted changes...", colored);
+            }
             let diff = git.get_uncommitted_diff()?;
             if diff.trim().is_empty() {
-                ui::error("No uncommitted changes found.", colored);
+                if !is_json {
+                    ui::error("No uncommitted changes found.", colored);
+                }
                 return Err(GcopError::InvalidInput(
                     "No uncommitted changes to review".to_string(),
                 ));
@@ -37,17 +55,23 @@ pub async fn run_internal(
             (diff, "Uncommitted changes".to_string())
         }
         ReviewTarget::Commit { hash } => {
-            ui::step("1/3", &format!("Analyzing commit {}...", hash), colored);
+            if !is_json {
+                ui::step("1/3", &format!("Analyzing commit {}...", hash), colored);
+            }
             let diff = git.get_commit_diff(hash)?;
             (diff, format!("Commit {}", hash))
         }
         ReviewTarget::Range { range } => {
-            ui::step("1/3", &format!("Analyzing range {}...", range), colored);
+            if !is_json {
+                ui::step("1/3", &format!("Analyzing range {}...", range), colored);
+            }
             let diff = git.get_range_diff(range)?;
             (diff, format!("Commit range {}", range))
         }
         ReviewTarget::File { path } => {
-            ui::step("1/3", &format!("Analyzing file {}...", path), colored);
+            if !is_json {
+                ui::step("1/3", &format!("Analyzing file {}...", path), colored);
+            }
             let content = git.get_file_content(path)?;
             // 文件审查需要特殊处理，将内容包装成 diff 格式
             let diff = format!("--- {}\n+++ {}\n{}", path, path, content);
@@ -56,8 +80,6 @@ pub async fn run_internal(
     };
 
     // 调用 LLM 进行审查
-    let spinner = ui::Spinner::new("Reviewing code with AI...", colored);
-
     let review_type = match target {
         ReviewTarget::Changes => ReviewType::UncommittedChanges,
         ReviewTarget::Commit { hash } => ReviewType::SingleCommit(hash.clone()),
@@ -65,20 +87,31 @@ pub async fn run_internal(
         ReviewTarget::File { path } => ReviewType::FileOrDir(path.clone()),
     };
 
+    // JSON 模式不显示 spinner
+    let spinner = if is_json {
+        None
+    } else {
+        Some(ui::Spinner::new("Reviewing code with AI...", colored))
+    };
+
     let result = llm
         .review_code(
             &diff,
             review_type,
             config.review.custom_prompt.as_deref(),
-            Some(&spinner),
+            spinner.as_ref(),
         )
         .await?;
 
-    spinner.finish_and_clear();
+    if let Some(s) = spinner {
+        s.finish_and_clear();
+    }
 
     // 格式化输出
-    ui::step("3/3", "Formatting results...", colored);
-    println!();
+    if !is_json {
+        ui::step("3/3", "Formatting results...", colored);
+        println!();
+    }
 
     match format {
         "json" => print_json(&result)?,
@@ -200,8 +233,23 @@ fn print_text(result: &ReviewResult, description: &str, config: &AppConfig) {
 
 /// 以 JSON 格式输出审查结果
 fn print_json(result: &ReviewResult) -> Result<()> {
-    let json = serde_json::to_string_pretty(result)?;
-    println!("{}", json);
+    let output = ReviewJsonOutput {
+        success: true,
+        data: Some(result.clone()),
+        error: None,
+    };
+    println!("{}", serde_json::to_string_pretty(&output)?);
+    Ok(())
+}
+
+/// JSON 格式错误输出
+pub fn output_json_error(err: &GcopError) -> Result<()> {
+    let output = ReviewJsonOutput {
+        success: false,
+        data: None,
+        error: Some(ErrorJson::from_error(err)),
+    };
+    println!("{}", serde_json::to_string_pretty(&output)?);
     Ok(())
 }
 

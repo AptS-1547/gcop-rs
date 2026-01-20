@@ -3,9 +3,20 @@ use std::collections::{BTreeMap, HashMap};
 use chrono::{DateTime, Datelike, Duration, IsoWeek, Local};
 use serde::Serialize;
 
-use crate::error::Result;
+use crate::commands::json::ErrorJson;
+use crate::error::{GcopError, Result};
 use crate::git::{CommitInfo, GitOperations, repository::GitRepository};
 use crate::ui;
+
+/// JSON 输出格式（统一结构）
+#[derive(Debug, Serialize)]
+pub struct StatsJsonOutput {
+    pub success: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub data: Option<RepoStats>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<ErrorJson>,
+}
 
 /// 作者统计
 #[derive(Debug, Clone, Serialize)]
@@ -125,16 +136,23 @@ fn render_bar(count: usize, max_count: usize, max_width: usize) -> String {
 /// 运行 stats 命令
 pub fn run(format: &str, author: Option<&str>, colored: bool) -> Result<()> {
     let repo = GitRepository::open(None)?;
+    let is_json = format == "json";
 
-    ui::step("1/2", "Analyzing commit history...", colored);
+    if !is_json {
+        ui::step("1/2", "Analyzing commit history...", colored);
+    }
     let commits = repo.get_commit_history()?;
 
     if commits.is_empty() {
-        ui::warning("No commits found in this repository.", colored);
+        if !is_json {
+            ui::warning("No commits found in this repository.", colored);
+        }
         return Ok(());
     }
 
-    ui::step("2/2", "Calculating statistics...", colored);
+    if !is_json {
+        ui::step("2/2", "Calculating statistics...", colored);
+    }
     let stats = RepoStats::from_commits(&commits, author);
 
     // 输出
@@ -274,7 +292,22 @@ fn output_markdown(stats: &RepoStats, _colored: bool) {
 
 /// JSON 格式输出
 fn output_json(stats: &RepoStats) -> Result<()> {
-    let json = serde_json::to_string_pretty(stats)?;
-    println!("{}", json);
+    let output = StatsJsonOutput {
+        success: true,
+        data: Some(stats.clone()),
+        error: None,
+    };
+    println!("{}", serde_json::to_string_pretty(&output)?);
+    Ok(())
+}
+
+/// JSON 格式错误输出
+pub fn output_json_error(err: &GcopError) -> Result<()> {
+    let output = StatsJsonOutput {
+        success: false,
+        data: None,
+        error: Some(ErrorJson::from_error(err)),
+    };
+    println!("{}", serde_json::to_string_pretty(&output)?);
     Ok(())
 }

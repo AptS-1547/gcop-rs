@@ -1,14 +1,53 @@
 use std::sync::Arc;
 
 use colored::Colorize;
+use serde::Serialize;
 
 use crate::cli::Cli;
 use crate::commands::commit_state_machine::{CommitState, GenerationResult, UserAction};
+use crate::commands::json::ErrorJson;
 use crate::config::AppConfig;
 use crate::error::{GcopError, Result};
 use crate::git::{DiffStats, GitOperations, repository::GitRepository};
 use crate::llm::{CommitContext, LLMProvider, provider::create_provider};
 use crate::ui;
+
+/// JSON 输出格式（统一结构）
+#[derive(Debug, Serialize)]
+pub struct CommitJsonOutput {
+    pub success: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub data: Option<CommitData>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<ErrorJson>,
+}
+
+/// Commit 命令的数据部分
+#[derive(Debug, Serialize)]
+pub struct CommitData {
+    pub message: String,
+    pub diff_stats: DiffStatsJson,
+    pub committed: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DiffStatsJson {
+    pub files_changed: Vec<String>,
+    pub insertions: usize,
+    pub deletions: usize,
+    pub total_changes: usize,
+}
+
+impl From<&DiffStats> for DiffStatsJson {
+    fn from(stats: &DiffStats) -> Self {
+        Self {
+            files_changed: stats.files_changed.clone(),
+            insertions: stats.insertions,
+            deletions: stats.deletions,
+            total_changes: stats.insertions + stats.deletions,
+        }
+    }
+}
 
 /// 执行 commit 命令
 ///
@@ -18,6 +57,7 @@ use crate::ui;
 /// * `no_edit` - 是否跳过编辑
 /// * `yes` - 是否跳过确认
 /// * `dry_run` - 是否只输出 commit message 而不提交
+/// * `format` - 输出格式 ("text" | "json")
 /// * `feedback` - 初始反馈/指令
 pub async fn run(
     cli: &Cli,
@@ -25,6 +65,7 @@ pub async fn run(
     no_edit: bool,
     yes: bool,
     dry_run: bool,
+    format: &str,
     feedback: Vec<String>,
 ) -> Result<()> {
     let repo = GitRepository::open(None)?;
@@ -36,6 +77,7 @@ pub async fn run(
         no_edit,
         yes,
         dry_run,
+        format,
         feedback,
         &repo as &dyn GitOperations,
         &provider,
@@ -52,14 +94,21 @@ async fn run_with_deps(
     no_edit: bool,
     yes: bool,
     dry_run: bool,
+    format: &str,
     feedback: Vec<String>,
     repo: &dyn GitOperations,
     provider: &Arc<dyn LLMProvider>,
 ) -> Result<()> {
-    let colored = config.ui.colored;
+    let is_json = format == "json";
+    // JSON 模式禁用彩色输出
+    let colored = if is_json { false } else { config.ui.colored };
 
     // 2. 检查 staged changes
     if !repo.has_staged_changes()? {
+        if is_json {
+            output_json_error(&GcopError::NoStagedChanges)?;
+            return Err(GcopError::NoStagedChanges);
+        }
         ui::error("No staged changes found. Use 'git add' first.", colored);
         return Err(GcopError::NoStagedChanges);
     }
@@ -67,19 +116,49 @@ async fn run_with_deps(
     // 3. 获取 diff 和统计
     let diff = repo.get_staged_diff()?;
     let stats = repo.get_diff_stats(&diff)?;
-    ui::step(
-        "1/4",
-        &format!(
-            "Analyzed {} file(s), {} change(s)",
-            stats.files_changed.len(),
-            stats.insertions + stats.deletions
-        ),
-        colored,
-    );
 
-    // 4. 显示预览（可选）
-    if config.commit.show_diff_preview {
-        println!("\n{}", ui::format_diff_stats(&stats, colored));
+    // JSON 模式跳过 UI 输出
+    if !is_json {
+        ui::step(
+            "1/4",
+            &format!(
+                "Analyzed {} file(s), {} change(s)",
+                stats.files_changed.len(),
+                stats.insertions + stats.deletions
+            ),
+            colored,
+        );
+
+        // 4. 显示预览（可选）
+        if config.commit.show_diff_preview {
+            println!("\n{}", ui::format_diff_stats(&stats, colored));
+        }
+    }
+
+    // JSON 模式：生成 message 并输出 JSON（隐式 dry_run）
+    if is_json {
+        // JSON 模式禁用流式输出
+        let result = generate_message_no_streaming(
+            provider,
+            repo,
+            &diff,
+            &stats,
+            config,
+            &feedback,
+            cli.verbose,
+        )
+        .await;
+
+        match result {
+            Ok(message) => {
+                output_json_success(&message, &stats, false)?;
+            }
+            Err(e) => {
+                output_json_error(&e)?;
+                return Err(e);
+            }
+        }
+        return Ok(());
     }
 
     // dry_run 模式：只生成并输出 commit message
@@ -345,6 +424,72 @@ fn display_edited_message(message: &str, colored: bool) {
     } else {
         println!("{}", message);
     }
+}
+
+/// 生成 commit message（非流式版本，用于 JSON 输出模式）
+async fn generate_message_no_streaming(
+    provider: &Arc<dyn LLMProvider>,
+    repo: &dyn GitOperations,
+    diff: &str,
+    stats: &DiffStats,
+    config: &AppConfig,
+    feedbacks: &[String],
+    verbose: bool,
+) -> Result<String> {
+    let context = CommitContext {
+        files_changed: stats.files_changed.clone(),
+        insertions: stats.insertions,
+        deletions: stats.deletions,
+        branch_name: repo.get_current_branch()?,
+        custom_prompt: config.commit.custom_prompt.clone(),
+        user_feedback: feedbacks.to_vec(),
+    };
+
+    // verbose 模式下显示 prompt
+    if verbose {
+        let (system, user) = crate::llm::prompt::build_commit_prompt_split(
+            diff,
+            &context,
+            context.custom_prompt.as_deref(),
+        );
+        eprintln!("\n=== Verbose: Generated Prompt ===");
+        eprintln!("--- System Prompt ---");
+        eprintln!("{}", system);
+        eprintln!("--- User Message ---");
+        eprintln!("{}", user);
+        eprintln!("=================================\n");
+    }
+
+    // 直接使用非流式 API
+    provider
+        .generate_commit_message(diff, Some(context), None)
+        .await
+}
+
+/// JSON 格式成功输出
+fn output_json_success(message: &str, stats: &DiffStats, committed: bool) -> Result<()> {
+    let output = CommitJsonOutput {
+        success: true,
+        data: Some(CommitData {
+            message: message.to_string(),
+            diff_stats: stats.into(),
+            committed,
+        }),
+        error: None,
+    };
+    println!("{}", serde_json::to_string_pretty(&output)?);
+    Ok(())
+}
+
+/// JSON 格式错误输出
+fn output_json_error(err: &GcopError) -> Result<()> {
+    let output = CommitJsonOutput {
+        success: false,
+        data: None,
+        error: Some(ErrorJson::from_error(err)),
+    };
+    println!("{}", serde_json::to_string_pretty(&output)?);
+    Ok(())
 }
 
 #[cfg(test)]

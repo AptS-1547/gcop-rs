@@ -53,13 +53,28 @@ fn main() -> Result<()> {
                 no_edit,
                 yes,
                 dry_run,
+                ref format,
+                json,
                 ref feedback,
             } => {
+                let effective_format = if json { "json" } else { format.as_str() };
+                let is_json = effective_format == "json";
                 // 执行 commit 命令
-                if let Err(e) =
-                    commands::commit::run(&cli, &config, no_edit, yes, dry_run, feedback.clone())
-                        .await
+                if let Err(e) = commands::commit::run(
+                    &cli,
+                    &config,
+                    no_edit,
+                    yes,
+                    dry_run,
+                    effective_format,
+                    feedback.clone(),
+                )
+                .await
                 {
+                    // JSON 模式下，错误已经输出过 JSON 了，直接退出
+                    if is_json {
+                        std::process::exit(1);
+                    }
                     // 错误处理
                     match e {
                         error::GcopError::UserCancelled => {
@@ -67,14 +82,7 @@ fn main() -> Result<()> {
                             std::process::exit(0);
                         }
                         error::GcopError::NoStagedChanges => {
-                            ui::error(&e.to_string(), config.ui.colored);
-                            if let Some(suggestion) = e.suggestion() {
-                                println!();
-                                println!(
-                                    "{}",
-                                    ui::info(&format!("Tip: {}", suggestion), config.ui.colored)
-                                );
-                            }
+                            // NoStagedChanges 错误已经在 commit.rs 中输出过了
                             std::process::exit(1);
                         }
                         _ => {
@@ -95,9 +103,18 @@ fn main() -> Result<()> {
             Commands::Review {
                 ref target,
                 ref format,
+                json,
             } => {
+                let effective_format = if json { "json" } else { format.as_str() };
+                let is_json = effective_format == "json";
                 // 执行 review 命令
-                if let Err(e) = commands::review::run(&cli, &config, target, format).await {
+                if let Err(e) = commands::review::run(&cli, &config, target, effective_format).await
+                {
+                    // JSON 模式下输出 JSON 错误
+                    if is_json {
+                        let _ = commands::review::output_json_error(&e);
+                        std::process::exit(1);
+                    }
                     // 错误处理
                     match e {
                         error::GcopError::UserCancelled => {
@@ -166,9 +183,19 @@ fn main() -> Result<()> {
             }
             Commands::Stats {
                 ref format,
+                json,
                 ref author,
             } => {
-                if let Err(e) = commands::stats::run(format, author.as_deref(), config.ui.colored) {
+                let effective_format = if json { "json" } else { format.as_str() };
+                let is_json = effective_format == "json";
+                if let Err(e) =
+                    commands::stats::run(effective_format, author.as_deref(), config.ui.colored)
+                {
+                    // JSON 模式下输出 JSON 错误
+                    if is_json {
+                        let _ = commands::stats::output_json_error(&e);
+                        std::process::exit(1);
+                    }
                     ui::error(&format!("Error: {}", e), config.ui.colored);
                     if let Some(suggestion) = e.suggestion() {
                         println!();

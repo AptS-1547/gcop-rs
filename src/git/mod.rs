@@ -4,6 +4,7 @@ pub mod repository;
 
 use crate::error::Result;
 use chrono::{DateTime, Local};
+use serde::Serialize;
 
 #[cfg(any(test, feature = "test-utils"))]
 use mockall::automock;
@@ -56,7 +57,7 @@ pub trait GitOperations {
 }
 
 /// Diff 统计信息
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct DiffStats {
     pub files_changed: Vec<String>,
     pub insertions: usize,

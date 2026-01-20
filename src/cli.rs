@@ -39,6 +39,14 @@ pub enum Commands {
         #[arg(short, long)]
         dry_run: bool,
 
+        /// Output format: text | json (json implies --dry-run)
+        #[arg(short, long, default_value = "text")]
+        format: String,
+
+        /// Shortcut for --format json
+        #[arg(long)]
+        json: bool,
+
         /// Feedback/instruction for commit message generation
         #[arg(trailing_var_arg = true)]
         feedback: Vec<String>,
@@ -53,6 +61,10 @@ pub enum Commands {
         /// Output format: text | json | markdown
         #[arg(short, long, default_value = "text")]
         format: String,
+
+        /// Shortcut for --format json
+        #[arg(long)]
+        json: bool,
     },
 
     /// Initialize configuration file
@@ -88,6 +100,10 @@ pub enum Commands {
         /// Output format: text | json | markdown
         #[arg(short, long, default_value = "text")]
         format: String,
+
+        /// Shortcut for --format json
+        #[arg(long)]
+        json: bool,
 
         /// Filter by author name or email
         #[arg(long)]
