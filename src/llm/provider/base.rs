@@ -9,7 +9,7 @@ use std::time::{Duration, SystemTime};
 
 use crate::config::ProviderConfig;
 use crate::error::{GcopError, Result};
-use crate::llm::{CommitContext, ReviewResult, ReviewType};
+use crate::llm::ReviewResult;
 
 use super::utils::complete_endpoint;
 
@@ -431,25 +431,6 @@ pub fn parse_review_response(response: &str) -> Result<ReviewResult> {
             e, preview
         ))
     })
-}
-
-/// 构建 commit prompt 并记录日志
-pub fn build_commit_prompt_with_log(diff: &str, context: Option<CommitContext>) -> String {
-    let ctx = context.unwrap_or_default();
-    let prompt = crate::llm::prompt::build_commit_prompt(diff, &ctx, ctx.custom_prompt.as_deref());
-    tracing::debug!("Prompt ({} chars):\n{}", prompt.len(), prompt);
-    prompt
-}
-
-/// 构建 review prompt 并记录日志
-pub fn build_review_prompt_with_log(
-    diff: &str,
-    review_type: &ReviewType,
-    custom_prompt: Option<&str>,
-) -> String {
-    let prompt = crate::llm::prompt::build_review_prompt(diff, review_type, custom_prompt);
-    tracing::debug!("Review prompt ({} chars):\n{}", prompt.len(), prompt);
-    prompt
 }
 
 /// 处理 commit message 响应并记录日志

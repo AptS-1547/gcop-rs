@@ -4,7 +4,7 @@
 
 use gcop_rs::config::AppConfig;
 use gcop_rs::git::diff::parse_diff_stats;
-use gcop_rs::llm::prompt::{build_commit_prompt, build_review_prompt};
+use gcop_rs::llm::prompt::{build_commit_prompt_split, build_review_prompt_split};
 use gcop_rs::llm::provider::base::{clean_json_response, parse_review_response};
 use gcop_rs::llm::{CommitContext, ReviewType};
 
@@ -75,14 +75,17 @@ index 1234567..abcdefg 100644
         user_feedback: vec![],
     };
 
-    let prompt = build_commit_prompt(diff, &context, None);
+    let (system, user) = build_commit_prompt_split(diff, &context, None);
 
-    // 验证 prompt 包含所有必要信息
-    assert!(prompt.contains("diff --git"));
-    assert!(prompt.contains("src/main.rs"));
-    assert!(prompt.contains("Branch: feature/greeting"));
-    assert!(prompt.contains("Insertions: 2"));
-    assert!(prompt.contains("Deletions: 1"));
+    // 验证 system prompt 包含角色和规则
+    assert!(system.contains("git commit message generator"));
+    assert!(system.contains("conventional commits"));
+
+    // 验证 user message 包含所有必要信息
+    assert!(user.contains("diff --git"));
+    assert!(user.contains("src/main.rs"));
+    assert!(user.contains("Branch: feature/greeting"));
+    assert!(user.contains("+2 -1"));
 }
 
 /// 测试 Review 响应解析完整流程
@@ -144,17 +147,18 @@ Let me know if you need more details!"#;
 #[test]
 fn test_review_prompt_generation() {
     let diff = "diff --git a/foo.rs b/foo.rs\n+new line";
-    let prompt = build_review_prompt(diff, &ReviewType::UncommittedChanges, None);
+    let (system, user) = build_review_prompt_split(diff, &ReviewType::UncommittedChanges, None);
 
-    // 验证基本结构
-    assert!(prompt.contains("Code to Review"));
-    assert!(prompt.contains("diff --git"));
+    // 验证 system prompt 包含审查规则和 JSON 格式
+    assert!(system.contains("code reviewer"));
+    assert!(system.contains("JSON format"));
+    assert!(system.contains("\"summary\""));
+    assert!(system.contains("\"issues\""));
+    assert!(system.contains("\"severity\""));
 
-    // 验证 JSON 格式说明被追加
-    assert!(prompt.contains("Output Format"));
-    assert!(prompt.contains("\"summary\""));
-    assert!(prompt.contains("\"issues\""));
-    assert!(prompt.contains("\"severity\""));
+    // 验证 user message 包含代码
+    assert!(user.contains("Code to Review"));
+    assert!(user.contains("diff --git"));
 }
 
 /// 测试用户反馈累积
@@ -173,11 +177,11 @@ fn test_user_feedback_accumulation() {
         ],
     };
 
-    let prompt = build_commit_prompt("diff", &context, None);
+    let (_, user) = build_commit_prompt_split("diff", &context, None);
 
     // 验证所有反馈都被追加且编号正确
-    assert!(prompt.contains("## Additional User Requirements:"));
-    assert!(prompt.contains("1. 请使用中文"));
-    assert!(prompt.contains("2. 不要超过50字符"));
-    assert!(prompt.contains("3. 使用 feat 类型"));
+    assert!(user.contains("User Requirements"));
+    assert!(user.contains("1. 请使用中文"));
+    assert!(user.contains("2. 不要超过50字符"));
+    assert!(user.contains("3. 使用 feat 类型"));
 }

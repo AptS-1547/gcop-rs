@@ -3,8 +3,8 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
 use super::base::{
-    build_commit_prompt_with_log, build_endpoint, build_review_prompt_with_log,
-    get_temperature_optional, process_commit_response, process_review_response, send_llm_request,
+    build_endpoint, get_temperature_optional, process_commit_response, process_review_response,
+    send_llm_request,
 };
 use super::utils::{DEFAULT_OLLAMA_BASE, OLLAMA_API_SUFFIX};
 use crate::config::{NetworkConfig, ProviderConfig};
@@ -29,6 +29,8 @@ pub struct OllamaProvider {
 struct OllamaRequest {
     model: String,
     prompt: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    system: Option<String>,
     stream: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     options: Option<OllamaOptions>,
@@ -72,22 +74,30 @@ impl OllamaProvider {
         })
     }
 
-    async fn call_api(&self, prompt: &str, spinner: Option<&crate::ui::Spinner>) -> Result<String> {
+    async fn call_api(
+        &self,
+        system: &str,
+        user_message: &str,
+        spinner: Option<&crate::ui::Spinner>,
+    ) -> Result<String> {
         let options = self.temperature.map(|temp| OllamaOptions {
             temperature: Some(temp),
         });
 
         let request = OllamaRequest {
             model: self.model.clone(),
-            prompt: prompt.to_string(),
+            prompt: user_message.to_string(),
+            system: Some(system.to_string()),
             stream: false,
             options,
         };
 
         tracing::debug!(
-            "Ollama API request: model={}, temperature={:?}",
+            "Ollama API request: model={}, temperature={:?}, system_len={}, user_len={}",
             self.model,
-            self.temperature
+            self.temperature,
+            system.len(),
+            user_message.len()
         );
 
         let response: OllamaResponse = send_llm_request(
@@ -115,8 +125,15 @@ impl LLMProvider for OllamaProvider {
         context: Option<CommitContext>,
         spinner: Option<&crate::ui::Spinner>,
     ) -> Result<String> {
-        let prompt = build_commit_prompt_with_log(diff, context);
-        let response = self.call_api(&prompt, spinner).await?;
+        let ctx = context.unwrap_or_default();
+        let (system, user) =
+            crate::llm::prompt::build_commit_prompt_split(diff, &ctx, ctx.custom_prompt.as_deref());
+        tracing::debug!(
+            "Commit prompt split - system ({} chars), user ({} chars)",
+            system.len(),
+            user.len()
+        );
+        let response = self.call_api(&system, &user, spinner).await?;
         Ok(process_commit_response(response))
     }
 
@@ -127,8 +144,14 @@ impl LLMProvider for OllamaProvider {
         custom_prompt: Option<&str>,
         spinner: Option<&crate::ui::Spinner>,
     ) -> Result<ReviewResult> {
-        let prompt = build_review_prompt_with_log(diff, &review_type, custom_prompt);
-        let response = self.call_api(&prompt, spinner).await?;
+        let (system, user) =
+            crate::llm::prompt::build_review_prompt_split(diff, &review_type, custom_prompt);
+        tracing::debug!(
+            "Review prompt split - system ({} chars), user ({} chars)",
+            system.len(),
+            user.len()
+        );
+        let response = self.call_api(&system, &user, spinner).await?;
         process_review_response(&response)
     }
 
@@ -235,7 +258,7 @@ mod tests {
         )
         .unwrap();
 
-        let result = provider.call_api("hi", None).await.unwrap();
+        let result = provider.call_api("system", "hi", None).await.unwrap();
         assert_eq!(result, "Hello from Ollama");
         mock.assert_async().await;
     }
@@ -258,7 +281,7 @@ mod tests {
         )
         .unwrap();
 
-        let err = provider.call_api("hi", None).await.unwrap_err();
+        let err = provider.call_api("system", "hi", None).await.unwrap_err();
         assert!(matches!(err, GcopError::LlmApi { status: 401, .. }));
         mock.assert_async().await;
     }
@@ -281,7 +304,7 @@ mod tests {
         )
         .unwrap();
 
-        let err = provider.call_api("hi", None).await.unwrap_err();
+        let err = provider.call_api("system", "hi", None).await.unwrap_err();
         assert!(matches!(err, GcopError::LlmApi { status: 429, .. }));
         mock.assert_async().await;
     }

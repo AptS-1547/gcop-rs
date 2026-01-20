@@ -4,14 +4,14 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 
 use super::base::{
-    build_commit_prompt_with_log, build_endpoint, build_review_prompt_with_log, extract_api_key,
-    get_max_tokens, get_temperature, process_commit_response, process_review_response,
-    send_llm_request,
+    build_endpoint, extract_api_key, get_max_tokens, get_temperature, process_commit_response,
+    process_review_response, send_llm_request,
 };
 use super::streaming::process_claude_stream;
 use super::utils::{CLAUDE_API_SUFFIX, DEFAULT_CLAUDE_BASE};
 use crate::config::{NetworkConfig, ProviderConfig};
 use crate::error::{GcopError, Result};
+use crate::llm::message::SystemBlock;
 use crate::llm::{CommitContext, LLMProvider, ReviewResult, ReviewType, StreamHandle};
 
 /// Claude API Provider
@@ -34,6 +34,8 @@ struct ClaudeRequest {
     model: String,
     max_tokens: u32,
     temperature: f32,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    system: Vec<SystemBlock>,
     messages: Vec<MessagePayload>,
 }
 
@@ -42,6 +44,8 @@ struct ClaudeStreamRequest {
     model: String,
     max_tokens: u32,
     temperature: f32,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    system: Vec<SystemBlock>,
     messages: Vec<MessagePayload>,
     stream: bool,
 }
@@ -92,22 +96,30 @@ impl ClaudeProvider {
         })
     }
 
-    async fn call_api(&self, prompt: &str, spinner: Option<&crate::ui::Spinner>) -> Result<String> {
+    async fn call_api(
+        &self,
+        system: &str,
+        user_message: &str,
+        spinner: Option<&crate::ui::Spinner>,
+    ) -> Result<String> {
         let request = ClaudeRequest {
             model: self.model.clone(),
             max_tokens: self.max_tokens,
             temperature: self.temperature,
+            system: vec![SystemBlock::cached(system)],
             messages: vec![MessagePayload {
                 role: "user".to_string(),
-                content: prompt.to_string(),
+                content: user_message.to_string(),
             }],
         };
 
         tracing::debug!(
-            "Claude API request: model={}, max_tokens={}, temperature={}",
+            "Claude API request: model={}, max_tokens={}, temperature={}, system_len={}, user_len={}",
             self.model,
             self.max_tokens,
-            self.temperature
+            self.temperature,
+            system.len(),
+            user_message.len()
         );
 
         let response: ClaudeResponse = send_llm_request(
@@ -138,25 +150,28 @@ impl ClaudeProvider {
     }
 
     /// 流式 API 调用
-    async fn call_api_streaming(&self, prompt: &str) -> Result<StreamHandle> {
+    async fn call_api_streaming(&self, system: &str, user_message: &str) -> Result<StreamHandle> {
         let (tx, rx) = mpsc::channel(64);
 
         let request = ClaudeStreamRequest {
             model: self.model.clone(),
             max_tokens: self.max_tokens,
             temperature: self.temperature,
+            system: vec![SystemBlock::cached(system)],
             messages: vec![MessagePayload {
                 role: "user".to_string(),
-                content: prompt.to_string(),
+                content: user_message.to_string(),
             }],
             stream: true,
         };
 
         tracing::debug!(
-            "Claude Streaming API request: model={}, max_tokens={}, temperature={}",
+            "Claude Streaming API request: model={}, max_tokens={}, temperature={}, system_len={}, user_len={}",
             self.model,
             self.max_tokens,
-            self.temperature
+            self.temperature,
+            system.len(),
+            user_message.len()
         );
 
         let response = self
@@ -202,8 +217,15 @@ impl LLMProvider for ClaudeProvider {
         context: Option<CommitContext>,
         spinner: Option<&crate::ui::Spinner>,
     ) -> Result<String> {
-        let prompt = build_commit_prompt_with_log(diff, context);
-        let response = self.call_api(&prompt, spinner).await?;
+        let ctx = context.unwrap_or_default();
+        let (system, user) =
+            crate::llm::prompt::build_commit_prompt_split(diff, &ctx, ctx.custom_prompt.as_deref());
+        tracing::debug!(
+            "Commit prompt split - system ({} chars), user ({} chars)",
+            system.len(),
+            user.len()
+        );
+        let response = self.call_api(&system, &user, spinner).await?;
         Ok(process_commit_response(response))
     }
 
@@ -214,8 +236,14 @@ impl LLMProvider for ClaudeProvider {
         custom_prompt: Option<&str>,
         spinner: Option<&crate::ui::Spinner>,
     ) -> Result<ReviewResult> {
-        let prompt = build_review_prompt_with_log(diff, &review_type, custom_prompt);
-        let response = self.call_api(&prompt, spinner).await?;
+        let (system, user) =
+            crate::llm::prompt::build_review_prompt_split(diff, &review_type, custom_prompt);
+        tracing::debug!(
+            "Review prompt split - system ({} chars), user ({} chars)",
+            system.len(),
+            user.len()
+        );
+        let response = self.call_api(&system, &user, spinner).await?;
         process_review_response(&response)
     }
 
@@ -235,6 +263,7 @@ impl LLMProvider for ClaudeProvider {
             model: self.model.clone(),
             max_tokens: 1, // Minimize API cost
             temperature: 1.0,
+            system: vec![],
             messages: vec![MessagePayload {
                 role: "user".to_string(),
                 content: "test".to_string(),
@@ -277,12 +306,16 @@ impl LLMProvider for ClaudeProvider {
         context: Option<CommitContext>,
     ) -> Result<StreamHandle> {
         let ctx = context.unwrap_or_default();
-        let prompt =
-            crate::llm::prompt::build_commit_prompt(diff, &ctx, ctx.custom_prompt.as_deref());
+        let (system, user) =
+            crate::llm::prompt::build_commit_prompt_split(diff, &ctx, ctx.custom_prompt.as_deref());
 
-        tracing::debug!("Claude streaming prompt ({} chars)", prompt.len());
+        tracing::debug!(
+            "Claude streaming - system ({} chars), user ({} chars)",
+            system.len(),
+            user.len()
+        );
 
-        self.call_api_streaming(&prompt).await
+        self.call_api_streaming(&system, &user).await
     }
 }
 
@@ -336,7 +369,7 @@ mod tests {
         )
         .unwrap();
 
-        let result = provider.call_api("hi", None).await.unwrap();
+        let result = provider.call_api("system", "hi", None).await.unwrap();
         assert_eq!(result, "Hello\nClaude");
         mock.assert_async().await;
     }
@@ -359,7 +392,7 @@ mod tests {
         )
         .unwrap();
 
-        let err = provider.call_api("hi", None).await.unwrap_err();
+        let err = provider.call_api("system", "hi", None).await.unwrap_err();
         assert!(matches!(err, GcopError::LlmApi { status: 401, .. }));
         mock.assert_async().await;
     }
@@ -382,7 +415,7 @@ mod tests {
         )
         .unwrap();
 
-        let err = provider.call_api("hi", None).await.unwrap_err();
+        let err = provider.call_api("system", "hi", None).await.unwrap_err();
         assert!(matches!(err, GcopError::LlmApi { status: 429, .. }));
         mock.assert_async().await;
     }
