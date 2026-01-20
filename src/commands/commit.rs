@@ -115,9 +115,17 @@ async fn run_with_deps(
                 }
 
                 // 生成 message
-                let (message, already_displayed) =
-                    generate_message(provider, repo, &diff, &stats, config, &feedbacks, attempt, cli.verbose)
-                        .await?;
+                let (message, already_displayed) = generate_message(
+                    provider,
+                    repo,
+                    &diff,
+                    &stats,
+                    config,
+                    &feedbacks,
+                    attempt,
+                    cli.verbose,
+                )
+                .await?;
 
                 // 使用状态机方法处理生成结果
                 let gen_state = CommitState::Generating { attempt, feedbacks };
@@ -212,6 +220,7 @@ async fn run_with_deps(
 /// 生成 commit message
 ///
 /// 返回 (message, already_displayed) - 流式模式下 message 已经显示过了
+#[allow(clippy::too_many_arguments)] // 参数较多但合理
 async fn generate_message(
     provider: &Arc<dyn LLMProvider>,
     repo: &dyn GitOperations,
