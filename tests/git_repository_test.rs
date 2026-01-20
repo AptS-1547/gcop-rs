@@ -21,7 +21,7 @@ use tempfile::TempDir;
 // ========== 辅助函数 ==========
 
 fn init_git_repo(path: &Path) -> Result<git2::Repository> {
-    git2::Repository::init(path).map_err(|e| GcopError::Git(e))
+    git2::Repository::init(path).map_err(GcopError::from)
 }
 
 fn create_test_file(repo_path: &Path, filename: &str, content: &str) -> Result<()> {

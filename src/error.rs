@@ -2,10 +2,33 @@ use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, GcopError>;
 
+/// git2::Error 的包装类型，提供更友好的错误信息
+/// 只显示错误消息，隐藏 class 和 code 等技术细节
+#[derive(Debug)]
+pub struct GitErrorWrapper(pub git2::Error);
+
+impl std::fmt::Display for GitErrorWrapper {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0.message())
+    }
+}
+
+impl std::error::Error for GitErrorWrapper {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&self.0)
+    }
+}
+
+impl From<git2::Error> for GcopError {
+    fn from(e: git2::Error) -> Self {
+        GcopError::Git(GitErrorWrapper(e))
+    }
+}
+
 #[derive(Error, Debug)]
 pub enum GcopError {
     #[error("Git error: {0}")]
-    Git(#[from] git2::Error),
+    Git(GitErrorWrapper),
 
     #[error("Git command failed: {0}")]
     GitCommand(String),
@@ -55,6 +78,72 @@ impl GcopError {
     /// 获取错误的解决建议
     pub fn suggestion(&self) -> Option<&str> {
         match self {
+            // Git 错误：根据错误码提供针对性建议
+            GcopError::Git(wrapper) => {
+                use git2::ErrorCode;
+                match wrapper.0.code() {
+                    // 无法给出具体建议的错误
+                    ErrorCode::GenericError | ErrorCode::BufSize | ErrorCode::User => None,
+                    // 仓库和对象相关
+                    ErrorCode::NotFound => Some("Make sure you're in a git repository"),
+                    ErrorCode::Exists => {
+                        Some("Object already exists. Use --force to overwrite if intended")
+                    }
+                    ErrorCode::Ambiguous => {
+                        Some("Reference is ambiguous. Provide a more specific name")
+                    }
+                    ErrorCode::BareRepo => {
+                        Some("Cannot perform this operation in a bare repository")
+                    }
+                    ErrorCode::UnbornBranch => Some("Create an initial commit first"),
+                    ErrorCode::Directory => Some("Operation not valid for a directory"),
+                    ErrorCode::Owner => {
+                        Some("Repository is not owned by current user. Check file permissions")
+                    }
+                    // 合并和冲突相关
+                    ErrorCode::Unmerged => {
+                        Some("Resolve merge conflicts first with 'git add' or 'git rm'")
+                    }
+                    ErrorCode::Conflict => Some("Merge conflict detected. Resolve conflicts first"),
+                    ErrorCode::MergeConflict => {
+                        Some("A merge conflict exists. Resolve it before continuing")
+                    }
+                    // 引用和分支相关
+                    ErrorCode::NotFastForward => Some(
+                        "Pull remote changes first, or use --force if you know what you're doing",
+                    ),
+                    ErrorCode::InvalidSpec => Some("Invalid reference or revision specification"),
+                    ErrorCode::Modified => Some("Reference has been modified. Fetch and try again"),
+                    // 工作区和索引相关
+                    ErrorCode::Uncommitted => {
+                        Some("You have uncommitted changes. Commit or stash them first")
+                    }
+                    ErrorCode::IndexDirty => {
+                        Some("Unsaved changes in index would be overwritten. Commit or stash first")
+                    }
+                    // 锁和认证相关
+                    ErrorCode::Locked => {
+                        Some("Repository is locked. Another git process may be running")
+                    }
+                    ErrorCode::Auth => {
+                        Some("Authentication failed. Check your credentials or SSH key")
+                    }
+                    ErrorCode::Certificate => {
+                        Some("Server certificate verification failed. Check your SSL settings")
+                    }
+                    // 补丁相关
+                    ErrorCode::Applied => Some("Patch has already been applied"),
+                    ErrorCode::ApplyFail => Some("Patch application failed. Check for conflicts"),
+                    // 其他
+                    ErrorCode::Peel => Some("Cannot peel to the requested object type"),
+                    ErrorCode::Eof => Some("Unexpected end of file"),
+                    ErrorCode::Invalid => Some("Invalid operation or input"),
+                    ErrorCode::HashsumMismatch => {
+                        Some("Object checksum mismatch. Repository may be corrupted")
+                    }
+                    ErrorCode::Timeout => Some("Operation timed out. Check network connection"),
+                }
+            }
             GcopError::NoStagedChanges => Some("Run 'git add <files>' to stage your changes first"),
             GcopError::Config(msg) if msg.contains("API key not found") => {
                 if msg.contains("Claude") {
