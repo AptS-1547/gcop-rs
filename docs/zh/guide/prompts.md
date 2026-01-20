@@ -1,222 +1,72 @@
 # 自定义 Prompt
 
-gcop-rs 允许你自定义发送给 AI 的 prompt，包括提交信息生成和代码审查。
+gcop-rs 允许你自定义发送给 LLM 的指令，用于生成提交信息和代码审查。
 
-## 为什么要自定义 Prompt？
+## 工作方式
 
-- **语言**: 生成中文或其他语言的提交信息
-- **风格**: 匹配团队的提交信息格式
-- **侧重点**: 强调特定的审查标准（安全性、性能等）
-- **上下文**: 添加项目特定的指导方针
+gcop-rs 使用“拆分 prompt”的方式：
 
-## 自动补全
+- **System prompt**：给模型的指令
+- **User message**：实际要处理的内容（diff / 上下文）
 
-gcop-rs 会自动补全自定义 prompt 中缺失的必要部分，你只需要专注于编写指令，无需担心占位符。
+`custom_prompt` 会覆盖 **system prompt**；diff/上下文始终会放在 **user message** 中。
 
-### Commit Prompt
+> **重要**：`custom_prompt` 只是纯文本指令，不支持 `{diff}` 之类的占位符替换。写在里面会原样发送。
 
-如果你的自定义 prompt 不包含 `{diff}`，gcop-rs 会自动追加：
-- 包含 `{diff}` 占位符的 Git diff 部分
-- 包含 `{files_changed}`、`{insertions}`、`{deletions}` 的上下文部分
+## Commit Prompt（`[commit].custom_prompt`）
 
-**示例 - 简化的自定义 prompt：**
-```toml
-[commit]
-custom_prompt = "用中文生成 commit message，要求简洁"
-```
+- 你的 `custom_prompt` 会作为提交信息生成的 **system prompt**。
+- **User message** 总是包含：
+  - 已暂存的 diff（等价于 `git diff --cached`）
+  - 上下文（修改文件列表、插入/删除行数）
+  - 当前分支名（如果能获取到）
+  - “带反馈重试”累积的反馈（如果使用过）
 
-会被自动扩展为：
-```
-用中文生成 commit message，要求简洁
-
-## Git Diff:
-```
-<实际的 diff 内容>
-```
-
-## Context:
-- Files: src/main.rs, src/lib.rs
-- Changes: +45 -12
-```
-
-### Review Prompt
-
-对于 review prompt，gcop-rs 会：
-1. 如果缺少 `{diff}`，追加 diff 部分
-2. **始终**追加 JSON 输出格式说明
-
-**示例 - 简化的自定义 prompt：**
-```toml
-[review]
-custom_prompt = "审查这段代码的安全漏洞，重点关注 SQL 注入和 XSS"
-```
-
-会被自动扩展，包含 diff 和 JSON 格式说明。
-
-## 模板变量
-
-### Commit Message Prompts
-
-可用占位符：
-
-- `{diff}` - 完整的 git diff 内容
-- `{files_changed}` - 逗号分隔的修改文件列表
-- `{insertions}` - 新增行数
-- `{deletions}` - 删除行数
-- `{branch_name}` - 当前分支名（如果有）
-- `{branch_info}` - 格式化的分支信息（`"- Branch: xxx"` 或空字符串）
-
-### Code Review Prompts
-
-可用占位符：
-
-- `{diff}` - 代码 diff 内容
-
-## 示例
-
-### 中文提交信息
+**示例**：
 
 ```toml
 [commit]
 custom_prompt = """
-你是一个专业的软件工程师，正在审查 git diff 以生成简洁的中文提交信息。
+请用中文生成简洁的 conventional commit 提交信息。
 
-## Git Diff:
-{diff}
-
-## 上下文:
-- 修改的文件: {files_changed}
-- 新增行数: {insertions}
-- 删除行数: {deletions}
-- 分支名称: {branch_name}
-
-## 要求:
-1. 使用中文生成提交信息
-2. 第一行：类型(范围): 简要描述（不超过50字）
-3. 空一行
-4. 正文：说明改动的原因和影响
-
-常见类型：feat（新功能）、fix（修复）、docs（文档）、refactor（重构）
-
-只输出提交信息，不要解释。
+要求：
+- 第一行：type(scope): 概要（<= 50 字符）
+- 只输出提交信息，不要解释
 """
 ```
 
-### 简洁提交信息
+## Review Prompt（`[review].custom_prompt`）
 
-```toml
-[commit]
-custom_prompt = """
-为以下变更生成一行提交信息：
+- 你的 `custom_prompt` 会作为代码审查的 **system prompt** 基础。
+- gcop-rs 会**始终追加** JSON 输出约束（用于解析结果）。
+- **User message** 总是包含 diff（或在 `review file` 时包含文件内容）。
 
-{diff}
-
-文件: {files_changed} (+{insertions} -{deletions})
-
-格式: <类型>: <描述>
-不超过 72 字符。
-"""
-```
-
-### 安全性重点审查
+**示例**：
 
 ```toml
 [review]
 custom_prompt = """
-你是安全专家。审查以下代码的安全漏洞：
-
-{diff}
+你是资深代码审查者。
 
 重点关注：
-1. SQL 注入
-2. XSS（跨站脚本）
-3. CSRF
-4. 认证/授权缺陷
-5. 不安全的数据处理
-
-以 JSON 格式输出：
-{{
-  "summary": "安全评估",
-  "issues": [
-    {{
-      "severity": "critical" | "warning" | "info",
-      "description": "问题描述",
-      "file": "文件名",
-      "line": 行号
-    }}
-  ],
-  "suggestions": ["安全建议"]
-}}
+1. 正确性（bug、边界情况）
+2. 安全问题
+3. 性能退化
+4. 可维护性
 """
 ```
 
-### 性能重点审查
+## 调试
 
-```toml
-[review]
-custom_prompt = """
-审查以下代码的性能问题：
+- `gcop-rs -v commit` 会在调用 provider 前打印 system prompt 和 user message。
+- `gcop-rs -v review ...` 仅开启 debug 日志，不会打印完整 prompt 内容。
 
-{diff}
+## 备注
 
-检查：
-- 低效算法
-- 内存泄漏
-- 不必要的内存分配
-- N+1 查询
-- 阻塞操作
-
-返回 JSON 格式的发现。
-"""
-```
-
-## 最佳实践
-
-### 1. 保持 Prompt 专注
-
-简短、专注的 prompt 通常比很长的 prompt 效果更好。
-
-### 2. 指定输出格式
-
-对于代码审查，始终要求 JSON 格式以确保正确解析。
-
-### 3. 使用详细模式测试
-
-使用 `gcop-rs -v commit` 查看实际发送给 AI 的 prompt。
-
-### 4. 迭代优化
-
-尝试不同的 prompt 并比较结果，找到最适合的。
-
-## 默认 Prompt
-
-如果不指定 `custom_prompt`，gcop-rs 使用内置的默认模板：
-
-- **Commit**: 生成英文的 conventional commit messages
-- **Review**: 英文的全面代码审查，JSON 输出
-
-详见源代码中的 `src/llm/prompt.rs`。
-
-## 故障排除
-
-### 问题: LLM 返回错误格式
-
-如果 AI 不遵循你的 prompt 格式：
-
-1. 更明确地说明所需格式
-2. 在 prompt 中添加示例
-3. 使用 `--verbose` 调试
-4. 尝试不同的模型或调整 temperature
-
-### 问题: 非中文输出
-
-某些模型可能忽略语言指令。尝试：
-
-- 更明确：「你必须使用中文回复」
-- 添加示例
-- 使用不同的模型
+- review 需要模型返回合法 JSON。gcop-rs 会尝试去掉常见的 Markdown code fence（如 ```json），但仍必须是可解析的 JSON。
 
 ## 参考
 
 - [配置参考](configuration.md) - 所有配置选项
+- [Provider 设置](providers.md) - 配置 LLM providers
 - [故障排除](troubleshooting.md) - 常见问题

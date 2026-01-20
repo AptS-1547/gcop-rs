@@ -5,6 +5,34 @@ All notable changes to gcop-rs will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1] - 2025-01-21
+
+### Added
+
+- **Verbose Prompt Display**: `-v` flag now shows complete prompt sent to LLM
+  - Displays both system message and user message separately
+  - Useful for debugging and understanding LLM interactions
+  - Security reminder: verbose output may contain code snippets, avoid sharing publicly
+
+### Changed
+
+- **LLM Prompt Architecture Refactored**: Prompt building now supports system/user message separation
+  - Claude/OpenAI: Uses native system message field for better context handling
+  - Ollama: Merges system and user messages (Ollama API limitation)
+  - Cleaner code structure with `PromptParts` abstraction
+
+### Documentation
+
+- Added About page (`docs/guide/about.md`, `docs/zh/guide/about.md`)
+- Updated documentation links to new domain
+- Updated Homebrew tap repository name in installation guide
+
+### Code Quality
+
+- Unified code formatting across the codebase
+- Simplified test code structure
+- Added clippy allow annotations for intentional patterns
+
 ## [0.6.0] - 2025-01-05
 
 ### Added
@@ -366,6 +394,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Edit action properly returns to menu without triggering regeneration
 - Commit message display no longer duplicates after editing
 
+[0.6.1]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.6.1
 [0.6.0]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.6.0
 [0.5.1]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.5.1
 [0.5.0]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.5.0

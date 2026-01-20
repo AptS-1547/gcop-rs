@@ -4,7 +4,7 @@ gcop-rs git 别名完整指南 - 简化日常 Git 工作流程的便捷快捷方
 
 ## 概述
 
-gcop-rs 提供 13 个精心设计的 git 别名，简化常见任务：
+gcop-rs 提供 14 个精心设计的 git 别名，简化常见任务：
 
 | 别名 | 命令 | 说明 |
 |------|------|------|
@@ -20,6 +20,7 @@ gcop-rs 提供 13 个精心设计的 git 别名，简化常见任务：
 | `git gconfig` | `gcop-rs config edit` | 编辑配置 |
 | `git p` | `git push` | 快速推送 |
 | `git pf` | `git push --force-with-lease` | 更安全的强制推送 |
+| `git amend` | `git commit --amend` | 修改最后一次提交 |
 | `git undo` | `git reset --soft HEAD^` | 撤销最后一次提交 |
 
 ## 安装
@@ -140,21 +141,26 @@ git push
 
 #### `git r` - 审查变更
 
-对未提交的变更进行 AI 代码审查。
+对变更进行 AI 代码审查。
 
 **命令**: `gcop-rs review`
 
 **用法**:
 ```bash
-# 提交前审查变更
-git r
+# 审查工作区未暂存变更（类似 `git diff`）
+git r changes
+
+# 审查其他目标
+git r commit HEAD
+git r range HEAD~3..HEAD
+git r file src/auth.rs
 
 # 使用不同格式审查
-git r --format json
-git r --format markdown
+git r changes --format json
+git r changes --format markdown
 ```
 
-**审查内容**: 工作目录中所有未提交的变更（包括已暂存和未暂存）。
+**审查内容**: `git r changes` 会审查未暂存的工作区变更（类似 `git diff`）。
 
 **何时使用**:
 - 提交前发现潜在问题
@@ -167,7 +173,7 @@ git r --format markdown
 vim src/auth.rs
 
 # 审查变更
-git r
+git r changes
 
 📝 总结:
 添加了 JWT 令牌验证和适当的错误处理。
@@ -186,6 +192,17 @@ git c
 ---
 
 ### 实用别名
+
+#### `git amend` - 修改最后一次提交
+
+修改最后一次提交（等同于 `git commit --amend`）。
+
+**命令**: `git commit --amend`
+
+**用法**:
+```bash
+git amend
+```
 
 #### `git undo` - 撤销最后一次提交
 

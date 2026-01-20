@@ -145,8 +145,8 @@ export ANTHROPIC_API_KEY="sk-ant-your-key"
    ```bash
    gcop-rs -v commit
    # You'll see:
-   # WARN OpenAI API request failed (attempt 1/4): connection failed. Retrying in 1.0s...
-   # WARN OpenAI API request failed (attempt 2/4): connection failed. Retrying in 2.0s...
+   # DEBUG OpenAI API network error (attempt 1/4): ... Retrying in 1.0s...
+   # DEBUG OpenAI API network error (attempt 2/4): ... Retrying in 2.0s...
    ```
 
 **Note**: Connection failures automatically retry with exponential backoff (1s, 2s, 4s).
@@ -223,9 +223,10 @@ Since v0.1.6, gcop-rs automatically retries failed requests:
 
 **Example retry log**:
 ```
-WARN  OpenAI API request failed (attempt 1/4): connection failed. Retrying in 1.0s...
-WARN  OpenAI API request failed (attempt 2/4): connection failed. Retrying in 2.0s...
-INFO  OpenAI API request succeeded after 3 attempts
+DEBUG OpenAI API request failed [connection failed]: ...
+DEBUG OpenAI API network error (attempt 1/4): ... Retrying in 1.0s...
+DEBUG OpenAI API network error (attempt 2/4): ... Retrying in 2.0s...
+DEBUG OpenAI API request succeeded after 3 attempts
 ```
 
 ### Issue: "Failed to parse Claude/OpenAI response"
@@ -312,7 +313,7 @@ gcop-rs -v review changes
 This shows:
 - Configuration loading
 - API requests and responses
-- Prompt sent to LLM
+- Commit prompts (system + user) when running `gcop-rs -v commit`
 - Response parsing
 
 > **Security Notice**: Verbose mode (`-v` or `RUST_LOG=debug`) logs full API requests and responses, which may include:

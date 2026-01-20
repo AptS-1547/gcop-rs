@@ -8,7 +8,7 @@
 
 | 选项 | 说明 |
 |------|------|
-| `--provider <NAME>` | 覆盖默认 LLM provider (claude, openai, ollama 或自定义) |
+| `--provider <NAME>`, `-p` | 覆盖默认 LLM provider (claude, openai, ollama 或自定义) |
 | `--verbose`, `-v` | 启用详细日志（显示 API 请求和响应） |
 | `--help`, `-h` | 显示帮助信息 |
 | `--version`, `-V` | 显示版本信息 |
@@ -16,7 +16,7 @@
 **示例**:
 ```bash
 gcop-rs --provider openai commit
-gcop-rs -v review
+gcop-rs -v review changes
 ```
 
 ---
@@ -29,7 +29,7 @@ gcop-rs -v review
 
 **语法**:
 ```bash
-gcop-rs init
+gcop-rs init [OPTIONS]
 ```
 
 **说明**:
@@ -40,7 +40,11 @@ gcop-rs init
 3. 设置安全文件权限（仅 Unix/Linux/macOS）
 4. 可选安装 git 别名
 
-**选项**: 无
+**选项**:
+
+| 选项 | 说明 |
+|------|------|
+| `--force`, `-f` | 强制覆盖已有配置文件 |
 
 **示例** (Linux):
 ```bash
@@ -62,7 +66,7 @@ $ gcop-rs init
   ✓  git r          → AI 审查
   ...
 
-✓ 已安装 11 个别名
+✓ 已安装 14 个别名
 ```
 
 **创建的内容**:
@@ -90,17 +94,17 @@ gcop-rs commit [OPTIONS]
 
 | 选项 | 说明 |
 |------|------|
-| `--no-edit` | 跳过打开编辑器手动编辑 |
-| `--yes` | 跳过确认菜单并接受生成的信息 |
-| `--dry-run` | 仅生成并输出提交信息，不实际提交 |
-| `--provider <NAME>` | 使用特定的 provider（覆盖默认值） |
+| `--no-edit`, `-n` | 跳过打开编辑器手动编辑 |
+| `--yes`, `-y` | 跳过确认菜单并接受生成的信息 |
+| `--dry-run`, `-d` | 仅生成并输出提交信息，不实际提交 |
+| `--provider <NAME>`, `-p` | 使用特定的 provider（覆盖默认值） |
 
 **交互式操作**:
 
 生成信息后，你会看到一个菜单：
 
 1. **Accept（接受）** - 使用生成的信息并创建提交
-2. **Edit（编辑）** - 打开 `$EDITOR` 手动修改信息（编辑后返回菜单）
+2. **Edit（编辑）** - 打开 `$VISUAL` / `$EDITOR`（未设置时使用系统默认编辑器）手动修改信息（编辑后返回菜单）
 3. **Retry（重试）** - 不带额外指令重新生成新信息
 4. **Retry with feedback（带反馈重试）** - 提供重新生成的指令（如 "用中文"、"更简洁"、"更详细"）。反馈会累积，多次重试可逐步优化结果
 5. **Quit（退出）** - 取消提交过程
@@ -165,47 +169,50 @@ feat(auth): 实现 JWT 令牌验证
 
 **语法**:
 ```bash
-gcop-rs review [TARGET] [OPTIONS]
+gcop-rs review [OPTIONS] <COMMAND>
 ```
 
-**目标**:
+**命令**:
 
-| 目标 | 语法 | 说明 |
+| 命令 | 语法 | 说明 |
 |------|------|------|
-| *(默认)* | `gcop-rs review` | 审查未提交的变更 |
-| 提交 | `--commit <HASH>` | 审查特定提交 |
-| 范围 | `--range <RANGE>` | 审查提交范围（如 `HEAD~3..HEAD`） |
-| 文件 | `--file <PATH>` | 审查特定文件 |
+| 变更 | `gcop-rs review changes` | 审查工作区未暂存变更（类似 `git diff`） |
+| 提交 | `gcop-rs review commit <HASH>` | 审查特定提交 |
+| 范围 | `gcop-rs review range <RANGE>` | 审查提交范围（如 `HEAD~3..HEAD`） |
+| 文件 | `gcop-rs review file <PATH>` | 审查文件或目录 |
 
 **选项**:
 
 | 选项 | 说明 |
 |------|------|
-| `--format <FORMAT>` | 输出格式: `text`（默认）、`json` 或 `markdown` |
-| `--provider <NAME>` | 使用特定的 provider |
+| `--format <FORMAT>`, `-f` | 输出格式: `text`（默认）、`json` 或 `markdown` |
+| `--provider <NAME>`, `-p` | 使用特定的 provider |
 
 **示例**:
 
 ```bash
-# 审查未提交的变更（默认）
-gcop-rs review
+# 审查工作区变更（未暂存）
+gcop-rs review changes
 
 # 审查最后一次提交
-gcop-rs review --commit HEAD
-gcop-rs review --commit abc123
+gcop-rs review commit HEAD
+gcop-rs review commit abc123
 
 # 审查最近 3 次提交
-gcop-rs review --range HEAD~3..HEAD
+gcop-rs review range HEAD~3..HEAD
 
-# 审查特定文件
-gcop-rs review --file src/auth.rs
+# 审查文件或目录
+gcop-rs review file src/auth.rs
+gcop-rs review file src/
 
 # 输出为 JSON 用于自动化
-gcop-rs review --format json > review.json
+gcop-rs review changes --format json > review.json
 
 # 输出为 markdown 用于文档
-gcop-rs review --format markdown > REVIEW.md
+gcop-rs review changes --format markdown > REVIEW.md
 ```
+
+> **注意**：当前 `review changes` 只会审查未暂存的变更（类似 `git diff`），不会包含已暂存的变更。
 
 **输出格式 (text)**:
 
@@ -243,8 +250,10 @@ gcop-rs review --format markdown > REVIEW.md
 
 **语法**:
 ```bash
-gcop-rs config <子命令>
+gcop-rs config [子命令]
 ```
+
+不带子命令时，默认等同于 `gcop-rs config edit`。
 
 **子命令**:
 
@@ -257,7 +266,7 @@ gcop-rs config <子命令>
 gcop-rs config edit
 ```
 
-**打开**: 在 `$EDITOR` 中打开配置文件（平台特定位置）（Unix 回退到 `vi`，Windows 回退到 `notepad`）
+**打开**: 使用 `$VISUAL` / `$EDITOR` 打开配置文件（未设置时使用系统默认编辑器）
 
 **校验**: 保存后会自动校验配置（类似 `visudo`）。如果校验失败，会显示一个菜单：
 
@@ -288,52 +297,27 @@ gcop-rs config validate
 ```
 
 **检查**:
-- 配置文件语法
-- 必需字段是否存在
-- API key 格式
-- Provider 连接性（进行测试 API 调用）
+- 加载并解析配置（默认值 + 配置文件 + `GCOP_*` 环境变量覆盖）
+- 列出已配置的 providers
+- 通过一次最小化的测试请求验证默认 provider
+- 如果配置了 `fallback_providers`，可能也会尝试备用 providers
 
 **示例输出**:
 ```
-✓ 配置文件有效
-✓ Claude provider 验证成功
-⚠ OpenAI provider: API key 未设置（已跳过）
+[1/2] Loading configuration...
+✓ Configuration loaded successfully
+
+Configured providers:
+  • claude
+
+[2/2] Testing provider connection...
+✓ Provider 'claude' validated successfully
 ```
 
 **何时使用**:
 - 编辑配置后
 - 排查连接问题
 - 验证 API keys
-
----
-
-#### `config show`
-
-显示当前配置。
-
-**用法**:
-```bash
-gcop-rs config show
-```
-
-**示例输出**:
-```toml
-[llm]
-default_provider = "claude"
-
-[llm.providers.claude]
-model = "claude-sonnet-4-5-20250929"
-endpoint = "https://api.anthropic.com/v1/messages"
-
-[commit]
-show_diff_preview = true
-allow_edit = true
-
-[ui]
-colored = true
-```
-
-**注意**: 出于安全考虑，API keys 会被隐藏。
 
 ---
 
@@ -351,16 +335,16 @@ gcop-rs alias [OPTIONS]
 | 选项 | 说明 |
 |------|------|
 | *(无)* | 安装所有别名（默认操作） |
-| `--list` | 列出所有可用的别名及其状态 |
-| `--force` | 强制安装，覆盖冲突 |
-| `--remove` | 删除别名（需要 `--force` 确认） |
+| `--list`, `-l` | 列出所有可用的别名及其状态 |
+| `--force`, `-f` | 强制安装，覆盖冲突 |
+| `--remove`, `-r` | 删除别名（需要 `--force` 确认） |
 
 **示例**:
 
 #### 安装别名
 
 ```bash
-# 安装所有 11 个别名
+# 安装所有 14 个别名
 gcop-rs alias
 
 # 输出:
@@ -441,7 +425,7 @@ gcop-rs stats [OPTIONS]
 
 | 选项 | 说明 |
 |------|------|
-| `--format <FORMAT>` | 输出格式: `text`（默认）、`json` 或 `markdown` |
+| `--format <FORMAT>`, `-f` | 输出格式: `text`（默认）、`json` 或 `markdown` |
 | `--author <NAME>` | 按作者名称或邮箱过滤统计 |
 
 **示例**:
@@ -517,8 +501,8 @@ gcop-rs stats --author "john@example.com"
 gcop-rs 命令可以与标准 git 命令组合：
 
 ```bash
-# 审查后提交
-gcop-rs review && gcop-rs commit
+# 先审查，再暂存并提交
+gcop-rs review changes && git add -A && gcop-rs commit
 
 # 提交后推送（使用完整命令）
 gcop-rs commit --yes && git push
@@ -533,11 +517,9 @@ gcop-rs 使用标准退出码：
 
 | 代码 | 含义 |
 |------|------|
-| 0 | 成功 |
-| 1 | 一般错误（API 错误、git 错误等） |
-| 2 | 用户取消（Ctrl+C 或选择退出） |
-| 3 | 配置错误 |
-| 4 | 无效输入（无变更、无效的 commit hash 等） |
+| 0 | 成功（在交互式菜单中取消也会返回 0） |
+| 1 | 运行时错误（API 错误、git 错误、配置错误等） |
+| 2 | 命令行用法错误（参数/选项无效，由 clap 返回） |
 
 **在脚本中使用**:
 ```bash
@@ -545,7 +527,7 @@ if gcop-rs commit --yes; then
     echo "提交成功"
     git push
 else
-    echo "提交失败或取消"
+    echo "提交失败"
 fi
 ```
 
@@ -557,7 +539,8 @@ fi
 |------|------|
 | `ANTHROPIC_API_KEY` | Claude API key（如果不在配置中则作为回退） |
 | `OPENAI_API_KEY` | OpenAI API key（回退） |
-| `EDITOR` | 用于 `--edit` 和 `config edit` 的编辑器 |
+| `VISUAL` / `EDITOR` | commit message 编辑与 `gcop-rs config edit` 使用的编辑器 |
+| `GCOP_*` | 通过环境变量覆盖配置项（如 `GCOP_UI_COLORED=false`） |
 | `NO_COLOR` | 禁用彩色输出（设置为任意值） |
 
 **示例**:

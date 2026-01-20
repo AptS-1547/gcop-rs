@@ -8,7 +8,7 @@ gcop-rs 使用 TOML 配置文件，位置因平台而异：
 |------|------|
 | Linux | `~/.config/gcop/config.toml` |
 | macOS | `~/Library/Application Support/gcop/config.toml` |
-| Windows | `%APPDATA%\gcop\config.toml` |
+| Windows | `%APPDATA%\gcop\config\config.toml` |
 
 配置文件是**可选的**。如果不存在，将使用默认值。
 
@@ -38,8 +38,8 @@ cp examples/config.toml.example ~/Library/Application\ Support/gcop/config.toml
 
 Windows (PowerShell):
 ```powershell
-New-Item -ItemType Directory -Force -Path "$env:APPDATA\gcop"
-Copy-Item examples\config.toml.example "$env:APPDATA\gcop\config.toml"
+New-Item -ItemType Directory -Force -Path "$env:APPDATA\gcop\config"
+Copy-Item examples\config.toml.example "$env:APPDATA\gcop\config\config.toml"
 ```
 
 然后编辑配置文件添加你的 API key。
@@ -89,12 +89,10 @@ model = "codellama:13b"
 [commit]
 show_diff_preview = true
 allow_edit = true
-confirm_before_commit = true
 max_retries = 10
 
 # Review 设置
 [review]
-show_full_diff = true
 min_severity = "info"  # critical | warning | info
 
 # UI 设置
@@ -103,8 +101,8 @@ colored = true
 verbose = false
 streaming = true  # 启用流式输出（实时打字效果）
 
-# 注意：流式输出仅支持 OpenAI 风格的 API。
-# Claude 和 Ollama 会自动回退到转圈圈模式。
+# 注意：流式输出支持 OpenAI 与 Claude 风格的 API。
+# Ollama 会自动回退到转圈圈模式。
 
 # 网络设置
 [network]
@@ -134,12 +132,12 @@ max_size = 10485760      # 最大文件大小（10MB）
 
 | 选项 | 类型 | 必需 | 说明 |
 |------|------|------|------|
-| `api_style` | String | 否 | API 风格：`"claude"`、`"openai"` 或 `"ollama"`（未设置时自动检测） |
+| `api_style` | String | 否 | API 风格：`"claude"`、`"openai"` 或 `"ollama"`（未设置时默认使用 provider 名称） |
 | `api_key` | String | 是* | API key（*Ollama 不需要） |
 | `endpoint` | String | 否 | API 端点（未设置时使用默认值） |
 | `model` | String | 是 | 模型名称 |
 | `temperature` | Float | 否 | 温度参数（0.0-1.0，默认: 0.3） |
-| `max_tokens` | Integer | 否 | 最大响应 token 数（默认: 2000） |
+| `max_tokens` | Integer | 否 | 最大响应 token 数（Claude 风格默认 2000；OpenAI 风格未设置时不会发送该字段） |
 
 ### Commit 设置
 
@@ -147,24 +145,22 @@ max_size = 10485760      # 最大文件大小（10MB）
 |------|------|--------|------|
 | `show_diff_preview` | Boolean | `true` | 生成前显示 diff 统计 |
 | `allow_edit` | Boolean | `true` | 允许编辑生成的消息 |
-| `confirm_before_commit` | Boolean | `true` | 提交前要求确认 |
 | `max_retries` | Integer | `10` | 重新生成的最大次数 |
-| `custom_prompt` | String | 无 | 自定义提交信息生成的 prompt 模板 |
+| `custom_prompt` | String | 无 | 自定义 system prompt / 指令（用于提交信息生成） |
 
 ### Review 设置
 
 | 选项 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `show_full_diff` | Boolean | `true` | 审查时显示完整 diff |
 | `min_severity` | String | `"info"` | 最低显示的严重性：`"critical"`、`"warning"` 或 `"info"` |
-| `custom_prompt` | String | 无 | 自定义代码审查的 prompt 模板 |
+| `custom_prompt` | String | 无 | 自定义 system prompt / 指令（用于代码审查） |
 
 ### UI 设置
 
 | 选项 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `colored` | Boolean | `true` | 启用彩色输出 |
-| `verbose` | Boolean | `false` | 显示详细日志（等同于 `--verbose` 标志） |
+| `verbose` | Boolean | `false` | *(目前未使用)* 请使用 `--verbose` / `-v` 启用 debug 日志 |
 | `streaming` | Boolean | `true` | 启用流式输出（实时打字效果） |
 
 > **关于流式输出：** 目前仅 OpenAI 和 Claude 风格的 API 支持流式输出。使用 Ollama 时，系统会自动回退到转圈圈模式（等待完整响应）。
@@ -216,6 +212,24 @@ export OPENAI_API_KEY="sk-your-openai-key"
 **所有平台:**
 - 不要将 config.toml 提交到 git
 - 如果创建项目级配置，添加到 .gitignore
+
+## 环境变量覆盖（GCOP_*）
+
+除了 provider API key 的环境变量外，gcop-rs 也支持用 `GCOP_` 前缀的环境变量覆盖配置项。
+
+- **优先级**：`GCOP_*` 的优先级高于配置文件与默认值。
+- **映射方式**：嵌套配置项使用下划线分隔。
+
+**示例**：
+
+```bash
+# 关闭彩色与流式输出
+export GCOP_UI_COLORED=false
+export GCOP_UI_STREAMING=false
+
+# 切换默认 provider
+export GCOP_LLM_DEFAULT_PROVIDER=openai
+```
 
 ## 命令行覆盖
 

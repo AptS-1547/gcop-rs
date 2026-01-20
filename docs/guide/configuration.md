@@ -8,7 +8,7 @@ gcop-rs uses a TOML configuration file. The location is platform-specific:
 |----------|----------|
 | Linux | `~/.config/gcop/config.toml` |
 | macOS | `~/Library/Application Support/gcop/config.toml` |
-| Windows | `%APPDATA%\gcop\config.toml` |
+| Windows | `%APPDATA%\gcop\config\config.toml` |
 
 The configuration file is **optional**. If not present, default values are used.
 
@@ -38,8 +38,8 @@ cp examples/config.toml.example ~/Library/Application\ Support/gcop/config.toml
 
 Windows (PowerShell):
 ```powershell
-New-Item -ItemType Directory -Force -Path "$env:APPDATA\gcop"
-Copy-Item examples\config.toml.example "$env:APPDATA\gcop\config.toml"
+New-Item -ItemType Directory -Force -Path "$env:APPDATA\gcop\config"
+Copy-Item examples\config.toml.example "$env:APPDATA\gcop\config\config.toml"
 ```
 
 Then edit the config file to add your API key.
@@ -89,12 +89,10 @@ model = "codellama:13b"
 [commit]
 show_diff_preview = true
 allow_edit = true
-confirm_before_commit = true
 max_retries = 10
 
 # Review Settings
 [review]
-show_full_diff = true
 min_severity = "info"  # critical | warning | info
 
 # UI Settings
@@ -103,8 +101,8 @@ colored = true
 verbose = false
 streaming = true  # Enable streaming output (real-time typing effect)
 
-# Note: Streaming is only supported by OpenAI-style APIs.
-# For Claude and Ollama providers, it automatically falls back to spinner mode.
+# Note: Streaming is supported by OpenAI- and Claude-style APIs.
+# For Ollama providers, it automatically falls back to spinner mode.
 
 # Network Settings
 [network]
@@ -134,12 +132,12 @@ Each provider under `[llm.providers.<name>]` supports:
 
 | Option | Type | Required | Description |
 |--------|------|----------|-------------|
-| `api_style` | String | No | API style: `"claude"`, `"openai"`, or `"ollama"` (auto-detected if not set) |
+| `api_style` | String | No | API style: `"claude"`, `"openai"`, or `"ollama"` (defaults to provider name if not set) |
 | `api_key` | String | Yes* | API key (*not required for Ollama) |
 | `endpoint` | String | No | API endpoint (uses default if not set) |
 | `model` | String | Yes | Model name |
 | `temperature` | Float | No | Temperature (0.0-1.0, default: 0.3) |
-| `max_tokens` | Integer | No | Max tokens for response (default: 2000) |
+| `max_tokens` | Integer | No | Max tokens for response (Claude-style defaults to 2000; OpenAI-style only sends if set) |
 
 ### Commit Settings
 
@@ -147,24 +145,22 @@ Each provider under `[llm.providers.<name>]` supports:
 |--------|------|---------|-------------|
 | `show_diff_preview` | Boolean | `true` | Show diff stats before generating |
 | `allow_edit` | Boolean | `true` | Allow editing generated message |
-| `confirm_before_commit` | Boolean | `true` | Ask confirmation before committing |
 | `max_retries` | Integer | `10` | Max retry attempts for regenerating messages |
-| `custom_prompt` | String | No | Custom prompt template for commit messages |
+| `custom_prompt` | String | No | Custom system prompt / instructions for commit generation |
 
 ### Review Settings
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `show_full_diff` | Boolean | `true` | Show full diff during review |
 | `min_severity` | String | `"info"` | Minimum severity to display: `"critical"`, `"warning"`, or `"info"` |
-| `custom_prompt` | String | No | Custom prompt template for code review |
+| `custom_prompt` | String | No | Custom system prompt / instructions for code review |
 
 ### UI Settings
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `colored` | Boolean | `true` | Enable colored output |
-| `verbose` | Boolean | `false` | Show verbose logs (same as `--verbose` flag) |
+| `verbose` | Boolean | `false` | *(Currently unused)* Use `--verbose` / `-v` to enable debug logs |
 | `streaming` | Boolean | `true` | Enable streaming output (real-time typing effect) |
 
 > **Note on Streaming:** Currently only OpenAI or Claude style APIs support streaming. When using Ollama providers, the system automatically falls back to spinner mode (waiting for complete response).
@@ -216,6 +212,24 @@ export OPENAI_API_KEY="sk-your-openai-key"
 **All platforms:**
 - Never commit config.toml to git
 - Add to .gitignore if creating project-level config
+
+## Environment Overrides (GCOP_*)
+
+In addition to provider API key env vars, gcop-rs supports overriding configuration values via environment variables with the `GCOP_` prefix.
+
+- **Priority**: `GCOP_*` overrides config file and defaults.
+- **Mapping**: Nested keys are separated by underscores.
+
+**Examples**:
+
+```bash
+# Disable colors and streaming output
+export GCOP_UI_COLORED=false
+export GCOP_UI_STREAMING=false
+
+# Switch default provider
+export GCOP_LLM_DEFAULT_PROVIDER=openai
+```
 
 ## Override with Command-Line
 

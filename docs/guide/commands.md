@@ -8,7 +8,7 @@ These options can be used with any command:
 
 | Option | Description |
 |--------|-------------|
-| `--provider <NAME>` | Override default LLM provider (claude, openai, ollama, or custom) |
+| `--provider <NAME>`, `-p` | Override default LLM provider (claude, openai, ollama, or custom) |
 | `--verbose`, `-v` | Enable verbose logging (shows API requests and responses) |
 | `--help`, `-h` | Show help information |
 | `--version`, `-V` | Show version information |
@@ -16,7 +16,7 @@ These options can be used with any command:
 **Example**:
 ```bash
 gcop-rs --provider openai commit
-gcop-rs -v review
+gcop-rs -v review changes
 ```
 
 ---
@@ -29,7 +29,7 @@ Initialize gcop-rs configuration with an interactive wizard.
 
 **Synopsis**:
 ```bash
-gcop-rs init
+gcop-rs init [OPTIONS]
 ```
 
 **Description**:
@@ -40,7 +40,11 @@ Interactive setup that guides you through:
 3. Setting secure file permissions (Unix/Linux/macOS only)
 4. Optionally installing git aliases
 
-**Options**: None
+**Options**:
+
+| Option | Description |
+|--------|-------------|
+| `--force`, `-f` | Force overwrite existing config |
 
 **Example** (Linux):
 ```bash
@@ -62,7 +66,7 @@ Install git aliases? (Y/n): y
   ✓  git r          → AI review
   ...
 
-✓ Installed 11 aliases
+✓ Installed 14 aliases
 ```
 
 **What it creates**:
@@ -90,17 +94,17 @@ Analyzes your staged changes, generates a conventional commit message using AI, 
 
 | Option | Description |
 |--------|-------------|
-| `--no-edit` | Skip opening editor for manual editing |
-| `--yes` | Skip confirmation menu and accept generated message |
-| `--dry-run` | Only generate and print commit message, do not commit |
-| `--provider <NAME>` | Use specific provider (overrides default) |
+| `--no-edit`, `-n` | Skip opening editor for manual editing |
+| `--yes`, `-y` | Skip confirmation menu and accept generated message |
+| `--dry-run`, `-d` | Only generate and print commit message, do not commit |
+| `--provider <NAME>`, `-p` | Use specific provider (overrides default) |
 
 **Interactive Actions**:
 
 After generating a message, you'll see a menu:
 
 1. **Accept** - Use the generated message and create commit
-2. **Edit** - Open your `$EDITOR` to manually modify the message (returns to menu after editing)
+2. **Edit** - Open your `$VISUAL` / `$EDITOR` (platform default if not set) to manually modify the message (returns to menu after editing)
 3. **Retry** - Regenerate a new message without additional instructions
 4. **Retry with feedback** - Provide instructions for regeneration (e.g., "use Chinese", "be more concise", "add more details"). Feedback accumulates across retries, allowing you to progressively refine the message
 5. **Quit** - Cancel the commit process
@@ -165,47 +169,50 @@ Perform AI-powered code review of changes, commits, or files.
 
 **Synopsis**:
 ```bash
-gcop-rs review [TARGET] [OPTIONS]
+gcop-rs review [OPTIONS] <COMMAND>
 ```
 
-**Targets**:
+**Commands**:
 
-| Target | Syntax | Description |
+| Command | Syntax | Description |
 |--------|--------|-------------|
-| *(default)* | `gcop-rs review` | Review uncommitted changes |
-| Commit | `--commit <HASH>` | Review a specific commit |
-| Range | `--range <RANGE>` | Review commit range (e.g., `HEAD~3..HEAD`) |
-| File | `--file <PATH>` | Review a specific file |
+| Changes | `gcop-rs review changes` | Review working tree changes (similar to `git diff`) |
+| Commit | `gcop-rs review commit <HASH>` | Review a specific commit |
+| Range | `gcop-rs review range <RANGE>` | Review commit range (e.g., `HEAD~3..HEAD`) |
+| File | `gcop-rs review file <PATH>` | Review a file or directory |
 
 **Options**:
 
 | Option | Description |
 |--------|-------------|
-| `--format <FORMAT>` | Output format: `text` (default), `json`, or `markdown` |
-| `--provider <NAME>` | Use specific provider |
+| `--format <FORMAT>`, `-f` | Output format: `text` (default), `json`, or `markdown` |
+| `--provider <NAME>`, `-p` | Use specific provider |
 
 **Examples**:
 
 ```bash
-# Review uncommitted changes (default)
-gcop-rs review
+# Review working tree changes
+gcop-rs review changes
 
 # Review last commit
-gcop-rs review --commit HEAD
-gcop-rs review --commit abc123
+gcop-rs review commit HEAD
+gcop-rs review commit abc123
 
 # Review last 3 commits
-gcop-rs review --range HEAD~3..HEAD
+gcop-rs review range HEAD~3..HEAD
 
-# Review specific file
-gcop-rs review --file src/auth.rs
+# Review file or directory
+gcop-rs review file src/auth.rs
+gcop-rs review file src/
 
 # Output as JSON for automation
-gcop-rs review --format json > review.json
+gcop-rs review changes --format json > review.json
 
 # Output as markdown for documentation
-gcop-rs review --format markdown > REVIEW.md
+gcop-rs review changes --format markdown > REVIEW.md
 ```
+
+> **Note**: `review changes` currently reviews unstaged changes only (index → working tree). Staged changes are not included.
 
 **Output Format (text)**:
 
@@ -243,8 +250,10 @@ Manage gcop-rs configuration.
 
 **Synopsis**:
 ```bash
-gcop-rs config <SUBCOMMAND>
+gcop-rs config [SUBCOMMAND]
 ```
+
+If no subcommand is provided, it defaults to `gcop-rs config edit`.
 
 **Subcommands**:
 
@@ -257,7 +266,7 @@ Open configuration file in your default editor with validation.
 gcop-rs config edit
 ```
 
-**Opens**: Config file (platform-specific location) in `$EDITOR` (falls back to `vi` on Unix, `notepad` on Windows)
+**Opens**: Config file (platform-specific location) in `$VISUAL` / `$EDITOR` (platform default if not set)
 
 **Validation**: After saving, the configuration is automatically validated (like `visudo`). If validation fails, you'll see a menu:
 
@@ -288,52 +297,27 @@ gcop-rs config validate
 ```
 
 **Checks**:
-- Configuration file syntax
-- Required fields presence
-- API key format
-- Provider connectivity (makes a test API call)
+- Loads and parses configuration (defaults + config file + `GCOP_*` env overrides)
+- Lists configured providers
+- Validates the default provider by sending a minimal test request
+- If `fallback_providers` is configured, validation may attempt those providers as well
 
 **Example output**:
 ```
-✓ Configuration file is valid
-✓ Claude provider validated successfully
-⚠ OpenAI provider: API key not set (skipped)
+[1/2] Loading configuration...
+✓ Configuration loaded successfully
+
+Configured providers:
+  • claude
+
+[2/2] Testing provider connection...
+✓ Provider 'claude' validated successfully
 ```
 
 **When to use**:
 - After editing configuration
 - Troubleshooting connection issues
 - Verifying API keys
-
----
-
-#### `config show`
-
-Display current configuration.
-
-**Usage**:
-```bash
-gcop-rs config show
-```
-
-**Example output**:
-```toml
-[llm]
-default_provider = "claude"
-
-[llm.providers.claude]
-model = "claude-sonnet-4-5-20250929"
-endpoint = "https://api.anthropic.com/v1/messages"
-
-[commit]
-show_diff_preview = true
-allow_edit = true
-
-[ui]
-colored = true
-```
-
-**Note**: API keys are hidden for security.
 
 ---
 
@@ -351,16 +335,16 @@ gcop-rs alias [OPTIONS]
 | Option | Description |
 |--------|-------------|
 | *(none)* | Install all aliases (default action) |
-| `--list` | List all available aliases and their status |
-| `--force` | Force install, overwriting conflicts |
-| `--remove` | Remove aliases (requires `--force` to confirm) |
+| `--list`, `-l` | List all available aliases and their status |
+| `--force`, `-f` | Force install, overwriting conflicts |
+| `--remove`, `-r` | Remove aliases (requires `--force` to confirm) |
 
 **Examples**:
 
 #### Install Aliases
 
 ```bash
-# Install all 11 aliases
+# Install all aliases
 gcop-rs alias
 
 # Output:
@@ -441,7 +425,7 @@ Analyzes commit history and displays statistics including total commits, contrib
 
 | Option | Description |
 |--------|-------------|
-| `--format <FORMAT>` | Output format: `text` (default), `json`, or `markdown` |
+| `--format <FORMAT>`, `-f` | Output format: `text` (default), `json`, or `markdown` |
 | `--author <NAME>` | Filter statistics by author name or email |
 
 **Examples**:
@@ -517,8 +501,8 @@ gcop-rs stats --author "john@example.com"
 gcop-rs commands can be combined with standard git commands:
 
 ```bash
-# Review then commit
-gcop-rs review && gcop-rs commit
+# Review then stage + commit
+gcop-rs review changes && git add -A && gcop-rs commit
 
 # Commit then push (if using full commands)
 gcop-rs commit --yes && git push
@@ -533,11 +517,9 @@ gcop-rs uses standard exit codes:
 
 | Code | Meaning |
 |------|---------|
-| 0 | Success |
-| 1 | General error (API error, git error, etc.) |
-| 2 | User cancelled (Ctrl+C or selected Quit) |
-| 3 | Configuration error |
-| 4 | Invalid input (no changes, invalid commit hash, etc.) |
+| 0 | Success (also used when you cancel from interactive menus) |
+| 1 | Runtime error (API error, git error, config error, etc.) |
+| 2 | CLI usage error (invalid flags/args; generated by clap) |
 
 **Usage in scripts**:
 ```bash
@@ -557,7 +539,8 @@ These environment variables affect gcop-rs behavior:
 |----------|-------------|
 | `ANTHROPIC_API_KEY` | Claude API key (fallback if not in config) |
 | `OPENAI_API_KEY` | OpenAI API key (fallback) |
-| `EDITOR` | Editor for `--edit` and `config edit` |
+| `VISUAL` / `EDITOR` | Editor for commit message editing and `gcop-rs config edit` |
+| `GCOP_*` | Override config values via environment variables (e.g., `GCOP_UI_COLORED=false`) |
 | `NO_COLOR` | Disable colored output (set to any value) |
 
 **Example**:

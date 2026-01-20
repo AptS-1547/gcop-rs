@@ -1,222 +1,72 @@
 # Custom Prompts
 
-gcop-rs allows you to customize the prompts sent to AI for both commit message generation and code review.
+gcop-rs lets you customize the instructions sent to the LLM for both commit message generation and code review.
 
-## Why Customize Prompts?
+## How Custom Prompts Work
 
-- **Language**: Generate commit messages in Chinese or other languages
-- **Style**: Match your team's commit message format
-- **Focus**: Emphasize specific review criteria (security, performance, etc.)
-- **Context**: Add project-specific guidelines
+gcop-rs uses a split prompt:
 
-## Auto-Completion
+- **System prompt**: instructions for the model
+- **User message**: the actual content to work on (diff/context)
 
-gcop-rs automatically appends missing required sections to your custom prompts, so you can focus on writing instructions without worrying about placeholders.
+Your `custom_prompt` overrides the **system prompt**. The diff/context is always included in the **user message**.
 
-### Commit Prompts
+> **Important**: `custom_prompt` is treated as plain text instructions. There is **no** template/placeholder substitution. If you write `{diff}` in your custom prompt, it will be sent literally.
 
-If your custom prompt doesn't contain `{diff}`, gcop-rs will automatically append:
-- Git diff section with `{diff}` placeholder
-- Context section with `{files_changed}`, `{insertions}`, `{deletions}`
+## Commit Prompts (`[commit].custom_prompt`)
 
-**Example - Simplified custom prompt:**
-```toml
-[commit]
-custom_prompt = "Generate commit message in Chinese, be concise"
-```
+- Your `custom_prompt` becomes the **system prompt** for commit generation.
+- The **user message** always includes:
+  - staged diff (`git diff --cached` equivalent)
+  - context (changed files, insertions, deletions)
+  - current branch name (if available)
+  - accumulated feedback from “Retry with feedback” (if used)
 
-This will be automatically expanded to:
-````
-Generate commit message in Chinese, be concise
-
-## Git Diff:
-```
-<actual diff content>
-```
-
-## Context:
-- Files: src/main.rs, src/lib.rs
-- Changes: +45 -12
-````
-
-### Review Prompts
-
-For review prompts, gcop-rs will:
-1. Append `{diff}` section if missing
-2. **Always** append JSON output format specification
-
-**Example - Simplified custom prompt:**
-```toml
-[review]
-custom_prompt = "Review this code for security vulnerabilities, focus on SQL injection and XSS"
-```
-
-This will be automatically expanded to include the diff and JSON format instructions.
-
-## Template Variables
-
-### Commit Message Prompts
-
-Available placeholders:
-
-- `{diff}` - Complete git diff content
-- `{files_changed}` - Comma-separated list of changed files
-- `{insertions}` - Number of lines added
-- `{deletions}` - Number of lines deleted
-- `{branch_name}` - Current branch name (if available)
-- `{branch_info}` - Formatted branch info (`"- Branch: xxx"` or empty)
-
-### Code Review Prompts
-
-Available placeholders:
-
-- `{diff}` - Code diff content
-
-## Examples
-
-### Chinese Commit Messages
+**Example**:
 
 ```toml
 [commit]
 custom_prompt = """
-你是一个专业的软件工程师，正在审查 git diff 以生成简洁的中文提交信息。
+Generate a concise conventional commit message in Chinese.
 
-## Git Diff:
-{diff}
-
-## 上下文:
-- 修改的文件: {files_changed}
-- 新增行数: {insertions}
-- 删除行数: {deletions}
-- 分支名称: {branch_name}
-
-## 要求:
-1. 使用中文生成提交信息
-2. 第一行：类型(范围): 简要描述（不超过50字）
-3. 空一行
-4. 正文：说明改动的原因和影响
-
-常见类型：feat（新功能）、fix（修复）、docs（文档）、refactor（重构）
-
-只输出提交信息，不要解释。
+Requirements:
+- First line: type(scope): summary (<= 50 chars)
+- Output ONLY the commit message (no explanation)
 """
 ```
 
-### Simple Commit Messages
+## Review Prompts (`[review].custom_prompt`)
 
-```toml
-[commit]
-custom_prompt = """
-Generate a one-line commit message for:
+- Your `custom_prompt` becomes the **base system prompt** for review.
+- gcop-rs **always appends** a JSON output constraint (so it can parse the result).
+- The **user message** always includes the diff (or file content when using `review file`).
 
-{diff}
-
-Files: {files_changed} (+{insertions} -{deletions})
-
-Format: <type>: <description>
-Keep it under 72 characters.
-"""
-```
-
-### Security-Focused Review
+**Example**:
 
 ```toml
 [review]
 custom_prompt = """
-You are a security expert. Review this code for vulnerabilities:
-
-{diff}
+You are a senior code reviewer.
 
 Focus on:
-1. SQL Injection
-2. XSS (Cross-Site Scripting)
-3. CSRF
-4. Authentication/Authorization flaws
-5. Insecure data handling
-
-Output in JSON format:
-{{
-  "summary": "Security assessment",
-  "issues": [
-    {{
-      "severity": "critical" | "warning" | "info",
-      "description": "Issue description",
-      "file": "filename",
-      "line": line_number
-    }}
-  ],
-  "suggestions": ["Security recommendation"]
-}}
+1. Correctness (bugs, edge cases)
+2. Security issues
+3. Performance regressions
+4. Maintainability
 """
 ```
 
-### Performance-Focused Review
+## Debugging
 
-```toml
-[review]
-custom_prompt = """
-Review this code for performance issues:
+- `gcop-rs -v commit` prints the generated system prompt and user message before calling the provider.
+- `gcop-rs -v review ...` enables debug logging, but does not print the full prompt text.
 
-{diff}
+## Notes
 
-Check for:
-- Inefficient algorithms
-- Memory leaks
-- Unnecessary allocations
-- N+1 queries
-- Blocking operations
-
-Return JSON with findings.
-"""
-```
-
-## Best Practices
-
-### 1. Keep Prompts Focused
-
-Shorter, focused prompts often work better than very long ones.
-
-### 2. Specify Output Format
-
-For code review, always request JSON format to ensure proper parsing.
-
-### 3. Test with Verbose Mode
-
-Use `gcop-rs -v commit` to see the actual prompt sent to AI.
-
-### 4. Iterate
-
-Try different prompts and compare results to find what works best.
-
-## Default Prompts
-
-If you don't specify `custom_prompt`, gcop-rs uses built-in defaults:
-
-- **Commit**: Generates conventional commit messages in English
-- **Review**: Comprehensive code review in English with JSON output
-
-See `src/llm/prompt.rs` in the source code for the exact default templates.
-
-## Troubleshooting
-
-### Issue: LLM Returns Wrong Format
-
-If the AI doesn't follow your prompt format:
-
-1. Be more explicit about the required format
-2. Add examples in the prompt
-3. Use `--verbose` to debug
-4. Try a different model or adjust temperature
-
-### Issue: Non-English Output
-
-Some models may ignore language instructions. Try:
-
-- Being more explicit: "You MUST respond in Chinese"
-- Adding examples
-- Using a different model
+- The review command expects the model to return valid JSON. gcop-rs can strip common Markdown fences like ```json, but it still requires valid JSON to parse successfully.
 
 ## See Also
 
 - [Configuration Reference](configuration.md) - All config options
+- [Provider Setup](providers.md) - Configure LLM providers
 - [Troubleshooting](troubleshooting.md) - Common issues

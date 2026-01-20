@@ -145,8 +145,8 @@ export ANTHROPIC_API_KEY="sk-ant-your-key"
    ```bash
    gcop-rs -v commit
    # 你会看到：
-   # WARN OpenAI API request failed (attempt 1/4): connection failed. Retrying in 1.0s...
-   # WARN OpenAI API request failed (attempt 2/4): connection failed. Retrying in 2.0s...
+   # DEBUG OpenAI API network error (attempt 1/4): ... Retrying in 1.0s...
+   # DEBUG OpenAI API network error (attempt 2/4): ... Retrying in 2.0s...
    ```
 
 **注意**: 连接失败会自动重试，使用指数退避（1s, 2s, 4s）。
@@ -223,9 +223,10 @@ export NO_PROXY=localhost,127.0.0.1,.local
 
 **重试日志示例**：
 ```
-WARN  OpenAI API request failed (attempt 1/4): connection failed. Retrying in 1.0s...
-WARN  OpenAI API request failed (attempt 2/4): connection failed. Retrying in 2.0s...
-INFO  OpenAI API request succeeded after 3 attempts
+DEBUG OpenAI API request failed [connection failed]: ...
+DEBUG OpenAI API network error (attempt 1/4): ... Retrying in 1.0s...
+DEBUG OpenAI API network error (attempt 2/4): ... Retrying in 2.0s...
+DEBUG OpenAI API request succeeded after 3 attempts
 ```
 
 ### 问题: "Failed to parse Claude/OpenAI response"
@@ -312,7 +313,7 @@ gcop-rs -v review changes
 这会显示：
 - 配置加载过程
 - API 请求和响应
-- 发送给 LLM 的 prompt
+- 运行 `gcop-rs -v commit` 时的 commit prompt（system + user）
 - 响应解析过程
 
 > **安全提示**: verbose 模式（`-v` 或 `RUST_LOG=debug`）会在日志中打印完整的 API 请求和响应，可能包含：

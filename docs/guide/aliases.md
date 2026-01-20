@@ -4,7 +4,7 @@ Complete guide to gcop-rs git aliases - convenient shortcuts for your daily Git 
 
 ## Overview
 
-gcop-rs provides 13 carefully designed git aliases that streamline common tasks:
+gcop-rs provides 14 carefully designed git aliases that streamline common tasks:
 
 | Alias | Command | Description |
 |-------|---------|-------------|
@@ -20,6 +20,7 @@ gcop-rs provides 13 carefully designed git aliases that streamline common tasks:
 | `git gconfig` | `gcop-rs config edit` | Edit configuration |
 | `git p` | `git push` | Quick push |
 | `git pf` | `git push --force-with-lease` | Safer force push |
+| `git amend` | `git commit --amend` | Amend last commit |
 | `git undo` | `git reset --soft HEAD^` | Undo last commit |
 
 ## Installation
@@ -140,21 +141,26 @@ git push
 
 #### `git r` - Review Changes
 
-Get AI-powered code review of your uncommitted changes.
+Get AI-powered code review.
 
 **Command**: `gcop-rs review`
 
 **Usage**:
 ```bash
-# Review changes before committing
-git r
+# Review working tree changes (unstaged, similar to `git diff`)
+git r changes
+
+# Review other targets
+git r commit HEAD
+git r range HEAD~3..HEAD
+git r file src/auth.rs
 
 # Review with different format
-git r --format json
-git r --format markdown
+git r changes --format json
+git r changes --format markdown
 ```
 
-**What it reviews**: All uncommitted changes in your working directory (both staged and unstaged).
+**What it reviews**: `git r changes` reviews unstaged working tree changes (similar to `git diff`).
 
 **When to use**:
 - Before committing to catch potential issues
@@ -167,7 +173,7 @@ git r --format markdown
 vim src/auth.rs
 
 # Review changes
-git r
+git r changes
 
 📝 Summary:
 Added JWT token validation with proper error handling.
@@ -186,6 +192,17 @@ git c
 ---
 
 ### Utility Aliases
+
+#### `git amend` - Amend Last Commit
+
+Amend the last commit (equivalent to `git commit --amend`).
+
+**Command**: `git commit --amend`
+
+**Usage**:
+```bash
+git amend
+```
 
 #### `git undo` - Undo Last Commit
 
