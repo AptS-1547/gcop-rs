@@ -18,12 +18,14 @@ use crate::ui;
 /// * `no_edit` - 是否跳过编辑
 /// * `yes` - 是否跳过确认
 /// * `dry_run` - 是否只输出 commit message 而不提交
+/// * `feedback` - 初始反馈/指令
 pub async fn run(
     cli: &Cli,
     config: &AppConfig,
     no_edit: bool,
     yes: bool,
     dry_run: bool,
+    feedback: Vec<String>,
 ) -> Result<()> {
     let repo = GitRepository::open(None)?;
     let provider = create_provider(config, cli.provider.as_deref())?;
@@ -34,6 +36,7 @@ pub async fn run(
         no_edit,
         yes,
         dry_run,
+        feedback,
         &repo as &dyn GitOperations,
         &provider,
     )
@@ -42,12 +45,14 @@ pub async fn run(
 
 /// 执行 commit 命令（可测试版本，接受 trait 对象）
 #[allow(dead_code)] // 供测试使用
+#[allow(clippy::too_many_arguments)] // 参数较多但合理
 async fn run_with_deps(
     cli: &Cli,
     config: &AppConfig,
     no_edit: bool,
     yes: bool,
     dry_run: bool,
+    feedback: Vec<String>,
     repo: &dyn GitOperations,
     provider: &Arc<dyn LLMProvider>,
 ) -> Result<()> {
@@ -90,9 +95,17 @@ async fn run_with_deps(
     // 5. 状态机主循环
     let should_edit = config.commit.allow_edit && !no_edit;
     let max_retries = config.commit.max_retries;
+
+    // 初始化 feedback：将命令行参数合并为单个 feedback
+    let initial_feedbacks = if feedback.is_empty() {
+        vec![]
+    } else {
+        vec![feedback.join(" ")]
+    };
+
     let mut state = CommitState::Generating {
         attempt: 0,
-        feedbacks: vec![],
+        feedbacks: initial_feedbacks,
     };
 
     loop {

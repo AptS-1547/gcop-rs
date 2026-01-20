@@ -38,6 +38,10 @@ pub enum Commands {
         /// Only generate and print commit message, do not commit
         #[arg(short, long)]
         dry_run: bool,
+
+        /// Feedback/instruction for commit message generation
+        #[arg(trailing_var_arg = true)]
+        feedback: Vec<String>,
     },
 
     /// Review code changes
