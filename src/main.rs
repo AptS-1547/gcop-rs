@@ -57,20 +57,13 @@ fn main() -> Result<()> {
                 json,
                 ref feedback,
             } => {
-                let effective_format = if json { "json" } else { format.as_str() };
-                let is_json = effective_format == "json";
+                // 使用 CommitOptions 聚合参数
+                let options = commands::CommitOptions::from_cli(
+                    &cli, no_edit, yes, dry_run, format, json, feedback,
+                );
+                let is_json = options.format.is_json();
                 // 执行 commit 命令
-                if let Err(e) = commands::commit::run(
-                    &cli,
-                    &config,
-                    no_edit,
-                    yes,
-                    dry_run,
-                    effective_format,
-                    feedback.clone(),
-                )
-                .await
-                {
+                if let Err(e) = commands::commit::run(&options, &config).await {
                     // JSON 模式下，错误已经输出过 JSON 了，直接退出
                     if is_json {
                         std::process::exit(1);
@@ -105,11 +98,11 @@ fn main() -> Result<()> {
                 ref format,
                 json,
             } => {
-                let effective_format = if json { "json" } else { format.as_str() };
-                let is_json = effective_format == "json";
+                // 使用 ReviewOptions 聚合参数
+                let options = commands::ReviewOptions::from_cli(&cli, target, format, json);
+                let is_json = options.format.is_json();
                 // 执行 review 命令
-                if let Err(e) = commands::review::run(&cli, &config, target, effective_format).await
-                {
+                if let Err(e) = commands::review::run(&options, &config).await {
                     // JSON 模式下输出 JSON 错误
                     if is_json {
                         let _ = commands::review::output_json_error(&e);
@@ -186,11 +179,10 @@ fn main() -> Result<()> {
                 json,
                 ref author,
             } => {
-                let effective_format = if json { "json" } else { format.as_str() };
-                let is_json = effective_format == "json";
-                if let Err(e) =
-                    commands::stats::run(effective_format, author.as_deref(), config.ui.colored)
-                {
+                // 使用 StatsOptions 聚合参数
+                let options = commands::StatsOptions::from_cli(format, json, author.as_deref());
+                let is_json = options.format.is_json();
+                if let Err(e) = commands::stats::run(&options, config.ui.colored) {
                     // JSON 模式下输出 JSON 错误
                     if is_json {
                         let _ = commands::stats::output_json_error(&e);

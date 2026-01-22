@@ -3,7 +3,7 @@ use std::sync::Arc;
 use colored::Colorize;
 use serde::Serialize;
 
-use crate::cli::Cli;
+use super::options::CommitOptions;
 use crate::commands::commit_state_machine::{CommitState, GenerationResult, UserAction};
 use crate::commands::json::ErrorJson;
 use crate::config::AppConfig;
@@ -52,63 +52,33 @@ impl From<&DiffStats> for DiffStatsJson {
 /// 执行 commit 命令
 ///
 /// # Arguments
-/// * `cli` - CLI 参数
+/// * `options` - Commit 命令选项
 /// * `config` - 应用配置
-/// * `no_edit` - 是否跳过编辑
-/// * `yes` - 是否跳过确认
-/// * `dry_run` - 是否只输出 commit message 而不提交
-/// * `format` - 输出格式 ("text" | "json")
-/// * `feedback` - 初始反馈/指令
-pub async fn run(
-    cli: &Cli,
-    config: &AppConfig,
-    no_edit: bool,
-    yes: bool,
-    dry_run: bool,
-    format: &str,
-    feedback: Vec<String>,
-) -> Result<()> {
+pub async fn run(options: &CommitOptions<'_>, config: &AppConfig) -> Result<()> {
     let repo = GitRepository::open(None)?;
-    let provider = create_provider(config, cli.provider.as_deref())?;
+    let provider = create_provider(config, options.provider_override)?;
 
-    run_with_deps(
-        cli,
-        config,
-        no_edit,
-        yes,
-        dry_run,
-        format,
-        feedback,
-        &repo as &dyn GitOperations,
-        &provider,
-    )
-    .await
+    run_with_deps(options, config, &repo as &dyn GitOperations, &provider).await
 }
 
 /// 执行 commit 命令（可测试版本，接受 trait 对象）
 #[allow(dead_code)] // 供测试使用
-#[allow(clippy::too_many_arguments)] // 参数较多但合理
 async fn run_with_deps(
-    cli: &Cli,
+    options: &CommitOptions<'_>,
     config: &AppConfig,
-    no_edit: bool,
-    yes: bool,
-    dry_run: bool,
-    format: &str,
-    feedback: Vec<String>,
     repo: &dyn GitOperations,
     provider: &Arc<dyn LLMProvider>,
 ) -> Result<()> {
-    let is_json = format == "json";
+    let is_json = options.format.is_json();
     // JSON 模式禁用彩色输出
-    let colored = if is_json { false } else { config.ui.colored };
+    let colored = options.effective_colored(config);
 
     // 将命令行参数合并为一条反馈（便于不加引号时使用）
     // e.g. `gcop-rs commit use Chinese` -> "use Chinese"
-    let initial_feedbacks = if feedback.is_empty() {
+    let initial_feedbacks = if options.feedback.is_empty() {
         vec![]
     } else {
-        vec![feedback.join(" ")]
+        vec![options.feedback.join(" ")]
     };
 
     // 2. 检查 staged changes
@@ -153,7 +123,7 @@ async fn run_with_deps(
             &stats,
             config,
             &initial_feedbacks,
-            cli.verbose,
+            options.verbose,
         )
         .await;
 
@@ -170,7 +140,7 @@ async fn run_with_deps(
     }
 
     // dry_run 模式：只生成并输出 commit message
-    if dry_run {
+    if options.dry_run {
         let (message, already_displayed) = generate_message(
             provider,
             repo,
@@ -179,7 +149,7 @@ async fn run_with_deps(
             config,
             &initial_feedbacks,
             0,
-            cli.verbose,
+            options.verbose,
         )
         .await?;
         if !already_displayed {
@@ -189,7 +159,7 @@ async fn run_with_deps(
     }
 
     // 5. 状态机主循环
-    let should_edit = config.commit.allow_edit && !no_edit;
+    let should_edit = config.commit.allow_edit && !options.no_edit;
     let max_retries = config.commit.max_retries;
 
     let mut state = CommitState::Generating {
@@ -212,7 +182,7 @@ async fn run_with_deps(
                         colored,
                     );
                     // 使用 MaxRetriesExceeded 变体，直接触发错误
-                    gen_state.handle_generation(GenerationResult::MaxRetriesExceeded, yes)?;
+                    gen_state.handle_generation(GenerationResult::MaxRetriesExceeded, options.yes)?;
                     unreachable!("MaxRetriesExceeded should return error");
                 }
 
@@ -225,17 +195,17 @@ async fn run_with_deps(
                     config,
                     &feedbacks,
                     attempt,
-                    cli.verbose,
+                    options.verbose,
                 )
                 .await?;
 
                 // 使用状态机方法处理生成结果
                 let gen_state = CommitState::Generating { attempt, feedbacks };
                 let result = GenerationResult::Success(message.clone());
-                let next_state = gen_state.handle_generation(result, yes)?;
+                let next_state = gen_state.handle_generation(result, options.yes)?;
 
                 // 显示生成的消息（除非 --yes 直接接受，或流式模式已经显示过）
-                if !yes && !already_displayed {
+                if !options.yes && !already_displayed {
                     display_message(&message, attempt, colored);
                 }
 
@@ -305,7 +275,7 @@ async fn run_with_deps(
 
                 println!();
                 ui::success("Commit created successfully!", colored);
-                if cli.verbose {
+                if options.verbose {
                     println!("\n{}", message);
                 }
                 return Ok(());

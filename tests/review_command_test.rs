@@ -6,6 +6,7 @@
 
 use async_trait::async_trait;
 use gcop_rs::cli::ReviewTarget;
+use gcop_rs::commands::{OutputFormat, ReviewOptions};
 use gcop_rs::config::AppConfig;
 use gcop_rs::error::{GcopError, Result};
 use gcop_rs::git::MockGitOperations;
@@ -98,6 +99,16 @@ impl LLMProvider for MockReviewLLM {
 
 // ========== 测试用例 ==========
 
+/// 创建测试用的 ReviewOptions
+fn make_review_options(target: &ReviewTarget) -> ReviewOptions<'_> {
+    ReviewOptions {
+        target,
+        format: OutputFormat::Text,
+        verbose: false,
+        provider_override: None,
+    }
+}
+
 #[tokio::test]
 async fn test_review_target_uncommitted_changes() {
     let mut mock_git = MockGitOperations::new();
@@ -110,10 +121,10 @@ async fn test_review_target_uncommitted_changes() {
 
     let config = AppConfig::default();
     let target = ReviewTarget::Changes;
+    let options = make_review_options(&target);
 
     let result =
-        gcop_rs::commands::review::run_internal(&config, &target, "text", &mock_git, &mock_llm)
-            .await;
+        gcop_rs::commands::review::run_internal(&options, &config, &mock_git, &mock_llm).await;
 
     assert!(result.is_ok());
 }
@@ -133,10 +144,10 @@ async fn test_review_target_single_commit() {
     let target = ReviewTarget::Commit {
         hash: "abc123".to_string(),
     };
+    let options = make_review_options(&target);
 
     let result =
-        gcop_rs::commands::review::run_internal(&config, &target, "text", &mock_git, &mock_llm)
-            .await;
+        gcop_rs::commands::review::run_internal(&options, &config, &mock_git, &mock_llm).await;
 
     assert!(result.is_ok());
 }
@@ -156,10 +167,10 @@ async fn test_review_target_range() {
     let target = ReviewTarget::Range {
         range: "main..feature".to_string(),
     };
+    let options = make_review_options(&target);
 
     let result =
-        gcop_rs::commands::review::run_internal(&config, &target, "text", &mock_git, &mock_llm)
-            .await;
+        gcop_rs::commands::review::run_internal(&options, &config, &mock_git, &mock_llm).await;
 
     assert!(result.is_ok());
 }
@@ -179,10 +190,10 @@ async fn test_review_target_file() {
     let target = ReviewTarget::File {
         path: "src/main.rs".to_string(),
     };
+    let options = make_review_options(&target);
 
     let result =
-        gcop_rs::commands::review::run_internal(&config, &target, "text", &mock_git, &mock_llm)
-            .await;
+        gcop_rs::commands::review::run_internal(&options, &config, &mock_git, &mock_llm).await;
 
     assert!(result.is_ok());
 }
@@ -201,10 +212,10 @@ async fn test_review_empty_uncommitted_changes_error() {
 
     let config = AppConfig::default();
     let target = ReviewTarget::Changes;
+    let options = make_review_options(&target);
 
     let result =
-        gcop_rs::commands::review::run_internal(&config, &target, "text", &mock_git, &mock_llm)
-            .await;
+        gcop_rs::commands::review::run_internal(&options, &config, &mock_git, &mock_llm).await;
 
     assert!(result.is_err());
     match result.unwrap_err() {
@@ -227,10 +238,10 @@ async fn test_review_llm_failure() {
 
     let config = AppConfig::default();
     let target = ReviewTarget::Changes;
+    let options = make_review_options(&target);
 
     let result =
-        gcop_rs::commands::review::run_internal(&config, &target, "text", &mock_git, &mock_llm)
-            .await;
+        gcop_rs::commands::review::run_internal(&options, &config, &mock_git, &mock_llm).await;
 
     assert!(result.is_err());
     match result.unwrap_err() {

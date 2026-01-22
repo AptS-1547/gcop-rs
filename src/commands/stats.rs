@@ -3,6 +3,8 @@ use std::collections::{BTreeMap, HashMap};
 use chrono::{DateTime, Datelike, Duration, IsoWeek, Local};
 use serde::Serialize;
 
+use super::format::OutputFormat;
+use super::options::StatsOptions;
 use crate::commands::json::ErrorJson;
 use crate::error::{GcopError, Result};
 use crate::git::{CommitInfo, GitOperations, repository::GitRepository};
@@ -134,32 +136,33 @@ fn render_bar(count: usize, max_count: usize, max_width: usize) -> String {
 }
 
 /// 运行 stats 命令
-pub fn run(format: &str, author: Option<&str>, colored: bool) -> Result<()> {
+pub fn run(options: &StatsOptions<'_>, colored: bool) -> Result<()> {
     let repo = GitRepository::open(None)?;
-    let is_json = format == "json";
+    let is_json = options.format.is_json();
+    let effective_colored = options.effective_colored(colored);
 
     if !is_json {
-        ui::step("1/2", "Analyzing commit history...", colored);
+        ui::step("1/2", "Analyzing commit history...", effective_colored);
     }
     let commits = repo.get_commit_history()?;
 
     if commits.is_empty() {
         if !is_json {
-            ui::warning("No commits found in this repository.", colored);
+            ui::warning("No commits found in this repository.", effective_colored);
         }
         return Ok(());
     }
 
     if !is_json {
-        ui::step("2/2", "Calculating statistics...", colored);
+        ui::step("2/2", "Calculating statistics...", effective_colored);
     }
-    let stats = RepoStats::from_commits(&commits, author);
+    let stats = RepoStats::from_commits(&commits, options.author);
 
     // 输出
-    match format {
-        "json" => output_json(&stats)?,
-        "markdown" | "md" => output_markdown(&stats, colored),
-        _ => output_text(&stats, colored),
+    match options.format {
+        OutputFormat::Json => output_json(&stats)?,
+        OutputFormat::Markdown => output_markdown(&stats, effective_colored),
+        OutputFormat::Text => output_text(&stats, effective_colored),
     }
 
     Ok(())

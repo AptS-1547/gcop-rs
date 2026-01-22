@@ -1,6 +1,7 @@
 use serde::Serialize;
 
-use crate::cli::{Cli, ReviewTarget};
+use super::options::ReviewOptions;
+use crate::cli::ReviewTarget;
 use crate::commands::json::ErrorJson;
 use crate::config::AppConfig;
 use crate::error::{GcopError, Result};
@@ -19,26 +20,25 @@ pub struct ReviewJsonOutput {
 }
 
 /// 执行 review 命令（公开接口）
-pub async fn run(cli: &Cli, config: &AppConfig, target: &ReviewTarget, format: &str) -> Result<()> {
+pub async fn run(options: &ReviewOptions<'_>, config: &AppConfig) -> Result<()> {
     let repo = GitRepository::open(Some(&config.file))?;
-    let provider = create_provider(config, cli.provider.as_deref())?;
-    run_internal(config, target, format, &repo, provider.as_ref()).await
+    let provider = create_provider(config, options.provider_override)?;
+    run_internal(options, config, &repo, provider.as_ref()).await
 }
 
 /// 内部实现，接受依赖注入（用于测试）
 #[cfg_attr(not(feature = "test-utils"), allow(dead_code))]
 pub async fn run_internal(
+    options: &ReviewOptions<'_>,
     config: &AppConfig,
-    target: &ReviewTarget,
-    format: &str,
     git: &dyn GitOperations,
     llm: &dyn LLMProvider,
 ) -> Result<()> {
-    let is_json = format == "json";
-    let colored = if is_json { false } else { config.ui.colored };
+    let is_json = options.format.is_json();
+    let colored = options.effective_colored(config);
 
     // 根据目标类型路由
-    let (diff, description) = match target {
+    let (diff, description) = match options.target {
         ReviewTarget::Changes => {
             if !is_json {
                 ui::step("1/3", "Analyzing uncommitted changes...", colored);
@@ -80,7 +80,7 @@ pub async fn run_internal(
     };
 
     // 调用 LLM 进行审查
-    let review_type = match target {
+    let review_type = match options.target {
         ReviewTarget::Changes => ReviewType::UncommittedChanges,
         ReviewTarget::Commit { hash } => ReviewType::SingleCommit(hash.clone()),
         ReviewTarget::Range { range } => ReviewType::CommitRange(range.clone()),
@@ -113,10 +113,10 @@ pub async fn run_internal(
         println!();
     }
 
-    match format {
-        "json" => print_json(&result)?,
-        "markdown" => print_markdown(&result, &description, colored),
-        _ => print_text(&result, &description, config),
+    match options.format {
+        super::format::OutputFormat::Json => print_json(&result)?,
+        super::format::OutputFormat::Markdown => print_markdown(&result, &description, colored),
+        super::format::OutputFormat::Text => print_text(&result, &description, config),
     }
 
     Ok(())

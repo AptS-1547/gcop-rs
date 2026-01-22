@@ -111,7 +111,7 @@ pub enum Commands {
     },
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 pub enum ReviewTarget {
     /// Review uncommitted changes
     Changes,
