@@ -5,6 +5,17 @@ All notable changes to gcop-rs will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.2] - 2025-01-22
+
+### Changed
+
+- **Unified Command Options Architecture** (#15): Refactored command parameter handling
+  - New `CommitOptions`, `ReviewOptions`, `StatsOptions` structs aggregate command parameters
+  - New `OutputFormat` enum unifies `--format` and `--json` handling
+  - Added `Debug` derive to `ReviewTarget` enum
+  - Updated `main.rs` and test files for new parameter passing pattern
+  - Simplified parent commit collection creation in tests
+
 ## [0.7.1] - 2025-01-21
 
 ### Fixed
@@ -434,6 +445,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Edit action properly returns to menu without triggering regeneration
 - Commit message display no longer duplicates after editing
 
+[0.7.2]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.7.2
+[0.7.1]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.7.1
 [0.7.0]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.7.0
 [0.6.1]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.6.1
 [0.6.0]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.6.0

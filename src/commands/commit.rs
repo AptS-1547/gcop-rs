@@ -182,7 +182,8 @@ async fn run_with_deps(
                         colored,
                     );
                     // 使用 MaxRetriesExceeded 变体，直接触发错误
-                    gen_state.handle_generation(GenerationResult::MaxRetriesExceeded, options.yes)?;
+                    gen_state
+                        .handle_generation(GenerationResult::MaxRetriesExceeded, options.yes)?;
                     unreachable!("MaxRetriesExceeded should return error");
                 }
 
