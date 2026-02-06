@@ -264,5 +264,6 @@ gcop-rs -v commit
 ## 参考
 
 - [Provider 设置](providers.md) - 配置 LLM 提供商
+- [Provider 健康检查](provider-health.md) - 验证机制与健康检查端点
 - [自定义 Prompt](prompts.md) - 自定义 AI prompts
 - [故障排除](troubleshooting.md) - 常见配置问题

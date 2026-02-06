@@ -163,5 +163,6 @@ export ANTHROPIC_API_KEY="from-env"
 ## 参考
 
 - [配置参考](configuration.md) - 所有配置选项
+- [Provider 健康检查](provider-health.md) - `gcop-rs config validate` 的检查机制
 - [自定义 Prompt](prompts.md) - 自定义 AI 行为
 - [故障排除](troubleshooting.md) - Provider 连接问题

@@ -264,5 +264,6 @@ Command-line options override configuration file.
 ## See Also
 
 - [Provider Setup](providers.md) - Configure LLM providers
+- [Provider Health Checks](provider-health.md) - Validation behavior and health endpoints
 - [Custom Prompts](prompts.md) - Customize AI prompts
 - [Troubleshooting](troubleshooting.md) - Common configuration issues

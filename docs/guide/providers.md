@@ -163,5 +163,6 @@ export ANTHROPIC_API_KEY="from-env"
 ## See Also
 
 - [Configuration Reference](configuration.md) - All configuration options
+- [Provider Health Checks](provider-health.md) - How `gcop-rs config validate` works
 - [Custom Prompts](prompts.md) - Customize AI behavior
 - [Troubleshooting](troubleshooting.md) - Provider connection issues
