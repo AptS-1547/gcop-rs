@@ -142,19 +142,19 @@ pub fn run(options: &StatsOptions<'_>, colored: bool) -> Result<()> {
     let effective_colored = options.effective_colored(colored);
 
     if !is_json {
-        ui::step("1/2", "Analyzing commit history...", effective_colored);
+        ui::step("1/2", &rust_i18n::t!("stats.analyzing"), effective_colored);
     }
     let commits = repo.get_commit_history()?;
 
     if commits.is_empty() {
         if !is_json {
-            ui::warning("No commits found in this repository.", effective_colored);
+            ui::warning(&rust_i18n::t!("stats.no_commits"), effective_colored);
         }
         return Ok(());
     }
 
     if !is_json {
-        ui::step("2/2", "Calculating statistics...", effective_colored);
+        ui::step("2/2", &rust_i18n::t!("stats.calculating"), effective_colored);
     }
     let stats = RepoStats::from_commits(&commits, options.author);
 
@@ -171,29 +171,31 @@ pub fn run(options: &StatsOptions<'_>, colored: bool) -> Result<()> {
 /// 文本格式输出
 fn output_text(stats: &RepoStats, colored: bool) {
     println!();
-    println!("{}", ui::info("Repository Statistics", colored));
+    println!("{}", ui::info(&rust_i18n::t!("stats.title"), colored));
     println!("{}", "=".repeat(40));
 
     // Overview
     println!();
-    ui::step("", "Overview", colored);
-    println!("  Total commits:  {}", stats.total_commits);
-    println!("  Contributors:   {}", stats.total_authors);
+    ui::step("", &rust_i18n::t!("stats.overview"), colored);
+    println!("  {}  {}", rust_i18n::t!("stats.total_commits"), stats.total_commits);
+    println!("  {}   {}", rust_i18n::t!("stats.contributors"), stats.total_authors);
 
     if let (Some(first), Some(last)) = (stats.first_commit_date, stats.last_commit_date) {
         let days = stats.days_span().unwrap_or(0);
         println!(
-            "  Time span:      {} ~ {} ({} days)",
+            "  {}      {} ~ {} ({} {})",
+            rust_i18n::t!("stats.time_span"),
             first.format("%Y-%m-%d"),
             last.format("%Y-%m-%d"),
-            days
+            days,
+            rust_i18n::t!("stats.days")
         );
     }
 
     // Top Contributors
     if !stats.authors.is_empty() {
         println!();
-        ui::step("", "Top Contributors", colored);
+        ui::step("", &rust_i18n::t!("stats.top_contributors"), colored);
 
         let top_n = stats.authors.iter().take(10);
         for (i, author) in top_n.enumerate() {
@@ -203,24 +205,25 @@ fn output_text(stats: &RepoStats, colored: bool) {
                 0.0
             };
             println!(
-                "  #{:<2} {} <{}>  {} commits ({:.1}%)",
+                "  #{:<2} {} <{}>  {} {} ({:.1}%)",
                 i + 1,
                 author.name,
                 author.email,
                 author.commits,
+                rust_i18n::t!("stats.commits"),
                 percentage
             );
         }
 
         if stats.authors.len() > 10 {
-            println!("  ... and {} more", stats.authors.len() - 10);
+            println!("  {}", rust_i18n::t!("stats.and_more", count = stats.authors.len() - 10));
         }
     }
 
     // Recent Activity
     if !stats.commits_by_week.is_empty() {
         println!();
-        ui::step("", "Recent Activity (last 4 weeks)", colored);
+        ui::step("", &rust_i18n::t!("stats.recent_activity"), colored);
 
         let max_count = *stats.commits_by_week.values().max().unwrap_or(&0);
 
@@ -239,27 +242,34 @@ fn output_text(stats: &RepoStats, colored: bool) {
 
 /// Markdown 格式输出
 fn output_markdown(stats: &RepoStats, _colored: bool) {
-    println!("# Repository Statistics\n");
+    println!("{}\n", rust_i18n::t!("stats.md_title"));
 
-    println!("## Overview\n");
-    println!("| Metric | Value |");
+    println!("{}\n", rust_i18n::t!("stats.md_overview"));
+    println!("| {} | {} |", rust_i18n::t!("stats.md_metric"), rust_i18n::t!("stats.md_value"));
     println!("|--------|-------|");
-    println!("| Total commits | {} |", stats.total_commits);
-    println!("| Contributors | {} |", stats.total_authors);
+    println!("| {} | {} |", rust_i18n::t!("stats.md_total_commits"), stats.total_commits);
+    println!("| {} | {} |", rust_i18n::t!("stats.md_contributors"), stats.total_authors);
 
     if let (Some(first), Some(last)) = (stats.first_commit_date, stats.last_commit_date) {
         let days = stats.days_span().unwrap_or(0);
         println!(
-            "| Time span | {} ~ {} ({} days) |",
+            "| {} | {} ~ {} ({} {}) |",
+            rust_i18n::t!("stats.md_time_span"),
             first.format("%Y-%m-%d"),
             last.format("%Y-%m-%d"),
-            days
+            days,
+            rust_i18n::t!("stats.days")
         );
     }
 
     if !stats.authors.is_empty() {
-        println!("\n## Top Contributors\n");
-        println!("| Rank | Name | Email | Commits | % |");
+        println!("\n{}\n", rust_i18n::t!("stats.md_top_contributors"));
+        println!("| {} | {} | {} | {} | {} |",
+            rust_i18n::t!("stats.md_rank"),
+            rust_i18n::t!("stats.md_name"),
+            rust_i18n::t!("stats.md_email"),
+            rust_i18n::t!("stats.md_commits"),
+            rust_i18n::t!("stats.md_percent"));
         println!("|------|------|-------|---------|---|");
 
         for (i, author) in stats.authors.iter().take(10).enumerate() {
@@ -280,8 +290,8 @@ fn output_markdown(stats: &RepoStats, _colored: bool) {
     }
 
     if !stats.commits_by_week.is_empty() {
-        println!("\n## Recent Activity\n");
-        println!("| Week | Commits |");
+        println!("\n{}\n", rust_i18n::t!("stats.md_recent"));
+        println!("| {} | {} |", rust_i18n::t!("stats.md_week"), rust_i18n::t!("stats.md_commits_col"));
         println!("|------|---------|");
 
         let mut weeks: Vec<_> = stats.commits_by_week.iter().collect();

@@ -110,6 +110,8 @@ verbose = false
 # 启用流式输出（实时打字效果，类似 ChatGPT）
 # 仅 OpenAI 风格的 API 支持，其他 provider 会回退到转圈圈模式
 streaming = true
+# 语言设置（默认: en，可选: en | zh-CN）
+# language = "en"
 
 # ============================================
 # 网络配置

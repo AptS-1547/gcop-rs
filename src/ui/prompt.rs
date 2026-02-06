@@ -42,45 +42,45 @@ pub fn commit_action_menu(
         options.push(format!(
             "{} {}",
             "✓".green().bold(),
-            t!("commit.actions.accept").green()
+            t!("commit.menu.actions.accept").green()
         ));
 
         if allow_edit {
             options.push(format!(
                 "{} {}",
                 "✎".yellow().bold(),
-                t!("commit.actions.edit").yellow()
+                t!("commit.menu.actions.edit").yellow()
             ));
         }
 
         options.push(format!(
             "{} {}",
             "↻".blue().bold(),
-            t!("commit.actions.retry").blue()
+            t!("commit.menu.actions.retry").blue()
         ));
 
         options.push(format!(
             "{} {}",
             "↻+".blue().bold(),
-            t!("commit.actions.retry_feedback").blue()
+            t!("commit.menu.actions.retry_feedback").blue()
         ));
 
         options.push(format!(
             "{} {}",
             "✕".red().bold(),
-            t!("commit.actions.quit").red()
+            t!("commit.menu.actions.quit").red()
         ));
     } else {
         // 纯文本版本
-        options.push(format!("✓ {}", t!("commit.actions.accept")));
+        options.push(format!("✓ {}", t!("commit.menu.actions.accept")));
 
         if allow_edit {
-            options.push(format!("✎ {}", t!("commit.actions.edit")));
+            options.push(format!("✎ {}", t!("commit.menu.actions.edit")));
         }
 
-        options.push(format!("↻ {}", t!("commit.actions.retry")));
-        options.push(format!("↻+ {}", t!("commit.actions.retry_feedback")));
-        options.push(format!("✕ {}", t!("commit.actions.quit")));
+        options.push(format!("↻ {}", t!("commit.menu.actions.retry")));
+        options.push(format!("↻+ {}", t!("commit.menu.actions.retry_feedback")));
+        options.push(format!("✕ {}", t!("commit.menu.actions.quit")));
     }
 
     // 根据重试次数调整提示文字
@@ -88,20 +88,20 @@ pub fn commit_action_menu(
         if retry_count == 0 {
             format!(
                 "{} {}",
-                t!("commit.choose_action").cyan().bold(),
+                t!("commit.menu.choose_action").cyan().bold(),
                 t!("messages.esc_to_quit").dimmed()
             )
         } else {
             format!(
                 "{} {}",
-                t!("commit.not_satisfied").cyan().bold(),
+                t!("commit.menu.not_satisfied").cyan().bold(),
                 t!("messages.esc_to_quit").dimmed()
             )
         }
     } else if retry_count == 0 {
-        format!("{} {}", t!("commit.choose_action"), t!("messages.esc_to_quit"))
+        format!("{} {}", t!("commit.menu.choose_action"), t!("messages.esc_to_quit"))
     } else {
-        format!("{} {}", t!("commit.not_satisfied"), t!("messages.esc_to_quit"))
+        format!("{} {}", t!("commit.menu.not_satisfied"), t!("messages.esc_to_quit"))
     };
 
     let selection = Select::new()
@@ -152,7 +152,7 @@ pub fn commit_action_menu(
 pub fn get_retry_feedback(colored: bool) -> Result<Option<String>> {
     use rust_i18n::t;
 
-    let hint = t!("commit.feedback_hint");
+    let hint = t!("commit.feedback.hint");
     if colored {
         println!("\n{}", hint.cyan());
     } else {
@@ -160,7 +160,7 @@ pub fn get_retry_feedback(colored: bool) -> Result<Option<String>> {
     }
 
     let feedback: String = Input::new()
-        .with_prompt(t!("commit.feedback_prompt").to_string())
+        .with_prompt(t!("commit.feedback.prompt").to_string())
         .allow_empty(true)
         .interact_text()
         .map_err(|_| GcopError::UserCancelled)?;
@@ -174,10 +174,10 @@ pub fn get_retry_feedback(colored: bool) -> Result<Option<String>> {
             println!(
                 "{} {}",
                 "⚠".yellow(),
-                t!("commit.feedback_too_long", length = MAX_FEEDBACK_LENGTH).yellow()
+                t!("commit.feedback.too_long", length = MAX_FEEDBACK_LENGTH).yellow()
             );
         } else {
-            println!("{}", t!("commit.feedback_too_long", length = MAX_FEEDBACK_LENGTH));
+            println!("{}", t!("commit.feedback.too_long", length = MAX_FEEDBACK_LENGTH));
         }
         Ok(Some(truncated.to_string()))
     } else if trimmed.is_empty() {

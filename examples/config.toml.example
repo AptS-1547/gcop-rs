@@ -110,6 +110,8 @@ verbose = false
 # Enable streaming output (real-time typing effect, like ChatGPT)
 # Only works with OpenAI-style APIs; other providers fallback to spinner
 streaming = true
+# Language setting (default: en. optional: en | zh-CN)
+# language = "en"
 
 # ============================================
 # Network Configuration

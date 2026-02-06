@@ -69,17 +69,17 @@ pub fn run(force: bool, list: bool, remove: bool, colored: bool) -> Result<()> {
 pub fn install_all(force: bool, colored: bool) -> Result<()> {
     // 1. 检测 gcop-rs 命令
     if !is_gcop_in_path() {
-        ui::error("'gcop-rs' command not found in PATH", colored);
+        ui::error(&rust_i18n::t!("alias.not_found"), colored);
         println!();
-        println!("{}", ui::info("Install gcop-rs first:", colored));
-        println!("  cargo install gcop-rs");
+        println!("{}", ui::info(&rust_i18n::t!("alias.install_first"), colored));
+        println!("{}", rust_i18n::t!("alias.install_cmd"));
         println!();
-        println!("{}", ui::info("Or read the installation guide:", colored));
-        println!("  https://github.com/AptS-1547/gcop-rs/blob/master/docs/installation.md");
+        println!("{}", ui::info(&rust_i18n::t!("alias.read_guide"), colored));
+        println!("{}", rust_i18n::t!("alias.guide_url"));
         return Err(GcopError::Config("gcop-rs not in PATH".to_string()));
     }
 
-    ui::step("1/2", "Installing git aliases...", colored);
+    ui::step("1/2", &rust_i18n::t!("alias.installing"), colored);
     println!();
 
     let mut installed = 0;
@@ -97,13 +97,13 @@ pub fn install_all(force: bool, colored: bool) -> Result<()> {
     // 3. 显示摘要
     println!();
     if installed > 0 {
-        ui::success(&format!("Installed {} aliases", installed), colored);
+        ui::success(&rust_i18n::t!("alias.installed", count = installed), colored);
     }
     if skipped > 0 {
         println!(
             "{}",
             ui::info(
-                &format!("Skipped {} aliases (already exists or conflicts)", skipped),
+                &rust_i18n::t!("alias.skipped", count = skipped),
                 colored
             )
         );
@@ -111,23 +111,23 @@ pub fn install_all(force: bool, colored: bool) -> Result<()> {
             println!();
             println!(
                 "{}",
-                ui::info("Use --force to overwrite conflicts:", colored)
+                ui::info(&rust_i18n::t!("alias.use_force"), colored)
             );
-            println!("  gcop-rs alias --force");
+            println!("{}", rust_i18n::t!("alias.force_cmd"));
         }
     }
 
     println!();
-    println!("\n{}", ui::info("Now you can use:", colored));
-    println!("  git c        # AI commit");
-    println!("  git r        # AI review");
-    println!("  git s        # Repository stats");
-    println!("  git ac       # Add all and commit");
-    println!("  git cp       # Commit and push");
-    println!("  git acp      # Add all, commit, and push");
-    println!("  git gconfig  # Edit configuration");
-    println!("  git p        # Push");
-    println!("  git undo     # Undo last commit");
+    println!("\n{}", ui::info(&rust_i18n::t!("alias.now_use"), colored));
+    println!("{}", rust_i18n::t!("alias.use_c"));
+    println!("{}", rust_i18n::t!("alias.use_r"));
+    println!("{}", rust_i18n::t!("alias.use_s"));
+    println!("{}", rust_i18n::t!("alias.use_ac"));
+    println!("{}", rust_i18n::t!("alias.use_cp"));
+    println!("{}", rust_i18n::t!("alias.use_acp"));
+    println!("{}", rust_i18n::t!("alias.use_gconfig"));
+    println!("{}", rust_i18n::t!("alias.use_p"));
+    println!("{}", rust_i18n::t!("alias.use_undo"));
 
     Ok(())
 }
@@ -164,10 +164,10 @@ fn install_single_alias(
                     "ℹ".blue().bold(),
                     name.bold(),
                     description,
-                    "(already set)".dimmed()
+                    rust_i18n::t!("alias.already_set").dimmed()
                 );
             } else {
-                println!("  ℹ  git {:10} → {} (already set)", name, description);
+                println!("  ℹ  git {:10} → {} {}", name, description, rust_i18n::t!("alias.already_set"));
             }
             Ok(false)
         }
@@ -180,22 +180,22 @@ fn install_single_alias(
                         "⚠".yellow().bold(),
                         name.bold(),
                         description,
-                        "(overwritten)".yellow()
+                        rust_i18n::t!("alias.overwritten").yellow()
                     );
                 } else {
-                    println!("  ⚠  git {:10} → {} (overwritten)", name, description);
+                    println!("  ⚠  git {:10} → {} {}", name, description, rust_i18n::t!("alias.overwritten"));
                 }
                 Ok(true)
             } else {
                 if colored {
                     println!(
-                        "  {}  git {:10} - conflicts with: {}",
+                        "  {}  git {:10} - {}",
                         "⊗".red().bold(),
                         name.bold(),
-                        existing_cmd.dimmed()
+                        rust_i18n::t!("alias.conflicts", cmd = existing_cmd).dimmed()
                     );
                 } else {
-                    println!("  ⊗  git {:10} - conflicts with: {}", name, existing_cmd);
+                    println!("  ⊗  git {:10} - {}", name, rust_i18n::t!("alias.conflicts", cmd = existing_cmd));
                 }
                 Ok(false)
             }
@@ -210,7 +210,7 @@ fn add_git_alias(name: &str, command: &str) -> Result<()> {
         .status()?;
 
     if !status.success() {
-        return Err(GcopError::Other("git config failed".to_string()));
+        return Err(GcopError::Other(rust_i18n::t!("alias.config_failed").to_string()));
     }
 
     Ok(())
@@ -220,7 +220,7 @@ fn add_git_alias(name: &str, command: &str) -> Result<()> {
 fn list_aliases(colored: bool) -> Result<()> {
     println!(
         "{}",
-        ui::info("Available git aliases for gcop-rs:", colored)
+        ui::info(&rust_i18n::t!("alias.available"), colored)
     );
     println!();
 
@@ -229,13 +229,13 @@ fn list_aliases(colored: bool) -> Result<()> {
         let status = match existing {
             Some(existing_cmd) if existing_cmd == *command => {
                 if colored {
-                    "✓ installed".green().to_string()
+                    rust_i18n::t!("alias.status_installed").green().to_string()
                 } else {
-                    "✓ installed".to_string()
+                    rust_i18n::t!("alias.status_installed").to_string()
                 }
             }
             Some(existing_cmd) => {
-                let msg = format!("⚠ conflicts: {}", existing_cmd);
+                let msg = rust_i18n::t!("alias.status_conflicts", cmd = existing_cmd).to_string();
                 if colored {
                     msg.yellow().to_string()
                 } else {
@@ -244,9 +244,9 @@ fn list_aliases(colored: bool) -> Result<()> {
             }
             None => {
                 if colored {
-                    "  not installed".dimmed().to_string()
+                    rust_i18n::t!("alias.status_not_installed").dimmed().to_string()
                 } else {
-                    "  not installed".to_string()
+                    rust_i18n::t!("alias.status_not_installed").to_string()
                 }
             }
         };
@@ -261,12 +261,12 @@ fn list_aliases(colored: bool) -> Result<()> {
     println!();
     println!(
         "{}",
-        ui::info("Run 'gcop-rs alias' to install all.", colored)
+        ui::info(&rust_i18n::t!("alias.run_install"), colored)
     );
     println!(
         "{}",
         ui::info(
-            "Run 'gcop-rs alias --force' to overwrite conflicts.",
+            &rust_i18n::t!("alias.run_force"),
             colored
         )
     );
@@ -277,9 +277,9 @@ fn list_aliases(colored: bool) -> Result<()> {
 /// 移除所有 gcop-related aliases
 fn remove_aliases(force: bool, colored: bool) -> Result<()> {
     if !force {
-        ui::warning("This will remove all gcop-related git aliases", colored);
+        ui::warning(&rust_i18n::t!("alias.remove_warning"), colored);
         println!();
-        println!("{}", ui::info("Aliases to be removed:", colored));
+        println!("{}", ui::info(&rust_i18n::t!("alias.to_remove"), colored));
         for (name, _, _) in GCOP_ALIASES {
             if get_git_alias(name)?.is_some() {
                 if colored {
@@ -290,12 +290,12 @@ fn remove_aliases(force: bool, colored: bool) -> Result<()> {
             }
         }
         println!();
-        println!("{}", ui::info("Use --force to confirm:", colored));
-        println!("  gcop-rs alias --remove --force");
+        println!("{}", ui::info(&rust_i18n::t!("alias.confirm_force"), colored));
+        println!("{}", rust_i18n::t!("alias.confirm_cmd"));
         return Ok(());
     }
 
-    ui::step("1/1", "Removing git aliases...", colored);
+    ui::step("1/1", &rust_i18n::t!("alias.removing"), colored);
     println!();
 
     let mut removed = 0;
@@ -308,9 +308,9 @@ fn remove_aliases(force: bool, colored: bool) -> Result<()> {
 
             if status.success() {
                 if colored {
-                    println!("  {}  Removed git {}", "✓".green().bold(), name.bold());
+                    println!("  {}  {}", "✓".green().bold(), rust_i18n::t!("alias.removed_single", name = name).bold());
                 } else {
-                    println!("  ✓  Removed git {}", name);
+                    println!("  ✓  {}", rust_i18n::t!("alias.removed_single", name = name));
                 }
                 removed += 1;
             }
@@ -319,9 +319,9 @@ fn remove_aliases(force: bool, colored: bool) -> Result<()> {
 
     println!();
     if removed > 0 {
-        ui::success(&format!("Removed {} aliases", removed), colored);
+        ui::success(&rust_i18n::t!("alias.removed", count = removed), colored);
     } else {
-        println!("{}", ui::info("No aliases to remove", colored));
+        println!("{}", ui::info(&rust_i18n::t!("alias.no_remove"), colored));
     }
 
     Ok(())

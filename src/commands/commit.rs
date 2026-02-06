@@ -87,7 +87,7 @@ async fn run_with_deps(
             output_json_error(&GcopError::NoStagedChanges)?;
             return Err(GcopError::NoStagedChanges);
         }
-        ui::error("No staged changes found. Use 'git add' first.", colored);
+        ui::error(&rust_i18n::t!("commit.no_staged_changes"), colored);
         return Err(GcopError::NoStagedChanges);
     }
 
@@ -98,11 +98,11 @@ async fn run_with_deps(
     // JSON 模式跳过 UI 输出
     if !is_json {
         ui::step(
-            "1/4",
-            &format!(
-                "Analyzed {} file(s), {} change(s)",
-                stats.files_changed.len(),
-                stats.insertions + stats.deletions
+            &rust_i18n::t!("commit.step1"),
+            &rust_i18n::t!(
+                "commit.analyzed",
+                files = stats.files_changed.len(),
+                changes = stats.insertions + stats.deletions
             ),
             colored,
         );
@@ -178,7 +178,7 @@ async fn run_with_deps(
 
                 if gen_state.is_at_max_retries(max_retries) {
                     ui::warning(
-                        &format!("Reached maximum retry limit ({})", max_retries),
+                        &rust_i18n::t!("commit.max_retries", count = max_retries),
                         colored,
                     );
                     // 使用 MaxRetriesExceeded 变体，直接触发错误
@@ -218,7 +218,7 @@ async fn run_with_deps(
                 attempt,
                 ref feedbacks,
             } => {
-                ui::step("3/4", "Choose next action...", colored);
+                ui::step(&rust_i18n::t!("commit.step3"), &rust_i18n::t!("commit.choose_action"), colored);
                 let ui_action = ui::commit_action_menu(message, should_edit, attempt, colored)?;
 
                 // 映射 UI action 到状态机 action，处理编辑逻辑
@@ -226,7 +226,7 @@ async fn run_with_deps(
                     ui::CommitAction::Accept => UserAction::Accept,
 
                     ui::CommitAction::Edit => {
-                        ui::step("3/4", "Opening editor...", colored);
+                        ui::step(&rust_i18n::t!("commit.step3"), &rust_i18n::t!("commit.opening_editor"), colored);
                         match ui::edit_text(message) {
                             Ok(edited) => {
                                 display_edited_message(&edited, colored);
@@ -235,7 +235,7 @@ async fn run_with_deps(
                                 }
                             }
                             Err(GcopError::UserCancelled) => {
-                                ui::warning("Edit cancelled.", colored);
+                                ui::warning(&rust_i18n::t!("commit.edit_cancelled"), colored);
                                 UserAction::EditCancelled
                             }
                             Err(e) => return Err(e),
@@ -248,7 +248,7 @@ async fn run_with_deps(
                         let new_feedback = ui::get_retry_feedback(colored)?;
                         if new_feedback.is_none() {
                             ui::warning(
-                                "No feedback provided, will retry with existing instructions.",
+                                &rust_i18n::t!("commit.feedback.empty"),
                                 colored,
                             );
                         }
@@ -271,11 +271,11 @@ async fn run_with_deps(
 
             CommitState::Accepted { ref message } => {
                 // 执行 commit
-                ui::step("4/4", "Creating commit...", colored);
+                ui::step(&rust_i18n::t!("commit.step4"), &rust_i18n::t!("commit.creating"), colored);
                 repo.commit(message)?;
 
                 println!();
-                ui::success("Commit created successfully!", colored);
+                ui::success(&rust_i18n::t!("commit.success"), colored);
                 if options.verbose {
                     println!("\n{}", message);
                 }
@@ -283,7 +283,7 @@ async fn run_with_deps(
             }
 
             CommitState::Cancelled => {
-                ui::warning("Commit cancelled by user.", colored);
+                ui::warning(&rust_i18n::t!("commit.cancelled"), colored);
                 return Err(GcopError::UserCancelled);
             }
         };
@@ -335,11 +335,11 @@ async fn generate_message(
     if use_streaming {
         // 流式模式：先显示标题，再流式输出
         let step_msg = if attempt == 0 {
-            "Generating commit message (streaming)... (Ctrl+C to cancel)"
+            rust_i18n::t!("spinner.generating_streaming")
         } else {
-            "Regenerating commit message (streaming)... (Ctrl+C to cancel)"
+            rust_i18n::t!("spinner.regenerating_streaming")
         };
-        ui::step("2/4", step_msg, colored);
+        ui::step(&rust_i18n::t!("commit.step2"), &step_msg, colored);
         println!("\n{}", ui::info(&format_message_header(attempt), colored));
 
         let stream_handle = provider
@@ -374,15 +374,15 @@ async fn generate_message(
 /// 格式化消息头部（纯函数，便于测试）
 fn format_message_header(attempt: usize) -> String {
     if attempt == 0 {
-        "Generated commit message:".to_string()
+        rust_i18n::t!("commit.generated").to_string()
     } else {
-        format!("Regenerated commit message (attempt {}):", attempt + 1)
+        rust_i18n::t!("commit.regenerated", attempt = attempt + 1).to_string()
     }
 }
 
 /// 格式化编辑后消息头部（纯函数，便于测试）
-fn format_edited_header() -> &'static str {
-    "Updated commit message:"
+fn format_edited_header() -> String {
+    rust_i18n::t!("commit.updated").to_string()
 }
 
 /// 显示生成的 message
@@ -399,7 +399,7 @@ fn display_message(message: &str, attempt: usize, colored: bool) {
 
 /// 显示编辑后的 message
 fn display_edited_message(message: &str, colored: bool) {
-    println!("\n{}", ui::info(format_edited_header(), colored));
+    println!("\n{}", ui::info(&format_edited_header(), colored));
     if colored {
         println!("{}", message.yellow());
     } else {

@@ -14,19 +14,19 @@ pub fn run(force: bool, colored: bool) -> Result<()> {
     // 2. 检查配置文件是否已存在
     if config_file.exists() && !force {
         ui::warning(
-            &format!("Config file already exists: {}", config_file.display()),
+            &rust_i18n::t!("init.exists", path = config_file.display()),
             colored,
         );
         println!();
-        println!("Use --force to overwrite, or edit it directly:");
-        println!("  gcop-rs config edit");
+        println!("{}", rust_i18n::t!("init.use_force"));
+        println!("{}", rust_i18n::t!("init.config_edit"));
         return Ok(());
     }
 
     // 3. 创建配置目录
     fs::create_dir_all(&config_dir)?;
     ui::success(
-        &format!("Created config directory: {}", config_dir.display()),
+        &rust_i18n::t!("init.dir_created", path = config_dir.display()),
         colored,
     );
 
@@ -34,7 +34,7 @@ pub fn run(force: bool, colored: bool) -> Result<()> {
     let example_config = include_str!("../../examples/config.toml.example");
     fs::write(&config_file, example_config)?;
     ui::success(
-        &format!("Created config file: {}", config_file.display()),
+        &rust_i18n::t!("init.file_created", path = config_file.display()),
         colored,
     );
 
@@ -45,21 +45,21 @@ pub fn run(force: bool, colored: bool) -> Result<()> {
         let mut perms = fs::metadata(&config_file)?.permissions();
         perms.set_mode(0o600);
         fs::set_permissions(&config_file, perms)?;
-        ui::success("Set file permissions: 600", colored);
+        ui::success(&rust_i18n::t!("init.permissions"), colored);
     }
 
     // 6. 显示下一步提示
     println!();
-    println!("{}", ui::info("Next steps:", colored));
-    println!("  1. Edit the config file:");
-    println!("     gcop-rs config edit");
+    println!("{}", ui::info(&rust_i18n::t!("init.next_steps"), colored));
+    println!("{}", rust_i18n::t!("init.step1"));
+    println!("{}", rust_i18n::t!("init.step1_cmd"));
     println!();
-    println!("  2. Add your API key to [llm.providers.claude]");
-    println!("     Get key from: https://console.anthropic.com/");
+    println!("{}", rust_i18n::t!("init.step2"));
+    println!("{}", rust_i18n::t!("init.step2_url"));
     println!();
 
     // 7. 询问是否安装 git aliases
-    let install_aliases = ui::confirm("Install git aliases (git c, git ac, etc.)?", true)?;
+    let install_aliases = ui::confirm(&rust_i18n::t!("init.install_aliases"), true)?;
 
     if install_aliases {
         println!();
@@ -67,20 +67,20 @@ pub fn run(force: bool, colored: bool) -> Result<()> {
         match crate::commands::alias::install_all(force, colored) {
             Ok(_) => {}
             Err(e) => {
-                ui::warning(&format!("Failed to install aliases: {}", e), colored);
+                ui::warning(&rust_i18n::t!("init.alias_failed", error = e.to_string()), colored);
                 println!();
-                println!("You can install them later with:");
-                println!("  gcop-rs alias");
+                println!("{}", rust_i18n::t!("init.alias_later"));
+                println!("{}", rust_i18n::t!("init.alias_cmd"));
             }
         }
     } else {
         println!();
-        println!("Skipped alias installation.");
-        println!("Run 'gcop-rs alias' later if needed.");
+        println!("{}", rust_i18n::t!("init.alias_skipped"));
+        println!("{}", rust_i18n::t!("init.alias_run_later"));
     }
 
     println!();
-    println!("See docs/configuration.md for more options.");
+    println!("{}", rust_i18n::t!("init.docs"));
 
     Ok(())
 }

@@ -41,12 +41,12 @@ pub async fn run_internal(
     let (diff, description) = match options.target {
         ReviewTarget::Changes => {
             if !is_json {
-                ui::step("1/3", "Analyzing uncommitted changes...", colored);
+                ui::step(&rust_i18n::t!("review.step1"), &rust_i18n::t!("review.analyzing_changes"), colored);
             }
             let diff = git.get_uncommitted_diff()?;
             if diff.trim().is_empty() {
                 if !is_json {
-                    ui::error("No uncommitted changes found.", colored);
+                    ui::error(&rust_i18n::t!("review.no_changes"), colored);
                 }
                 return Err(GcopError::InvalidInput(
                     "No uncommitted changes to review".to_string(),
@@ -56,21 +56,21 @@ pub async fn run_internal(
         }
         ReviewTarget::Commit { hash } => {
             if !is_json {
-                ui::step("1/3", &format!("Analyzing commit {}...", hash), colored);
+                ui::step(&rust_i18n::t!("review.step1"), &rust_i18n::t!("review.analyzing_commit", hash = hash), colored);
             }
             let diff = git.get_commit_diff(hash)?;
             (diff, format!("Commit {}", hash))
         }
         ReviewTarget::Range { range } => {
             if !is_json {
-                ui::step("1/3", &format!("Analyzing range {}...", range), colored);
+                ui::step(&rust_i18n::t!("review.step1"), &rust_i18n::t!("review.analyzing_range", range = range), colored);
             }
             let diff = git.get_range_diff(range)?;
             (diff, format!("Commit range {}", range))
         }
         ReviewTarget::File { path } => {
             if !is_json {
-                ui::step("1/3", &format!("Analyzing file {}...", path), colored);
+                ui::step(&rust_i18n::t!("review.step1"), &rust_i18n::t!("review.analyzing_file", path = path), colored);
             }
             let content = git.get_file_content(path)?;
             // 文件审查需要特殊处理，将内容包装成 diff 格式
@@ -91,7 +91,7 @@ pub async fn run_internal(
     let spinner = if is_json {
         None
     } else {
-        Some(ui::Spinner::new("Reviewing code with AI...", colored))
+        Some(ui::Spinner::new(&rust_i18n::t!("spinner.reviewing"), colored))
     };
 
     let result = llm
@@ -109,7 +109,7 @@ pub async fn run_internal(
 
     // 格式化输出
     if !is_json {
-        ui::step("3/3", "Formatting results...", colored);
+        ui::step(&rust_i18n::t!("review.step3"), &rust_i18n::t!("review.formatting"), colored);
         println!();
     }
 
@@ -126,17 +126,17 @@ pub async fn run_internal(
 fn print_text(result: &ReviewResult, description: &str, config: &AppConfig) {
     let colored = config.ui.colored;
 
-    println!("{}", ui::info(&format!("Review: {}", description), colored));
+    println!("{}", ui::info(&rust_i18n::t!("review.title", description = description), colored));
     println!();
 
     // 输出摘要
-    println!("📝 Summary:");
+    println!("{}", rust_i18n::t!("review.summary_title"));
     println!("{}", result.summary);
     println!();
 
     // 输出问题
     if !result.issues.is_empty() {
-        println!("🔍 Issues found:");
+        println!("{}", rust_i18n::t!("review.issues_found"));
         println!();
 
         for (i, issue) in result.issues.iter().enumerate() {
@@ -216,13 +216,13 @@ fn print_text(result: &ReviewResult, description: &str, config: &AppConfig) {
             println!();
         }
     } else {
-        println!("✨ No issues found!");
+        println!("{}", rust_i18n::t!("review.no_issues"));
         println!();
     }
 
     // 输出建议
     if !result.suggestions.is_empty() {
-        println!("💡 Suggestions:");
+        println!("{}", rust_i18n::t!("review.suggestions_title"));
         println!();
         for suggestion in &result.suggestions {
             println!("  • {}", suggestion);
@@ -255,18 +255,18 @@ pub fn output_json_error(err: &GcopError) -> Result<()> {
 
 /// 以 Markdown 格式输出审查结果
 fn print_markdown(result: &ReviewResult, description: &str, _colored: bool) {
-    println!("# Code Review: {}", description);
+    println!("{}", rust_i18n::t!("review.md.title", description = description));
     println!();
 
     // 摘要
-    println!("## Summary");
+    println!("{}", rust_i18n::t!("review.md.summary"));
     println!();
     println!("{}", result.summary);
     println!();
 
     // 问题
     if !result.issues.is_empty() {
-        println!("## Issues");
+        println!("{}", rust_i18n::t!("review.md.issues"));
         println!();
 
         for issue in &result.issues {

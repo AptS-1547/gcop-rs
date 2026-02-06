@@ -25,21 +25,21 @@ pub async fn run(action: Option<crate::cli::ConfigAction>, colored: bool) -> Res
 /// 打开编辑器编辑配置文件（带校验）
 fn edit(colored: bool) -> Result<()> {
     let config_dir = config::get_config_dir()
-        .ok_or_else(|| GcopError::Config("Failed to determine config directory".to_string()))?;
+        .ok_or_else(|| GcopError::Config(rust_i18n::t!("config.failed_determine_dir").to_string()))?;
 
     let config_file = config_dir.join("config.toml");
 
     // 如果配置文件不存在，提示运行 init
     if !config_file.exists() {
-        ui::error("Config file not found", colored);
+        ui::error(&rust_i18n::t!("config.file_not_found"), colored);
         println!();
-        println!("Run 'gcop-rs init' to create it, or create manually:");
+        println!("{}", rust_i18n::t!("config.run_init"));
         println!("  mkdir -p {}", config_dir.display());
         println!(
             "  cp examples/config.toml.example {}",
             config_file.display()
         );
-        return Err(GcopError::Config("Config file not found".to_string()));
+        return Err(GcopError::Config(rust_i18n::t!("config.file_not_found").to_string()));
     }
 
     // 初始读取配置内容
@@ -49,25 +49,25 @@ fn edit(colored: bool) -> Result<()> {
     loop {
         println!(
             "{}",
-            ui::info(&format!("Editing {} ...", config_file.display()), colored)
+            ui::info(&rust_i18n::t!("config.editing", path = config_file.display().to_string()), colored)
         );
 
         // 使用 edit crate 编辑（自动选择 $VISUAL > $EDITOR > platform default）
         let edited =
-            edit::edit(&content).map_err(|e| GcopError::Other(format!("Editor error: {}", e)))?;
+            edit::edit(&content).map_err(|e| GcopError::Other(rust_i18n::t!("config.editor_error", error = e.to_string()).to_string()))?;
 
         // 校验配置（直接在内存校验）
         match toml::from_str::<config::AppConfig>(&edited) {
             Ok(_) => {
                 // 校验成功，写入文件
                 std::fs::write(&config_file, &edited)?;
-                ui::success("Config file updated", colored);
+                ui::success(&rust_i18n::t!("config.file_updated"), colored);
                 return Ok(());
             }
             Err(e) => {
                 // 校验失败
                 println!();
-                ui::error(&format!("Config validation failed: {}", e), colored);
+                ui::error(&rust_i18n::t!("config.validation_failed", error = e.to_string()), colored);
                 println!();
 
                 match prompt_edit_action(colored)? {
@@ -78,13 +78,13 @@ fn edit(colored: bool) -> Result<()> {
                     }
                     EditAction::Keep => {
                         // 原文件从未被修改，直接返回
-                        println!("{}", ui::info("Original config unchanged", colored));
+                        println!("{}", ui::info(&rust_i18n::t!("config.unchanged"), colored));
                         return Ok(());
                     }
                     EditAction::Ignore => {
                         // 强制保存错误的配置
                         std::fs::write(&config_file, &edited)?;
-                        ui::warning("Config saved with errors", colored);
+                        ui::warning(&rust_i18n::t!("config.saved_with_errors"), colored);
                         return Ok(());
                     }
                 }
@@ -98,30 +98,27 @@ fn prompt_edit_action(colored: bool) -> Result<EditAction> {
     let items: Vec<String> = if colored {
         vec![
             format!(
-                "{} {}",
-                "✎".yellow().bold(),
-                "Re-edit the config file".yellow()
+                "{}",
+                rust_i18n::t!("config.action_reedit").yellow()
             ),
-            format!("{} {}", "↩".blue().bold(), "Keep original config".blue()),
+            format!("{}", rust_i18n::t!("config.action_keep").blue()),
             format!(
-                "{} {} {}",
-                "⚠".red().bold(),
-                "Ignore errors and save anyway".red(),
-                "(dangerous)".red().bold()
+                "{}",
+                rust_i18n::t!("config.action_ignore").red()
             ),
         ]
     } else {
         vec![
-            "✎ Re-edit the config file".to_string(),
-            "↩ Keep original config".to_string(),
-            "⚠ Ignore errors and save anyway (dangerous)".to_string(),
+            rust_i18n::t!("config.action_reedit").to_string(),
+            rust_i18n::t!("config.action_keep").to_string(),
+            rust_i18n::t!("config.action_ignore").to_string(),
         ]
     };
 
     let prompt = if colored {
-        format!("{}", "What would you like to do?".cyan().bold())
+        format!("{}", rust_i18n::t!("config.action_prompt").cyan().bold())
     } else {
-        "What would you like to do?".to_string()
+        rust_i18n::t!("config.action_prompt").to_string()
     };
 
     let selection = Select::new()
@@ -129,7 +126,7 @@ fn prompt_edit_action(colored: bool) -> Result<EditAction> {
         .items(&items)
         .default(0)
         .interact()
-        .map_err(|e| GcopError::Other(format!("Failed to get user input: {}", e)))?;
+        .map_err(|e| GcopError::Other(rust_i18n::t!("config.input_failed", error = e.to_string()).to_string()))?;
 
     Ok(match selection {
         0 => EditAction::Retry,
@@ -140,41 +137,38 @@ fn prompt_edit_action(colored: bool) -> Result<EditAction> {
 
 /// 验证配置
 async fn validate(colored: bool) -> Result<()> {
-    ui::step("1/2", "Loading configuration...", colored);
+    ui::step("1/2", &rust_i18n::t!("config.loading"), colored);
 
     // 加载配置
     let config = load_config()?;
 
-    ui::success("Configuration loaded successfully", colored);
+    ui::success(&rust_i18n::t!("config.loaded"), colored);
     println!();
 
     // 显示配置的 providers
-    println!("Configured providers:");
+    println!("{}", rust_i18n::t!("config.providers"));
     for name in config.llm.providers.keys() {
         println!("  • {}", name);
     }
     println!();
 
     // 测试默认 provider 连接
-    ui::step("2/2", "Testing provider connection...", colored);
+    ui::step("2/2", &rust_i18n::t!("config.testing"), colored);
 
     let provider = create_provider(&config, None)?;
 
     match provider.validate().await {
         Ok(_) => {
             ui::success(
-                &format!(
-                    "Provider '{}' validated successfully",
-                    config.llm.default_provider
-                ),
+                &rust_i18n::t!("config.validated", provider = config.llm.default_provider),
                 colored,
             );
         }
         Err(e) => {
-            ui::error(&format!("Validation failed: {}", e), colored);
+            ui::error(&rust_i18n::t!("config.validation_failed_short", error = e.to_string()), colored);
             if let Some(suggestion) = e.suggestion() {
                 println!();
-                println!("💡 Suggestion: {}", suggestion);
+                println!("{}", rust_i18n::t!("config.suggestion", suggestion = suggestion));
             }
             return Err(e);
         }
