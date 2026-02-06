@@ -1,8 +1,8 @@
 [package]
 name = "gcop-rs"
-version = "0.7.2"
+version = "0.7.3"
 edition = "2024"
-rust-version = "1.92.0"
+rust-version = "1.93.0"
 license = "MIT"
 description = "AI-powered Git commit message generator and code reviewer"
 authors = [
@@ -54,7 +54,7 @@ futures = "0.3"
 git2 = {version = "0.20", default-features = false }
 httpdate = "1.0"
 indicatif = "0.18.3"
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "socks", "stream"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls", "socks", "stream"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "2.0"
@@ -62,7 +62,7 @@ tokio = { version = "1.49", features = ["full"] }
 toml = "0.9"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
-mockall = { version = "0.13", optional = true }  # 测试工具
+mockall = { version = "0.14", optional = true }  # 测试工具
 which = "8.0.0"
 
 [lib]

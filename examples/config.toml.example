@@ -65,6 +65,15 @@ model = "codellama:13b"
 # api_key = "your-deepseek-api-key-here"
 # max_tokens = 4096
 # temperature = 0.3
+#
+# Claude Code Hub (Claude compatible)
+# [llm.providers.cch]
+# api_style = "claude"
+# endpoint = "https://claude-code-hub.com"
+# model = "claude-sonnet-4-5-20250929"
+# api_key = "your-claude-code-hub-api-key-here"
+# max_tokens = 2000
+# temperature = 0.3
 
 # ============================================
 # Commit Configuration
