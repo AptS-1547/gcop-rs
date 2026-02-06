@@ -5,6 +5,19 @@ All notable changes to gcop-rs will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.7.3] - 2025-02-06
+
+### Added
+
+- **Claude Code Hub Provider Example**: Added configuration example for Claude-compatible custom providers
+
+### Changed
+
+- **Dependency Updates**: reqwest 0.12 → 0.13, mockall 0.13 → 0.14, git2 → 0.20.4 (security fix)
+- **MSRV Update**: Minimum Supported Rust Version 1.92.0 → 1.93.0
+
 ## [0.7.2] - 2025-01-22
 
 ### Changed
@@ -445,6 +458,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Edit action properly returns to menu without triggering regeneration
 - Commit message display no longer duplicates after editing
 
+[Unreleased]: https://github.com/AptS-1547/gcop-rs/compare/v0.7.3...HEAD
+[0.7.3]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.7.3
 [0.7.2]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.7.2
 [0.7.1]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.7.1
 [0.7.0]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.7.0
