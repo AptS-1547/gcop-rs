@@ -82,10 +82,7 @@ pub fn format_diff_stats(stats: &DiffStats, colored: bool) -> String {
             deletions_str.red()
         )
     } else {
-        format!(
-            "{}, {}, {}",
-            files_str, insertions_str, deletions_str
-        )
+        format!("{}, {}, {}", files_str, insertions_str, deletions_str)
     }
 }
 

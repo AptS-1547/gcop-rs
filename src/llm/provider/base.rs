@@ -101,15 +101,23 @@ async fn try_send_request<Req: Serialize>(
 
         // 为不同类型的网络错误提供更详细的错误信息
         if e.is_timeout() {
-            GcopError::Llm(format!(
-                "{} API request timeout: {}. The request took too long to complete.",
-                provider_name, error_details
-            ))
+            GcopError::Llm(
+                rust_i18n::t!(
+                    "provider.api_request_timeout",
+                    provider = provider_name,
+                    detail = error_details.as_str()
+                )
+                .to_string(),
+            )
         } else if e.is_connect() {
-            GcopError::Llm(format!(
-                "{} API connection failed: {}. Check network connectivity or API endpoint.",
-                provider_name, error_details
-            ))
+            GcopError::Llm(
+                rust_i18n::t!(
+                    "provider.api_connection_failed",
+                    provider = provider_name,
+                    detail = error_details.as_str()
+                )
+                .to_string(),
+            )
         } else {
             GcopError::Network(e)
         }
@@ -161,7 +169,11 @@ where
 
                     // 更新 spinner 显示重试进度
                     if let Some(s) = spinner {
-                        s.append_suffix(&format!("(Retrying {}/{})", attempt, max_retries));
+                        s.append_suffix(&rust_i18n::t!(
+                            "provider.retrying_suffix",
+                            attempt = attempt,
+                            max = max_retries
+                        ));
                     }
 
                     // 网络错误使用指数退避
@@ -192,15 +204,21 @@ where
                     let result = parse_retry_after(v);
                     if result.is_none() {
                         eprintln!(
-                            "Warning: Invalid Retry-After header value: '{}', falling back to exponential backoff",
-                            v
+                            "{}",
+                            rust_i18n::t!("provider.warning.invalid_retry_after", value = v)
                         );
                     }
                     result
                 });
 
             let body = response.text().await.unwrap_or_else(|e| {
-                eprintln!("Warning: Failed to read 429 response body: {}", e);
+                eprintln!(
+                    "{}",
+                    rust_i18n::t!(
+                        "provider.warning.read_429_body_failed",
+                        error = e.to_string()
+                    )
+                );
                 format!("<body read error: {}>", e)
             });
 
@@ -220,7 +238,11 @@ where
 
             // 更新 spinner 显示重试进度
             if let Some(s) = spinner {
-                s.append_suffix(&format!("(Retrying {}/{})", attempt, max_retries));
+                s.append_suffix(&rust_i18n::t!(
+                    "provider.retrying_suffix",
+                    attempt = attempt,
+                    max = max_retries
+                ));
             }
 
             // 计算延迟：优先使用 Retry-After，否则使用指数退避
@@ -229,13 +251,17 @@ where
                 if retry_after_ms > max_retry_delay_ms {
                     // Retry-After 超过限制，直接返回错误
                     eprintln!(
-                        "Warning: Retry-After ({} seconds) exceeds max_retry_delay ({} ms), giving up",
-                        secs, max_retry_delay_ms
+                        "{}",
+                        rust_i18n::t!(
+                            "provider.warning.retry_after_exceeds_max",
+                            seconds = secs,
+                            max_ms = max_retry_delay_ms
+                        )
                     );
-                    return Err(GcopError::Llm(format!(
-                        "Rate limited: API requested {} second wait, which exceeds configured limit. Try again later.",
-                        secs
-                    )));
+                    return Err(GcopError::Llm(
+                        rust_i18n::t!("provider.rate_limited_exceeds_limit", seconds = secs)
+                            .to_string(),
+                    ));
                 }
                 tracing::debug!("Using Retry-After header: {} seconds", secs);
                 Duration::from_secs(secs)
@@ -278,10 +304,15 @@ where
         }
 
         return serde_json::from_str(&response_text).map_err(|e| {
-            GcopError::Llm(format!(
-                "Failed to parse {} response: {}. Raw response: {}",
-                provider_name, e, response_text
-            ))
+            GcopError::Llm(
+                rust_i18n::t!(
+                    "provider.parse_response_failed",
+                    provider = provider_name,
+                    error = e.to_string(),
+                    response = response_text.as_str()
+                )
+                .to_string(),
+            )
         });
     }
 }
@@ -317,10 +348,14 @@ pub fn extract_api_key(
         .clone()
         .or_else(|| std::env::var(env_var).ok())
         .ok_or_else(|| {
-            GcopError::Config(format!(
-                "{} API key not found. Set api_key in config.toml or {} environment variable",
-                provider_name, env_var
-            ))
+            GcopError::Config(
+                rust_i18n::t!(
+                    "provider.api_key_not_found",
+                    provider = provider_name,
+                    env_var = env_var
+                )
+                .to_string(),
+            )
         })
 }
 
@@ -426,10 +461,14 @@ pub fn parse_review_response(response: &str) -> Result<ReviewResult> {
     let cleaned = clean_json_response(response);
     serde_json::from_str(cleaned).map_err(|e| {
         let preview = truncate_for_preview(response);
-        GcopError::Llm(format!(
-            "Failed to parse review result: {}. Response preview: {}",
-            e, preview
-        ))
+        GcopError::Llm(
+            rust_i18n::t!(
+                "provider.parse_review_result_failed",
+                error = e.to_string(),
+                preview = preview.as_str()
+            )
+            .to_string(),
+        )
     })
 }
 

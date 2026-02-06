@@ -60,7 +60,7 @@ impl FallbackProvider {
 
         if providers.is_empty() {
             return Err(GcopError::Config(
-                "No valid providers configured. Check your config and API keys.".into(),
+                rust_i18n::t!("provider.no_valid_providers").to_string(),
             ));
         }
 
@@ -89,7 +89,9 @@ impl LLMProvider for FallbackProvider {
 
     async fn validate(&self) -> Result<()> {
         if self.providers.is_empty() {
-            return Err(GcopError::Config("No providers configured".into()));
+            return Err(GcopError::Config(
+                rust_i18n::t!("provider.no_providers_configured").to_string(),
+            ));
         }
 
         // Validate all providers and collect results
@@ -110,10 +112,13 @@ impl LLMProvider for FallbackProvider {
         }
 
         if all_failed {
-            return Err(GcopError::Config(format!(
-                "All {} provider(s) failed validation. Check your API keys and network.",
-                self.providers.len()
-            )));
+            return Err(GcopError::Config(
+                rust_i18n::t!(
+                    "provider.all_providers_failed_validation",
+                    count = self.providers.len()
+                )
+                .to_string(),
+            ));
         }
 
         Ok(())
@@ -132,7 +137,10 @@ impl LLMProvider for FallbackProvider {
             if i > 0
                 && let Some(s) = spinner
             {
-                s.append_suffix(&format!("(fallback: {})", provider.name()));
+                s.append_suffix(&rust_i18n::t!(
+                    "provider.fallback_suffix",
+                    provider = provider.name()
+                ));
             }
 
             match provider
@@ -144,10 +152,10 @@ impl LLMProvider for FallbackProvider {
                     // 如果不是最后一个 provider，显示警告并继续
                     if i < self.providers.len() - 1 {
                         colors::warning(
-                            &format!(
-                                "{} failed ({}), trying next provider...",
-                                provider.name(),
-                                e
+                            &rust_i18n::t!(
+                                "provider.fallback_provider_failed",
+                                provider = provider.name(),
+                                error = e.to_string()
                             ),
                             self.colored,
                         );
@@ -157,7 +165,9 @@ impl LLMProvider for FallbackProvider {
             }
         }
 
-        Err(last_error.unwrap_or_else(|| GcopError::Llm("No providers available".into())))
+        Err(last_error.unwrap_or_else(|| {
+            GcopError::Llm(rust_i18n::t!("provider.no_providers_available").to_string())
+        }))
     }
 
     async fn review_code(
@@ -174,7 +184,10 @@ impl LLMProvider for FallbackProvider {
             if i > 0
                 && let Some(s) = spinner
             {
-                s.append_suffix(&format!("(fallback: {})", provider.name()));
+                s.append_suffix(&rust_i18n::t!(
+                    "provider.fallback_suffix",
+                    provider = provider.name()
+                ));
             }
 
             match provider
@@ -185,10 +198,10 @@ impl LLMProvider for FallbackProvider {
                 Err(e) => {
                     if i < self.providers.len() - 1 {
                         colors::warning(
-                            &format!(
-                                "{} failed ({}), trying next provider...",
-                                provider.name(),
-                                e
+                            &rust_i18n::t!(
+                                "provider.fallback_provider_failed",
+                                provider = provider.name(),
+                                error = e.to_string()
                             ),
                             self.colored,
                         );
@@ -198,7 +211,9 @@ impl LLMProvider for FallbackProvider {
             }
         }
 
-        Err(last_error.unwrap_or_else(|| GcopError::Llm("No providers available".into())))
+        Err(last_error.unwrap_or_else(|| {
+            GcopError::Llm(rust_i18n::t!("provider.no_providers_available").to_string())
+        }))
     }
 
     async fn generate_commit_message_streaming(
@@ -223,10 +238,10 @@ impl LLMProvider for FallbackProvider {
                 Ok(handle) => return Ok(handle),
                 Err(e) => {
                     colors::warning(
-                        &format!(
-                            "{} streaming failed ({}), trying next provider...",
-                            provider.name(),
-                            e
+                        &rust_i18n::t!(
+                            "provider.fallback_streaming_failed",
+                            provider = provider.name(),
+                            error = e.to_string()
                         ),
                         self.colored,
                     );
@@ -238,7 +253,7 @@ impl LLMProvider for FallbackProvider {
         // 所有流式 provider 都失败了，fallback 到非流式模式
         if tried_streaming {
             colors::warning(
-                "All streaming providers failed, falling back to non-streaming mode...",
+                &rust_i18n::t!("provider.all_streaming_failed"),
                 self.colored,
             );
         }

@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 /// 输出格式枚举
 ///
 /// 统一处理 CLI 中的 `--format` 和 `--json` 参数
@@ -9,6 +11,18 @@ pub enum OutputFormat {
     Markdown,
 }
 
+impl FromStr for OutputFormat {
+    type Err = std::convert::Infallible;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s.to_lowercase().as_str() {
+            "json" => Self::Json,
+            "markdown" | "md" => Self::Markdown,
+            _ => Self::Text,
+        })
+    }
+}
+
 impl OutputFormat {
     /// 从 CLI 参数解析输出格式
     ///
@@ -17,16 +31,7 @@ impl OutputFormat {
         if json {
             Self::Json
         } else {
-            Self::from_str(format)
-        }
-    }
-
-    /// 从字符串解析
-    pub fn from_str(s: &str) -> Self {
-        match s.to_lowercase().as_str() {
-            "json" => Self::Json,
-            "markdown" | "md" => Self::Markdown,
-            _ => Self::Text,
+            format.parse().unwrap_or_default()
         }
     }
 

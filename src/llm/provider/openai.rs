@@ -147,7 +147,7 @@ impl OpenAIProvider {
             .into_iter()
             .next()
             .map(|choice| choice.message.content)
-            .ok_or_else(|| GcopError::Llm("OpenAI response contains no choices".to_string()))
+            .ok_or_else(|| GcopError::Llm(rust_i18n::t!("provider.openai_no_choices").to_string()))
     }
 
     /// 流式 API 调用
@@ -206,7 +206,10 @@ impl OpenAIProvider {
         let colored = self.colored;
         tokio::spawn(async move {
             if let Err(e) = process_openai_stream(response, tx, colored).await {
-                crate::ui::colors::error(&format!("Stream processing error: {}", e), colored);
+                crate::ui::colors::error(
+                    &rust_i18n::t!("provider.stream_processing_error", error = e.to_string()),
+                    colored,
+                );
             }
             // tx 在这里被 drop，channel 关闭
         });
@@ -259,7 +262,9 @@ impl LLMProvider for OpenAIProvider {
 
     async fn validate(&self) -> Result<()> {
         if self.api_key.is_empty() {
-            return Err(GcopError::Config("API key is empty".to_string()));
+            return Err(GcopError::Config(
+                rust_i18n::t!("provider.api_key_empty").to_string(),
+            ));
         }
 
         // Send minimal test request to validate API connection
@@ -293,7 +298,12 @@ impl LLMProvider for OpenAIProvider {
             let body = response.text().await.unwrap_or_default();
             return Err(GcopError::LlmApi {
                 status: status.as_u16(),
-                message: format!("OpenAI API validation failed: {}", body),
+                message: rust_i18n::t!(
+                    "provider.api_validation_failed",
+                    provider = "OpenAI",
+                    body = body
+                )
+                .to_string(),
             });
         }
 

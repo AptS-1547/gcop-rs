@@ -5,7 +5,7 @@ extern crate rust_i18n;
 use gcop_rs::*;
 
 use anyhow::Result;
-use clap::Parser;
+use clap::{CommandFactory, FromArgMatches};
 use cli::{Cli, Commands};
 use tokio::runtime::Runtime;
 
@@ -17,8 +17,8 @@ fn main() -> Result<()> {
     // 在解析 CLI 之前初始化语言（支持多语言 help text）
     init_locale_early();
 
-    // 先解析 CLI 参数
-    let cli = Cli::parse();
+    // 解析 CLI 参数并注入国际化 help text
+    let cli = parse_cli_localized()?;
 
     // 根据 verbose 标志设置日志级别
     let log_level = if cli.verbose {
@@ -84,13 +84,10 @@ fn main() -> Result<()> {
                             std::process::exit(1);
                         }
                         _ => {
-                            ui::error(&format!("Error: {}", e), config.ui.colored);
-                            if let Some(suggestion) = e.suggestion() {
+                            ui::error(&e.localized_message(), config.ui.colored);
+                            if let Some(suggestion) = e.localized_suggestion() {
                                 println!();
-                                println!(
-                                    "{}",
-                                    ui::info(&format!("Tip: {}", suggestion), config.ui.colored)
-                                );
+                                println!("{}", ui::info(&suggestion, config.ui.colored));
                             }
                             std::process::exit(1);
                         }
@@ -119,13 +116,10 @@ fn main() -> Result<()> {
                             std::process::exit(0);
                         }
                         _ => {
-                            ui::error(&format!("Error: {}", e), config.ui.colored);
-                            if let Some(suggestion) = e.suggestion() {
+                            ui::error(&e.localized_message(), config.ui.colored);
+                            if let Some(suggestion) = e.localized_suggestion() {
                                 println!();
-                                println!(
-                                    "{}",
-                                    ui::info(&format!("Tip: {}", suggestion), config.ui.colored)
-                                );
+                                println!("{}", ui::info(&suggestion, config.ui.colored));
                             }
                             std::process::exit(1);
                         }
@@ -135,13 +129,10 @@ fn main() -> Result<()> {
             }
             Commands::Init { force } => {
                 if let Err(e) = commands::init::run(force, config.ui.colored) {
-                    ui::error(&format!("Error: {}", e), config.ui.colored);
-                    if let Some(suggestion) = e.suggestion() {
+                    ui::error(&e.localized_message(), config.ui.colored);
+                    if let Some(suggestion) = e.localized_suggestion() {
                         println!();
-                        println!(
-                            "{}",
-                            ui::info(&format!("Tip: {}", suggestion), config.ui.colored)
-                        );
+                        println!("{}", ui::info(&suggestion, config.ui.colored));
                     }
                     std::process::exit(1);
                 }
@@ -149,13 +140,10 @@ fn main() -> Result<()> {
             }
             Commands::Config { action } => {
                 if let Err(e) = commands::config::run(action, config.ui.colored).await {
-                    ui::error(&format!("Error: {}", e), config.ui.colored);
-                    if let Some(suggestion) = e.suggestion() {
+                    ui::error(&e.localized_message(), config.ui.colored);
+                    if let Some(suggestion) = e.localized_suggestion() {
                         println!();
-                        println!(
-                            "{}",
-                            ui::info(&format!("Tip: {}", suggestion), config.ui.colored)
-                        );
+                        println!("{}", ui::info(&suggestion, config.ui.colored));
                     }
                     std::process::exit(1);
                 }
@@ -167,13 +155,10 @@ fn main() -> Result<()> {
                 remove,
             } => {
                 if let Err(e) = commands::alias::run(force, list, remove, config.ui.colored) {
-                    ui::error(&format!("Error: {}", e), config.ui.colored);
-                    if let Some(suggestion) = e.suggestion() {
+                    ui::error(&e.localized_message(), config.ui.colored);
+                    if let Some(suggestion) = e.localized_suggestion() {
                         println!();
-                        println!(
-                            "{}",
-                            ui::info(&format!("Tip: {}", suggestion), config.ui.colored)
-                        );
+                        println!("{}", ui::info(&suggestion, config.ui.colored));
                     }
                     std::process::exit(1);
                 }
@@ -193,13 +178,10 @@ fn main() -> Result<()> {
                         let _ = commands::stats::output_json_error(&e);
                         std::process::exit(1);
                     }
-                    ui::error(&format!("Error: {}", e), config.ui.colored);
-                    if let Some(suggestion) = e.suggestion() {
+                    ui::error(&e.localized_message(), config.ui.colored);
+                    if let Some(suggestion) = e.localized_suggestion() {
                         println!();
-                        println!(
-                            "{}",
-                            ui::info(&format!("Tip: {}", suggestion), config.ui.colored)
-                        );
+                        println!("{}", ui::info(&suggestion, config.ui.colored));
                     }
                     std::process::exit(1);
                 }
@@ -207,6 +189,117 @@ fn main() -> Result<()> {
             }
         }
     })
+}
+
+/// Parse CLI arguments with localized help text
+///
+/// Uses clap's derive + runtime override pattern:
+/// 1. Get Command from derive macro (type-safe parsing)
+/// 2. Override help text at runtime with rust_i18n::t!()
+/// 3. Parse and reconstruct the Cli struct
+fn parse_cli_localized() -> Result<Cli> {
+    let cmd = Cli::command()
+        .about(rust_i18n::t!("cli.about").to_string())
+        .mut_arg("verbose", |arg| {
+            arg.help(rust_i18n::t!("cli.verbose").to_string())
+        })
+        .mut_arg("provider", |arg| {
+            arg.help(rust_i18n::t!("cli.provider").to_string())
+        })
+        .mut_subcommand("commit", |cmd| {
+            cmd.about(rust_i18n::t!("cli.commit").to_string())
+                .mut_arg("no_edit", |arg| {
+                    arg.help(rust_i18n::t!("cli.commit.no_edit").to_string())
+                })
+                .mut_arg("yes", |arg| {
+                    arg.help(rust_i18n::t!("cli.commit.yes").to_string())
+                })
+                .mut_arg("dry_run", |arg| {
+                    arg.help(rust_i18n::t!("cli.commit.dry_run").to_string())
+                })
+                .mut_arg("format", |arg| {
+                    arg.help(rust_i18n::t!("cli.commit.format").to_string())
+                })
+                .mut_arg("json", |arg| {
+                    arg.help(rust_i18n::t!("cli.commit.json").to_string())
+                })
+                .mut_arg("feedback", |arg| {
+                    arg.help(rust_i18n::t!("cli.commit.feedback").to_string())
+                })
+        })
+        .mut_subcommand("review", |cmd| {
+            cmd.about(rust_i18n::t!("cli.review").to_string())
+                .mut_arg("format", |arg| {
+                    arg.help(rust_i18n::t!("cli.review.format").to_string())
+                })
+                .mut_arg("json", |arg| {
+                    arg.help(rust_i18n::t!("cli.review.json").to_string())
+                })
+                .mut_subcommand("changes", |s| {
+                    s.about(rust_i18n::t!("cli.review.changes").to_string())
+                })
+                .mut_subcommand("commit", |s| {
+                    s.about(rust_i18n::t!("cli.review.commit").to_string())
+                        .mut_arg("hash", |arg| {
+                            arg.help(rust_i18n::t!("cli.review.commit.hash").to_string())
+                        })
+                })
+                .mut_subcommand("range", |s| {
+                    s.about(rust_i18n::t!("cli.review.range").to_string())
+                        .mut_arg("range", |arg| {
+                            arg.help(rust_i18n::t!("cli.review.range.range").to_string())
+                        })
+                })
+                .mut_subcommand("file", |s| {
+                    s.about(rust_i18n::t!("cli.review.file").to_string())
+                        .mut_arg("path", |arg| {
+                            arg.help(rust_i18n::t!("cli.review.file.path").to_string())
+                        })
+                })
+        })
+        .mut_subcommand("init", |cmd| {
+            cmd.about(rust_i18n::t!("cli.init").to_string())
+                .mut_arg("force", |arg| {
+                    arg.help(rust_i18n::t!("cli.init.force").to_string())
+                })
+        })
+        .mut_subcommand("config", |cmd| {
+            cmd.about(rust_i18n::t!("cli.config").to_string())
+                .mut_subcommand("edit", |s| {
+                    s.about(rust_i18n::t!("cli.config.edit").to_string())
+                })
+                .mut_subcommand("validate", |s| {
+                    s.about(rust_i18n::t!("cli.config.validate").to_string())
+                })
+        })
+        .mut_subcommand("alias", |cmd| {
+            cmd.about(rust_i18n::t!("cli.alias").to_string())
+                .mut_arg("force", |arg| {
+                    arg.help(rust_i18n::t!("cli.alias.force").to_string())
+                })
+                .mut_arg("list", |arg| {
+                    arg.help(rust_i18n::t!("cli.alias.list").to_string())
+                })
+                .mut_arg("remove", |arg| {
+                    arg.help(rust_i18n::t!("cli.alias.remove").to_string())
+                })
+        })
+        .mut_subcommand("stats", |cmd| {
+            cmd.about(rust_i18n::t!("cli.stats").to_string())
+                .mut_arg("format", |arg| {
+                    arg.help(rust_i18n::t!("cli.stats.format").to_string())
+                })
+                .mut_arg("json", |arg| {
+                    arg.help(rust_i18n::t!("cli.stats.json").to_string())
+                })
+                .mut_arg("author", |arg| {
+                    arg.help(rust_i18n::t!("cli.stats.author").to_string())
+                })
+        });
+
+    let matches = cmd.get_matches();
+    Cli::from_arg_matches(&matches)
+        .map_err(|e| anyhow::anyhow!("Failed to parse CLI arguments: {}", e))
 }
 
 /// Initialize locale early in the startup process

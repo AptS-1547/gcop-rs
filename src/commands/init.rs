@@ -6,8 +6,9 @@ use std::fs;
 /// 初始化配置文件
 pub fn run(force: bool, colored: bool) -> Result<()> {
     // 1. 获取配置目录和文件路径
-    let config_dir = config::get_config_dir()
-        .ok_or_else(|| GcopError::Config("Failed to determine config directory".to_string()))?;
+    let config_dir = config::get_config_dir().ok_or_else(|| {
+        GcopError::Config(rust_i18n::t!("config.failed_determine_dir").to_string())
+    })?;
 
     let config_file = config_dir.join("config.toml");
 
@@ -67,7 +68,10 @@ pub fn run(force: bool, colored: bool) -> Result<()> {
         match crate::commands::alias::install_all(force, colored) {
             Ok(_) => {}
             Err(e) => {
-                ui::warning(&rust_i18n::t!("init.alias_failed", error = e.to_string()), colored);
+                ui::warning(
+                    &rust_i18n::t!("init.alias_failed", error = e.to_string()),
+                    colored,
+                );
                 println!();
                 println!("{}", rust_i18n::t!("init.alias_later"));
                 println!("{}", rust_i18n::t!("init.alias_cmd"));

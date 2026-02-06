@@ -33,10 +33,9 @@ pub(crate) fn create_http_client(network_config: &NetworkConfig) -> Result<Clien
     }
 
     if let Some(err_msg) = HTTP_CLIENT_ERROR.get() {
-        return Err(GcopError::Llm(format!(
-            "HTTP client initialization failed: {}",
-            err_msg
-        )));
+        return Err(GcopError::Llm(
+            rust_i18n::t!("provider.http_client_init_failed", error = err_msg.as_str()).to_string(),
+        ));
     }
 
     let user_agent = format!(
@@ -59,10 +58,13 @@ pub(crate) fn create_http_client(network_config: &NetworkConfig) -> Result<Clien
         Err(e) => {
             let err_msg = e.to_string();
             let _ = HTTP_CLIENT_ERROR.set(err_msg.clone());
-            Err(GcopError::Llm(format!(
-                "Failed to create HTTP client: {}",
-                err_msg
-            )))
+            Err(GcopError::Llm(
+                rust_i18n::t!(
+                    "provider.http_client_create_failed",
+                    error = err_msg.as_str()
+                )
+                .to_string(),
+            ))
         }
     }
 }
@@ -84,11 +86,9 @@ pub fn create_single_provider(
     name: &str,
     colored: bool,
 ) -> Result<Arc<dyn LLMProvider>> {
-    let provider_config = config
-        .llm
-        .providers
-        .get(name)
-        .ok_or_else(|| GcopError::Config(format!("Provider '{}' not found in config", name)))?;
+    let provider_config = config.llm.providers.get(name).ok_or_else(|| {
+        GcopError::Config(rust_i18n::t!("provider.provider_not_found", name = name).to_string())
+    })?;
 
     create_provider_from_config(provider_config, name, &config.network, colored)
 }
@@ -121,9 +121,13 @@ fn create_provider_from_config(
                 ollama::OllamaProvider::new(provider_config, name, network_config, colored)?;
             Ok(Arc::new(provider))
         }
-        _ => Err(GcopError::Config(format!(
-            "Unsupported api_style: '{}' for provider '{}'",
-            api_style, name
-        ))),
+        _ => Err(GcopError::Config(
+            rust_i18n::t!(
+                "provider.unsupported_api_style",
+                style = api_style,
+                provider = name
+            )
+            .to_string(),
+        )),
     }
 }

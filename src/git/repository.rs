@@ -98,7 +98,9 @@ impl GitOperations for GitRepository {
         let commit = self
             .repo
             .find_commit(git2::Oid::from_str(commit_hash).map_err(|_| {
-                GcopError::InvalidInput(format!("Invalid commit hash: {}", commit_hash))
+                GcopError::InvalidInput(
+                    rust_i18n::t!("git.invalid_commit_hash", hash = commit_hash).to_string(),
+                )
             })?)?;
 
         let commit_tree = commit.tree()?;
@@ -125,10 +127,9 @@ impl GitOperations for GitRepository {
         // 解析范围（如 "main..feature"）
         let parts: Vec<&str> = range.split("..").collect();
         if parts.len() != 2 {
-            return Err(GcopError::InvalidInput(format!(
-                "Invalid range format: {}. Expected format: base..head",
-                range
-            )));
+            return Err(GcopError::InvalidInput(
+                rust_i18n::t!("git.invalid_range_format", range = range).to_string(),
+            ));
         }
 
         let base_commit = self.repo.revparse_single(parts[0])?.peel_to_commit()?;
@@ -148,11 +149,14 @@ impl GitOperations for GitRepository {
     fn get_file_content(&self, path: &str) -> Result<String> {
         let metadata = std::fs::metadata(path)?;
         if metadata.len() > self.max_file_size {
-            return Err(GcopError::InvalidInput(format!(
-                "File too large: {} bytes (max {} bytes). Please review manually.",
-                metadata.len(),
-                self.max_file_size
-            )));
+            return Err(GcopError::InvalidInput(
+                rust_i18n::t!(
+                    "git.file_too_large",
+                    size = metadata.len(),
+                    max = self.max_file_size
+                )
+                .to_string(),
+            ));
         }
 
         let content = std::fs::read_to_string(path)?;
@@ -217,9 +221,12 @@ impl GitOperations for GitRepository {
                 .single()
                 .unwrap_or_else(|| {
                     eprintln!(
-                        "Warning: Invalid timestamp {} in commit {}, using current time",
-                        git_time.seconds(),
-                        commit.id()
+                        "{}",
+                        rust_i18n::t!(
+                            "git.invalid_timestamp_warning",
+                            timestamp = git_time.seconds(),
+                            commit = commit.id().to_string()
+                        )
                     );
                     Local::now()
                 });

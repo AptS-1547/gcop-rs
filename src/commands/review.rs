@@ -41,7 +41,11 @@ pub async fn run_internal(
     let (diff, description) = match options.target {
         ReviewTarget::Changes => {
             if !is_json {
-                ui::step(&rust_i18n::t!("review.step1"), &rust_i18n::t!("review.analyzing_changes"), colored);
+                ui::step(
+                    &rust_i18n::t!("review.step1"),
+                    &rust_i18n::t!("review.analyzing_changes"),
+                    colored,
+                );
             }
             let diff = git.get_uncommitted_diff()?;
             if diff.trim().is_empty() {
@@ -49,33 +53,57 @@ pub async fn run_internal(
                     ui::error(&rust_i18n::t!("review.no_changes"), colored);
                 }
                 return Err(GcopError::InvalidInput(
-                    "No uncommitted changes to review".to_string(),
+                    rust_i18n::t!("review.no_uncommitted_changes_to_review").to_string(),
                 ));
             }
-            (diff, "Uncommitted changes".to_string())
+            (
+                diff,
+                rust_i18n::t!("review.description.uncommitted").to_string(),
+            )
         }
         ReviewTarget::Commit { hash } => {
             if !is_json {
-                ui::step(&rust_i18n::t!("review.step1"), &rust_i18n::t!("review.analyzing_commit", hash = hash), colored);
+                ui::step(
+                    &rust_i18n::t!("review.step1"),
+                    &rust_i18n::t!("review.analyzing_commit", hash = hash),
+                    colored,
+                );
             }
             let diff = git.get_commit_diff(hash)?;
-            (diff, format!("Commit {}", hash))
+            (
+                diff,
+                rust_i18n::t!("review.description.commit", hash = hash).to_string(),
+            )
         }
         ReviewTarget::Range { range } => {
             if !is_json {
-                ui::step(&rust_i18n::t!("review.step1"), &rust_i18n::t!("review.analyzing_range", range = range), colored);
+                ui::step(
+                    &rust_i18n::t!("review.step1"),
+                    &rust_i18n::t!("review.analyzing_range", range = range),
+                    colored,
+                );
             }
             let diff = git.get_range_diff(range)?;
-            (diff, format!("Commit range {}", range))
+            (
+                diff,
+                rust_i18n::t!("review.description.range", range = range).to_string(),
+            )
         }
         ReviewTarget::File { path } => {
             if !is_json {
-                ui::step(&rust_i18n::t!("review.step1"), &rust_i18n::t!("review.analyzing_file", path = path), colored);
+                ui::step(
+                    &rust_i18n::t!("review.step1"),
+                    &rust_i18n::t!("review.analyzing_file", path = path),
+                    colored,
+                );
             }
             let content = git.get_file_content(path)?;
             // 文件审查需要特殊处理，将内容包装成 diff 格式
             let diff = format!("--- {}\n+++ {}\n{}", path, path, content);
-            (diff, format!("File {}", path))
+            (
+                diff,
+                rust_i18n::t!("review.description.file", path = path).to_string(),
+            )
         }
     };
 
@@ -91,7 +119,10 @@ pub async fn run_internal(
     let spinner = if is_json {
         None
     } else {
-        Some(ui::Spinner::new(&rust_i18n::t!("spinner.reviewing"), colored))
+        Some(ui::Spinner::new(
+            &rust_i18n::t!("spinner.reviewing"),
+            colored,
+        ))
     };
 
     let result = llm
@@ -109,7 +140,11 @@ pub async fn run_internal(
 
     // 格式化输出
     if !is_json {
-        ui::step(&rust_i18n::t!("review.step3"), &rust_i18n::t!("review.formatting"), colored);
+        ui::step(
+            &rust_i18n::t!("review.step3"),
+            &rust_i18n::t!("review.formatting"),
+            colored,
+        );
         println!();
     }
 
@@ -126,7 +161,13 @@ pub async fn run_internal(
 fn print_text(result: &ReviewResult, description: &str, config: &AppConfig) {
     let colored = config.ui.colored;
 
-    println!("{}", ui::info(&rust_i18n::t!("review.title", description = description), colored));
+    println!(
+        "{}",
+        ui::info(
+            &rust_i18n::t!("review.title", description = description),
+            colored
+        )
+    );
     println!();
 
     // 输出摘要
@@ -168,23 +209,23 @@ fn print_text(result: &ReviewResult, description: &str, config: &AppConfig) {
             let severity_label = match issue.severity {
                 IssueSeverity::Critical => {
                     if colored {
-                        "CRITICAL".to_string()
+                        rust_i18n::t!("review.severity.critical").to_string()
                     } else {
-                        "[CRITICAL]".to_string()
+                        rust_i18n::t!("review.severity.bracket_critical").to_string()
                     }
                 }
                 IssueSeverity::Warning => {
                     if colored {
-                        "WARNING".to_string()
+                        rust_i18n::t!("review.severity.warning").to_string()
                     } else {
-                        "[WARNING]".to_string()
+                        rust_i18n::t!("review.severity.bracket_warning").to_string()
                     }
                 }
                 IssueSeverity::Info => {
                     if colored {
-                        "INFO".to_string()
+                        rust_i18n::t!("review.severity.info").to_string()
                     } else {
-                        "[INFO]".to_string()
+                        rust_i18n::t!("review.severity.bracket_info").to_string()
                     }
                 }
             };
@@ -208,9 +249,15 @@ fn print_text(result: &ReviewResult, description: &str, config: &AppConfig) {
             // 输出位置信息
             if let Some(file) = &issue.file {
                 if let Some(line) = issue.line {
-                    println!("     Location: {}:{}", file, line);
+                    println!(
+                        "     {}",
+                        rust_i18n::t!("review.location.with_line", file = file, line = line)
+                    );
                 } else {
-                    println!("     Location: {}", file);
+                    println!(
+                        "     {}",
+                        rust_i18n::t!("review.location.file_only", file = file)
+                    );
                 }
             }
             println!();
@@ -255,7 +302,10 @@ pub fn output_json_error(err: &GcopError) -> Result<()> {
 
 /// 以 Markdown 格式输出审查结果
 fn print_markdown(result: &ReviewResult, description: &str, _colored: bool) {
-    println!("{}", rust_i18n::t!("review.md.title", description = description));
+    println!(
+        "{}",
+        rust_i18n::t!("review.md.title", description = description)
+    );
     println!();
 
     // 摘要
@@ -277,9 +327,9 @@ fn print_markdown(result: &ReviewResult, description: &str, _colored: bool) {
             };
 
             let severity_text = match issue.severity {
-                IssueSeverity::Critical => "**CRITICAL**",
-                IssueSeverity::Warning => "**WARNING**",
-                IssueSeverity::Info => "**INFO**",
+                IssueSeverity::Critical => rust_i18n::t!("review.md.severity_critical"),
+                IssueSeverity::Warning => rust_i18n::t!("review.md.severity_warning"),
+                IssueSeverity::Info => rust_i18n::t!("review.md.severity_info"),
             };
 
             println!("### {} {}", severity_emoji, severity_text);
@@ -289,23 +339,29 @@ fn print_markdown(result: &ReviewResult, description: &str, _colored: bool) {
 
             if let Some(file) = &issue.file {
                 if let Some(line) = issue.line {
-                    println!("**Location:** `{}:{}`", file, line);
+                    println!(
+                        "{}",
+                        rust_i18n::t!(
+                            "review.md.location",
+                            location = format!("{}:{}", file, line)
+                        )
+                    );
                 } else {
-                    println!("**Location:** `{}`", file);
+                    println!("{}", rust_i18n::t!("review.md.location", location = file));
                 }
                 println!();
             }
         }
     } else {
-        println!("## Issues");
+        println!("{}", rust_i18n::t!("review.md.no_issues_title"));
         println!();
-        println!("✨ No issues found!");
+        println!("{}", rust_i18n::t!("review.md.no_issues"));
         println!();
     }
 
     // 建议
     if !result.suggestions.is_empty() {
-        println!("## Suggestions");
+        println!("{}", rust_i18n::t!("review.md.suggestions"));
         println!();
         for suggestion in &result.suggestions {
             println!("- {}", suggestion);

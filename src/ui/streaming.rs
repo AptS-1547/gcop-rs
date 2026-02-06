@@ -46,9 +46,13 @@ impl StreamingOutput {
                     println!(); // 换行
                     // 显示错误提示
                     if self.colored {
-                        eprintln!("{} {}", "✗".red(), format!("Stream error: {}", e).red());
+                        eprintln!(
+                            "{} {}",
+                            "✗".red(),
+                            rust_i18n::t!("stream.error", error = e.as_str()).red()
+                        );
                     } else {
-                        eprintln!("✗ Stream error: {}", e);
+                        eprintln!("✗ {}", rust_i18n::t!("stream.error", error = e.as_str()));
                     }
                     return Err(GcopError::Llm(e));
                 }

@@ -8,7 +8,7 @@ const STYLES: styling::Styles = styling::Styles::styled()
 
 #[derive(Parser)]
 #[command(name = "gcop-rs")]
-#[command(author, version, about = "Git Copilot in Rust", long_about = None)]
+#[command(author, version, long_about = None)]
 #[command(styles = STYLES)]
 pub struct Cli {
     #[command(subcommand)]

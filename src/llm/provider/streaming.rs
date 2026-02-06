@@ -69,9 +69,9 @@ pub async fn process_openai_stream(
                 if data == "[DONE]" {
                     if parse_errors > 0 {
                         colors::warning(
-                            &format!(
-                                "OpenAI stream completed with {} parse error(s)",
-                                parse_errors
+                            &rust_i18n::t!(
+                                "provider.stream.openai_parse_errors",
+                                count = parse_errors
                             ),
                             colored,
                         );
@@ -92,9 +92,9 @@ pub async fn process_openai_stream(
                             if choice.finish_reason.is_some() {
                                 if parse_errors > 0 {
                                     colors::warning(
-                                        &format!(
-                                            "OpenAI stream completed with {} parse error(s)",
-                                            parse_errors
+                                        &rust_i18n::t!(
+                                            "provider.stream.openai_parse_errors",
+                                            count = parse_errors
                                         ),
                                         colored,
                                     );
@@ -116,10 +116,7 @@ pub async fn process_openai_stream(
     // 流结束但没有收到 [DONE]
     if parse_errors > 0 {
         colors::warning(
-            &format!(
-                "OpenAI stream completed with {} parse error(s)",
-                parse_errors
-            ),
+            &rust_i18n::t!("provider.stream.openai_parse_errors", count = parse_errors),
             colored,
         );
     }
@@ -195,9 +192,9 @@ pub async fn process_claude_stream(
                         Ok(ClaudeSSEEvent::MessageStop) => {
                             if parse_errors > 0 {
                                 colors::warning(
-                                    &format!(
-                                        "Claude stream completed with {} parse error(s)",
-                                        parse_errors
+                                    &rust_i18n::t!(
+                                        "provider.stream.claude_parse_errors",
+                                        count = parse_errors
                                     ),
                                     colored,
                                 );
@@ -225,14 +222,17 @@ pub async fn process_claude_stream(
     // 流结束但没有收到 message_stop
     if parse_errors > 0 {
         colors::warning(
-            &format!(
-                "Claude stream ended without message_stop, {} parse error(s)",
-                parse_errors
+            &rust_i18n::t!(
+                "provider.stream.claude_ended_with_errors",
+                count = parse_errors
             ),
             colored,
         );
     } else {
-        colors::warning("Claude stream ended without message_stop event", colored);
+        colors::warning(
+            &rust_i18n::t!("provider.stream.claude_ended_without_stop"),
+            colored,
+        );
     }
     let _ = tx.send(StreamChunk::Done).await;
     Ok(())

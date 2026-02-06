@@ -218,7 +218,11 @@ async fn run_with_deps(
                 attempt,
                 ref feedbacks,
             } => {
-                ui::step(&rust_i18n::t!("commit.step3"), &rust_i18n::t!("commit.choose_action"), colored);
+                ui::step(
+                    &rust_i18n::t!("commit.step3"),
+                    &rust_i18n::t!("commit.choose_action"),
+                    colored,
+                );
                 let ui_action = ui::commit_action_menu(message, should_edit, attempt, colored)?;
 
                 // 映射 UI action 到状态机 action，处理编辑逻辑
@@ -226,7 +230,11 @@ async fn run_with_deps(
                     ui::CommitAction::Accept => UserAction::Accept,
 
                     ui::CommitAction::Edit => {
-                        ui::step(&rust_i18n::t!("commit.step3"), &rust_i18n::t!("commit.opening_editor"), colored);
+                        ui::step(
+                            &rust_i18n::t!("commit.step3"),
+                            &rust_i18n::t!("commit.opening_editor"),
+                            colored,
+                        );
                         match ui::edit_text(message) {
                             Ok(edited) => {
                                 display_edited_message(&edited, colored);
@@ -247,10 +255,7 @@ async fn run_with_deps(
                     ui::CommitAction::RetryWithFeedback => {
                         let new_feedback = ui::get_retry_feedback(colored)?;
                         if new_feedback.is_none() {
-                            ui::warning(
-                                &rust_i18n::t!("commit.feedback.empty"),
-                                colored,
-                            );
+                            ui::warning(&rust_i18n::t!("commit.feedback.empty"), colored);
                         }
                         UserAction::RetryWithFeedback {
                             feedback: new_feedback,
@@ -271,7 +276,11 @@ async fn run_with_deps(
 
             CommitState::Accepted { ref message } => {
                 // 执行 commit
-                ui::step(&rust_i18n::t!("commit.step4"), &rust_i18n::t!("commit.creating"), colored);
+                ui::step(
+                    &rust_i18n::t!("commit.step4"),
+                    &rust_i18n::t!("commit.creating"),
+                    colored,
+                );
                 repo.commit(message)?;
 
                 println!();
@@ -320,12 +329,20 @@ async fn generate_message(
             &context,
             context.custom_prompt.as_deref(),
         );
-        println!("\n{}", "=== Verbose: Generated Prompt ===".cyan().bold());
-        println!("{}", "--- System Prompt ---".cyan());
+        println!(
+            "\n{}",
+            rust_i18n::t!("commit.verbose.generated_prompt")
+                .cyan()
+                .bold()
+        );
+        println!("{}", rust_i18n::t!("commit.verbose.system_prompt").cyan());
         println!("{}", system);
-        println!("{}", "--- User Message ---".cyan());
+        println!("{}", rust_i18n::t!("commit.verbose.user_message").cyan());
         println!("{}", user);
-        println!("{}\n", "=================================".cyan().bold());
+        println!(
+            "{}\n",
+            rust_i18n::t!("commit.verbose.divider").cyan().bold()
+        );
     }
 
     // 判断是否使用流式模式
@@ -352,14 +369,12 @@ async fn generate_message(
         Ok((message, true)) // 已经显示过了
     } else {
         // 非流式模式：使用 Spinner（带取消提示和时间显示）
-        let mut spinner = ui::Spinner::new_with_cancel_hint(
-            if attempt == 0 {
-                "Generating commit message..."
-            } else {
-                "Regenerating commit message..."
-            },
-            colored,
-        );
+        let spinner_message = if attempt == 0 {
+            rust_i18n::t!("spinner.generating").to_string()
+        } else {
+            rust_i18n::t!("spinner.regenerating").to_string()
+        };
+        let mut spinner = ui::Spinner::new_with_cancel_hint(&spinner_message, colored);
         spinner.start_time_display();
 
         let message = provider
@@ -433,12 +448,12 @@ async fn generate_message_no_streaming(
             &context,
             context.custom_prompt.as_deref(),
         );
-        eprintln!("\n=== Verbose: Generated Prompt ===");
-        eprintln!("--- System Prompt ---");
+        eprintln!("\n{}", rust_i18n::t!("commit.verbose.generated_prompt"));
+        eprintln!("{}", rust_i18n::t!("commit.verbose.system_prompt"));
         eprintln!("{}", system);
-        eprintln!("--- User Message ---");
+        eprintln!("{}", rust_i18n::t!("commit.verbose.user_message"));
         eprintln!("{}", user);
-        eprintln!("=================================\n");
+        eprintln!("{}\n", rust_i18n::t!("commit.verbose.divider"));
     }
 
     // 直接使用非流式 API

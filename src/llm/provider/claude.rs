@@ -199,7 +199,7 @@ impl ClaudeProvider {
         tokio::spawn(async move {
             if let Err(e) = process_claude_stream(response, tx, colored).await {
                 crate::ui::colors::error(
-                    &format!("Claude stream processing error: {}", e),
+                    &rust_i18n::t!("provider.stream_processing_error", error = e.to_string()),
                     colored,
                 );
             }
@@ -253,7 +253,9 @@ impl LLMProvider for ClaudeProvider {
 
     async fn validate(&self) -> Result<()> {
         if self.api_key.is_empty() {
-            return Err(GcopError::Config("API key is empty".to_string()));
+            return Err(GcopError::Config(
+                rust_i18n::t!("provider.api_key_empty").to_string(),
+            ));
         }
 
         // Send minimal test request to validate API connection
@@ -288,7 +290,12 @@ impl LLMProvider for ClaudeProvider {
             let body = response.text().await.unwrap_or_default();
             return Err(GcopError::LlmApi {
                 status: status.as_u16(),
-                message: format!("Claude API validation failed: {}", body),
+                message: rust_i18n::t!(
+                    "provider.api_validation_failed",
+                    provider = "Claude",
+                    body = body
+                )
+                .to_string(),
             });
         }
 

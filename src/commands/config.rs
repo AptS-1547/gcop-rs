@@ -24,8 +24,9 @@ pub async fn run(action: Option<crate::cli::ConfigAction>, colored: bool) -> Res
 
 /// 打开编辑器编辑配置文件（带校验）
 fn edit(colored: bool) -> Result<()> {
-    let config_dir = config::get_config_dir()
-        .ok_or_else(|| GcopError::Config(rust_i18n::t!("config.failed_determine_dir").to_string()))?;
+    let config_dir = config::get_config_dir().ok_or_else(|| {
+        GcopError::Config(rust_i18n::t!("config.failed_determine_dir").to_string())
+    })?;
 
     let config_file = config_dir.join("config.toml");
 
@@ -39,7 +40,9 @@ fn edit(colored: bool) -> Result<()> {
             "  cp examples/config.toml.example {}",
             config_file.display()
         );
-        return Err(GcopError::Config(rust_i18n::t!("config.file_not_found").to_string()));
+        return Err(GcopError::Config(
+            rust_i18n::t!("config.file_not_found").to_string(),
+        ));
     }
 
     // 初始读取配置内容
@@ -49,12 +52,18 @@ fn edit(colored: bool) -> Result<()> {
     loop {
         println!(
             "{}",
-            ui::info(&rust_i18n::t!("config.editing", path = config_file.display().to_string()), colored)
+            ui::info(
+                &rust_i18n::t!("config.editing", path = config_file.display().to_string()),
+                colored
+            )
         );
 
         // 使用 edit crate 编辑（自动选择 $VISUAL > $EDITOR > platform default）
-        let edited =
-            edit::edit(&content).map_err(|e| GcopError::Other(rust_i18n::t!("config.editor_error", error = e.to_string()).to_string()))?;
+        let edited = edit::edit(&content).map_err(|e| {
+            GcopError::Other(
+                rust_i18n::t!("config.editor_error", error = e.to_string()).to_string(),
+            )
+        })?;
 
         // 校验配置（直接在内存校验）
         match toml::from_str::<config::AppConfig>(&edited) {
@@ -67,7 +76,10 @@ fn edit(colored: bool) -> Result<()> {
             Err(e) => {
                 // 校验失败
                 println!();
-                ui::error(&rust_i18n::t!("config.validation_failed", error = e.to_string()), colored);
+                ui::error(
+                    &rust_i18n::t!("config.validation_failed", error = e.to_string()),
+                    colored,
+                );
                 println!();
 
                 match prompt_edit_action(colored)? {
@@ -97,15 +109,9 @@ fn edit(colored: bool) -> Result<()> {
 fn prompt_edit_action(colored: bool) -> Result<EditAction> {
     let items: Vec<String> = if colored {
         vec![
-            format!(
-                "{}",
-                rust_i18n::t!("config.action_reedit").yellow()
-            ),
+            format!("{}", rust_i18n::t!("config.action_reedit").yellow()),
             format!("{}", rust_i18n::t!("config.action_keep").blue()),
-            format!(
-                "{}",
-                rust_i18n::t!("config.action_ignore").red()
-            ),
+            format!("{}", rust_i18n::t!("config.action_ignore").red()),
         ]
     } else {
         vec![
@@ -126,7 +132,11 @@ fn prompt_edit_action(colored: bool) -> Result<EditAction> {
         .items(&items)
         .default(0)
         .interact()
-        .map_err(|e| GcopError::Other(rust_i18n::t!("config.input_failed", error = e.to_string()).to_string()))?;
+        .map_err(|e| {
+            GcopError::Other(
+                rust_i18n::t!("config.input_failed", error = e.to_string()).to_string(),
+            )
+        })?;
 
     Ok(match selection {
         0 => EditAction::Retry,
@@ -165,10 +175,16 @@ async fn validate(colored: bool) -> Result<()> {
             );
         }
         Err(e) => {
-            ui::error(&rust_i18n::t!("config.validation_failed_short", error = e.to_string()), colored);
-            if let Some(suggestion) = e.suggestion() {
+            ui::error(
+                &rust_i18n::t!("config.validation_failed_short", error = e.to_string()),
+                colored,
+            );
+            if let Some(suggestion) = e.localized_suggestion() {
                 println!();
-                println!("{}", rust_i18n::t!("config.suggestion", suggestion = suggestion));
+                println!(
+                    "{}",
+                    rust_i18n::t!("config.suggestion", suggestion = suggestion)
+                );
             }
             return Err(e);
         }

@@ -75,6 +75,173 @@ pub enum GcopError {
 }
 
 impl GcopError {
+    /// 获取本地化的错误消息
+    pub fn localized_message(&self) -> String {
+        match self {
+            GcopError::Git(wrapper) => {
+                rust_i18n::t!("error.git", detail = wrapper.to_string()).to_string()
+            }
+            GcopError::GitCommand(msg) => {
+                rust_i18n::t!("error.git_command", detail = msg.as_str()).to_string()
+            }
+            GcopError::Config(msg) => {
+                rust_i18n::t!("error.config", detail = msg.as_str()).to_string()
+            }
+            GcopError::Llm(msg) => rust_i18n::t!("error.llm", detail = msg.as_str()).to_string(),
+            GcopError::LlmApi { status, message } => {
+                rust_i18n::t!("error.llm_api", status = status, message = message.as_str())
+                    .to_string()
+            }
+            GcopError::Network(e) => {
+                rust_i18n::t!("error.network", detail = e.to_string()).to_string()
+            }
+            GcopError::Io(e) => rust_i18n::t!("error.io", detail = e.to_string()).to_string(),
+            GcopError::Serde(e) => rust_i18n::t!("error.serde", detail = e.to_string()).to_string(),
+            GcopError::ConfigParse(e) => {
+                rust_i18n::t!("error.config_parse", detail = e.to_string()).to_string()
+            }
+            GcopError::Dialoguer(e) => {
+                rust_i18n::t!("error.ui", detail = e.to_string()).to_string()
+            }
+            GcopError::NoStagedChanges => rust_i18n::t!("error.no_staged_changes").to_string(),
+            GcopError::UserCancelled => rust_i18n::t!("error.user_cancelled").to_string(),
+            GcopError::InvalidInput(msg) => {
+                rust_i18n::t!("error.invalid_input", detail = msg.as_str()).to_string()
+            }
+            GcopError::MaxRetriesExceeded(n) => {
+                rust_i18n::t!("error.max_retries", count = n).to_string()
+            }
+            GcopError::Other(msg) => msg.clone(),
+        }
+    }
+
+    /// 获取本地化的解决建议
+    pub fn localized_suggestion(&self) -> Option<String> {
+        match self {
+            GcopError::Git(wrapper) => {
+                use git2::ErrorCode;
+                match wrapper.0.code() {
+                    ErrorCode::GenericError | ErrorCode::BufSize | ErrorCode::User => None,
+                    ErrorCode::NotFound => {
+                        Some(rust_i18n::t!("suggestion.git_not_found").to_string())
+                    }
+                    ErrorCode::Exists => Some(rust_i18n::t!("suggestion.git_exists").to_string()),
+                    ErrorCode::Ambiguous => {
+                        Some(rust_i18n::t!("suggestion.git_ambiguous").to_string())
+                    }
+                    ErrorCode::BareRepo => {
+                        Some(rust_i18n::t!("suggestion.git_bare_repo").to_string())
+                    }
+                    ErrorCode::UnbornBranch => {
+                        Some(rust_i18n::t!("suggestion.git_unborn_branch").to_string())
+                    }
+                    ErrorCode::Directory => {
+                        Some(rust_i18n::t!("suggestion.git_directory").to_string())
+                    }
+                    ErrorCode::Owner => Some(rust_i18n::t!("suggestion.git_owner").to_string()),
+                    ErrorCode::Unmerged => {
+                        Some(rust_i18n::t!("suggestion.git_unmerged").to_string())
+                    }
+                    ErrorCode::Conflict | ErrorCode::MergeConflict => {
+                        Some(rust_i18n::t!("suggestion.git_conflict").to_string())
+                    }
+                    ErrorCode::NotFastForward => {
+                        Some(rust_i18n::t!("suggestion.git_not_fast_forward").to_string())
+                    }
+                    ErrorCode::InvalidSpec => {
+                        Some(rust_i18n::t!("suggestion.git_invalid_spec").to_string())
+                    }
+                    ErrorCode::Modified => {
+                        Some(rust_i18n::t!("suggestion.git_modified").to_string())
+                    }
+                    ErrorCode::Uncommitted => {
+                        Some(rust_i18n::t!("suggestion.git_uncommitted").to_string())
+                    }
+                    ErrorCode::IndexDirty => {
+                        Some(rust_i18n::t!("suggestion.git_index_dirty").to_string())
+                    }
+                    ErrorCode::Locked => Some(rust_i18n::t!("suggestion.git_locked").to_string()),
+                    ErrorCode::Auth => Some(rust_i18n::t!("suggestion.git_auth").to_string()),
+                    ErrorCode::Certificate => {
+                        Some(rust_i18n::t!("suggestion.git_certificate").to_string())
+                    }
+                    ErrorCode::Applied => Some(rust_i18n::t!("suggestion.git_applied").to_string()),
+                    ErrorCode::ApplyFail => {
+                        Some(rust_i18n::t!("suggestion.git_apply_fail").to_string())
+                    }
+                    ErrorCode::Peel => Some(rust_i18n::t!("suggestion.git_peel").to_string()),
+                    ErrorCode::Eof => Some(rust_i18n::t!("suggestion.git_eof").to_string()),
+                    ErrorCode::Invalid => Some(rust_i18n::t!("suggestion.git_invalid").to_string()),
+                    ErrorCode::HashsumMismatch => {
+                        Some(rust_i18n::t!("suggestion.git_hashsum_mismatch").to_string())
+                    }
+                    ErrorCode::Timeout => Some(rust_i18n::t!("suggestion.git_timeout").to_string()),
+                }
+            }
+            GcopError::NoStagedChanges => {
+                Some(rust_i18n::t!("suggestion.no_staged_changes").to_string())
+            }
+            GcopError::Config(msg)
+                if msg.contains("API key not found")
+                    || msg.contains("API key")
+                    || msg.contains("api_key")
+                    || msg.contains("API key 为空")
+                    || (msg.contains("未找到")
+                        && (msg.contains("ANTHROPIC_API_KEY")
+                            || msg.contains("OPENAI_API_KEY"))) =>
+            {
+                if msg.contains("Claude")
+                    || msg.contains("claude")
+                    || msg.contains("ANTHROPIC_API_KEY")
+                {
+                    Some(rust_i18n::t!("suggestion.claude_api_key").to_string())
+                } else if msg.contains("OpenAI")
+                    || msg.contains("openai")
+                    || msg.contains("OPENAI_API_KEY")
+                {
+                    Some(rust_i18n::t!("suggestion.openai_api_key").to_string())
+                } else {
+                    Some(rust_i18n::t!("suggestion.generic_api_key").to_string())
+                }
+            }
+            GcopError::Config(msg)
+                if msg.contains("not found in config")
+                    || msg.contains("未找到 provider")
+                    || msg.contains("配置中未找到 provider") =>
+            {
+                Some(rust_i18n::t!("suggestion.provider_not_found").to_string())
+            }
+            GcopError::Network(_) => Some(rust_i18n::t!("suggestion.network").to_string()),
+            GcopError::LlmApi { status: 401, .. } => {
+                Some(rust_i18n::t!("suggestion.llm_401").to_string())
+            }
+            GcopError::LlmApi { status: 429, .. } => {
+                Some(rust_i18n::t!("suggestion.llm_429").to_string())
+            }
+            GcopError::LlmApi { status, .. } if *status >= 500 => {
+                Some(rust_i18n::t!("suggestion.llm_5xx").to_string())
+            }
+            GcopError::Llm(msg) if msg.contains("timeout") || msg.contains("超时") => {
+                Some(rust_i18n::t!("suggestion.llm_timeout").to_string())
+            }
+            GcopError::Llm(msg)
+                if msg.contains("connection failed") || msg.contains("连接失败") =>
+            {
+                Some(rust_i18n::t!("suggestion.llm_connection").to_string())
+            }
+            GcopError::Llm(msg)
+                if msg.contains("Failed to parse")
+                    || (msg.contains("解析") && msg.contains("响应")) =>
+            {
+                Some(rust_i18n::t!("suggestion.llm_parse").to_string())
+            }
+            GcopError::MaxRetriesExceeded(_) => {
+                Some(rust_i18n::t!("suggestion.max_retries").to_string())
+            }
+            _ => None,
+        }
+    }
+
     /// 获取错误的解决建议
     pub fn suggestion(&self) -> Option<&str> {
         match self {

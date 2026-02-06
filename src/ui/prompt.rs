@@ -99,9 +99,17 @@ pub fn commit_action_menu(
             )
         }
     } else if retry_count == 0 {
-        format!("{} {}", t!("commit.menu.choose_action"), t!("messages.esc_to_quit"))
+        format!(
+            "{} {}",
+            t!("commit.menu.choose_action"),
+            t!("messages.esc_to_quit")
+        )
     } else {
-        format!("{} {}", t!("commit.menu.not_satisfied"), t!("messages.esc_to_quit"))
+        format!(
+            "{} {}",
+            t!("commit.menu.not_satisfied"),
+            t!("messages.esc_to_quit")
+        )
     };
 
     let selection = Select::new()
@@ -177,7 +185,10 @@ pub fn get_retry_feedback(colored: bool) -> Result<Option<String>> {
                 t!("commit.feedback.too_long", length = MAX_FEEDBACK_LENGTH).yellow()
             );
         } else {
-            println!("{}", t!("commit.feedback.too_long", length = MAX_FEEDBACK_LENGTH));
+            println!(
+                "{}",
+                t!("commit.feedback.too_long", length = MAX_FEEDBACK_LENGTH)
+            );
         }
         Ok(Some(truncated.to_string()))
     } else if trimmed.is_empty() {

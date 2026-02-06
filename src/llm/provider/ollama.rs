@@ -178,7 +178,12 @@ impl LLMProvider for OllamaProvider {
             let body = response.text().await.unwrap_or_default();
             return Err(GcopError::LlmApi {
                 status: status.as_u16(),
-                message: format!("Ollama validation failed: {}", body),
+                message: rust_i18n::t!(
+                    "provider.api_validation_failed",
+                    provider = "Ollama",
+                    body = body
+                )
+                .to_string(),
             });
         }
 
@@ -193,16 +198,17 @@ impl LLMProvider for OllamaProvider {
             name: String,
         }
 
-        let tags: TagsResponse = response
-            .json()
-            .await
-            .map_err(|e| GcopError::Llm(format!("Failed to parse Ollama tags response: {}", e)))?;
+        let tags: TagsResponse = response.json().await.map_err(|e| {
+            GcopError::Llm(
+                rust_i18n::t!("provider.ollama_parse_tags_failed", error = e.to_string())
+                    .to_string(),
+            )
+        })?;
 
         if !tags.models.iter().any(|m| m.name.starts_with(&self.model)) {
-            return Err(GcopError::Config(format!(
-                "Model '{}' not found in Ollama. Run 'ollama pull {}' first.",
-                self.model, self.model
-            )));
+            return Err(GcopError::Config(
+                rust_i18n::t!("provider.ollama_model_not_found", model = self.model).to_string(),
+            ));
         }
 
         tracing::debug!("Ollama connection validated successfully");

@@ -7,48 +7,24 @@ use which::which;
 
 // 完整的 git alias 列表（13 个，基于原项目 + review）
 const GCOP_ALIASES: &[(&str, &str, &str)] = &[
-    ("cop", "!gcop-rs", "Main entry point for gcop-rs"),
-    (
-        "gcommit",
-        "!gcop-rs commit",
-        "AI commit message and commit changes",
-    ),
-    ("c", "!gcop-rs commit", "Shorthand for 'git gcommit'"),
-    ("r", "!gcop-rs review", "AI review of uncommitted changes"),
-    ("s", "!gcop-rs stats", "Show repository commit statistics"),
-    (
-        "ac",
-        "!git add -A && gcop-rs commit",
-        "Add all changes and commit with AI message",
-    ),
-    (
-        "cp",
-        "!gcop-rs commit && git push",
-        "Commit with AI message and push",
-    ),
+    ("cop", "!gcop-rs", "alias.desc.cop"),
+    ("gcommit", "!gcop-rs commit", "alias.desc.gcommit"),
+    ("c", "!gcop-rs commit", "alias.desc.c"),
+    ("r", "!gcop-rs review", "alias.desc.r"),
+    ("s", "!gcop-rs stats", "alias.desc.s"),
+    ("ac", "!git add -A && gcop-rs commit", "alias.desc.ac"),
+    ("cp", "!gcop-rs commit && git push", "alias.desc.cp"),
     (
         "acp",
         "!git add -A && gcop-rs commit && git push",
-        "Add all, commit with AI, and push",
+        "alias.desc.acp",
     ),
-    ("amend", "!git commit --amend", "Amend last commit"),
-    ("ghelp", "!gcop-rs --help", "Show gcop-rs help message"),
-    (
-        "gconfig",
-        "!gcop-rs config edit",
-        "Open config file in default editor",
-    ),
-    ("p", "!git push", "Push changes to remote repository"),
-    (
-        "pf",
-        "!git push --force-with-lease",
-        "Force push (safer with --force-with-lease)",
-    ),
-    (
-        "undo",
-        "!git reset --soft HEAD^",
-        "Undo last commit, keep changes staged",
-    ),
+    ("amend", "!git commit --amend", "alias.desc.amend"),
+    ("ghelp", "!gcop-rs --help", "alias.desc.ghelp"),
+    ("gconfig", "!gcop-rs config edit", "alias.desc.gconfig"),
+    ("p", "!git push", "alias.desc.p"),
+    ("pf", "!git push --force-with-lease", "alias.desc.pf"),
+    ("undo", "!git reset --soft HEAD^", "alias.desc.undo"),
 ];
 
 /// 管理 git aliases
@@ -71,7 +47,10 @@ pub fn install_all(force: bool, colored: bool) -> Result<()> {
     if !is_gcop_in_path() {
         ui::error(&rust_i18n::t!("alias.not_found"), colored);
         println!();
-        println!("{}", ui::info(&rust_i18n::t!("alias.install_first"), colored));
+        println!(
+            "{}",
+            ui::info(&rust_i18n::t!("alias.install_first"), colored)
+        );
         println!("{}", rust_i18n::t!("alias.install_cmd"));
         println!();
         println!("{}", ui::info(&rust_i18n::t!("alias.read_guide"), colored));
@@ -97,22 +76,19 @@ pub fn install_all(force: bool, colored: bool) -> Result<()> {
     // 3. 显示摘要
     println!();
     if installed > 0 {
-        ui::success(&rust_i18n::t!("alias.installed", count = installed), colored);
+        ui::success(
+            &rust_i18n::t!("alias.installed", count = installed),
+            colored,
+        );
     }
     if skipped > 0 {
         println!(
             "{}",
-            ui::info(
-                &rust_i18n::t!("alias.skipped", count = skipped),
-                colored
-            )
+            ui::info(&rust_i18n::t!("alias.skipped", count = skipped), colored)
         );
         if !force {
             println!();
-            println!(
-                "{}",
-                ui::info(&rust_i18n::t!("alias.use_force"), colored)
-            );
+            println!("{}", ui::info(&rust_i18n::t!("alias.use_force"), colored));
             println!("{}", rust_i18n::t!("alias.force_cmd"));
         }
     }
@@ -140,6 +116,7 @@ fn install_single_alias(
     force: bool,
     colored: bool,
 ) -> Result<bool> {
+    let description = rust_i18n::t!(description).to_string();
     let existing = get_git_alias(name)?;
 
     match existing {
@@ -167,7 +144,12 @@ fn install_single_alias(
                     rust_i18n::t!("alias.already_set").dimmed()
                 );
             } else {
-                println!("  ℹ  git {:10} → {} {}", name, description, rust_i18n::t!("alias.already_set"));
+                println!(
+                    "  ℹ  git {:10} → {} {}",
+                    name,
+                    description,
+                    rust_i18n::t!("alias.already_set")
+                );
             }
             Ok(false)
         }
@@ -183,7 +165,12 @@ fn install_single_alias(
                         rust_i18n::t!("alias.overwritten").yellow()
                     );
                 } else {
-                    println!("  ⚠  git {:10} → {} {}", name, description, rust_i18n::t!("alias.overwritten"));
+                    println!(
+                        "  ⚠  git {:10} → {} {}",
+                        name,
+                        description,
+                        rust_i18n::t!("alias.overwritten")
+                    );
                 }
                 Ok(true)
             } else {
@@ -195,7 +182,11 @@ fn install_single_alias(
                         rust_i18n::t!("alias.conflicts", cmd = existing_cmd).dimmed()
                     );
                 } else {
-                    println!("  ⊗  git {:10} - {}", name, rust_i18n::t!("alias.conflicts", cmd = existing_cmd));
+                    println!(
+                        "  ⊗  git {:10} - {}",
+                        name,
+                        rust_i18n::t!("alias.conflicts", cmd = existing_cmd)
+                    );
                 }
                 Ok(false)
             }
@@ -210,7 +201,9 @@ fn add_git_alias(name: &str, command: &str) -> Result<()> {
         .status()?;
 
     if !status.success() {
-        return Err(GcopError::Other(rust_i18n::t!("alias.config_failed").to_string()));
+        return Err(GcopError::Other(
+            rust_i18n::t!("alias.config_failed").to_string(),
+        ));
     }
 
     Ok(())
@@ -218,13 +211,11 @@ fn add_git_alias(name: &str, command: &str) -> Result<()> {
 
 /// 列出所有可用的 aliases 及其状态
 fn list_aliases(colored: bool) -> Result<()> {
-    println!(
-        "{}",
-        ui::info(&rust_i18n::t!("alias.available"), colored)
-    );
+    println!("{}", ui::info(&rust_i18n::t!("alias.available"), colored));
     println!();
 
     for (name, command, description) in GCOP_ALIASES {
+        let description = rust_i18n::t!(*description).to_string();
         let existing = get_git_alias(name)?;
         let status = match existing {
             Some(existing_cmd) if existing_cmd == *command => {
@@ -244,7 +235,9 @@ fn list_aliases(colored: bool) -> Result<()> {
             }
             None => {
                 if colored {
-                    rust_i18n::t!("alias.status_not_installed").dimmed().to_string()
+                    rust_i18n::t!("alias.status_not_installed")
+                        .dimmed()
+                        .to_string()
                 } else {
                     rust_i18n::t!("alias.status_not_installed").to_string()
                 }
@@ -259,17 +252,8 @@ fn list_aliases(colored: bool) -> Result<()> {
     }
 
     println!();
-    println!(
-        "{}",
-        ui::info(&rust_i18n::t!("alias.run_install"), colored)
-    );
-    println!(
-        "{}",
-        ui::info(
-            &rust_i18n::t!("alias.run_force"),
-            colored
-        )
-    );
+    println!("{}", ui::info(&rust_i18n::t!("alias.run_install"), colored));
+    println!("{}", ui::info(&rust_i18n::t!("alias.run_force"), colored));
 
     Ok(())
 }
@@ -290,7 +274,10 @@ fn remove_aliases(force: bool, colored: bool) -> Result<()> {
             }
         }
         println!();
-        println!("{}", ui::info(&rust_i18n::t!("alias.confirm_force"), colored));
+        println!(
+            "{}",
+            ui::info(&rust_i18n::t!("alias.confirm_force"), colored)
+        );
         println!("{}", rust_i18n::t!("alias.confirm_cmd"));
         return Ok(());
     }
@@ -308,9 +295,16 @@ fn remove_aliases(force: bool, colored: bool) -> Result<()> {
 
             if status.success() {
                 if colored {
-                    println!("  {}  {}", "✓".green().bold(), rust_i18n::t!("alias.removed_single", name = name).bold());
+                    println!(
+                        "  {}  {}",
+                        "✓".green().bold(),
+                        rust_i18n::t!("alias.removed_single", name = name).bold()
+                    );
                 } else {
-                    println!("  ✓  {}", rust_i18n::t!("alias.removed_single", name = name));
+                    println!(
+                        "  ✓  {}",
+                        rust_i18n::t!("alias.removed_single", name = name)
+                    );
                 }
                 removed += 1;
             }
