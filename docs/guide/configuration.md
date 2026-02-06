@@ -102,6 +102,7 @@ min_severity = "info"  # critical | warning | info
 colored = true
 verbose = false
 streaming = true  # Enable streaming output (real-time typing effect)
+language = "en"  # Optional: force UI language (e.g., "en", "zh-CN")
 
 # Note: Streaming is supported by OpenAI- and Claude-style APIs.
 # For Ollama providers, it automatically falls back to spinner mode.
@@ -166,6 +167,7 @@ Each provider under `[llm.providers.<name>]` supports:
 | `colored` | Boolean | `true` | Enable colored output |
 | `verbose` | Boolean | `false` | *(Currently unused)* Use `--verbose` / `-v` to enable debug logs |
 | `streaming` | Boolean | `true` | Enable streaming output (real-time typing effect) |
+| `language` | String | `null` (auto) | Force UI language (e.g., `"en"`, `"zh-CN"`); if unset, gcop-rs auto-detects |
 
 > **Note on Streaming:** Currently only OpenAI or Claude style APIs support streaming. When using Ollama providers, the system automatically falls back to spinner mode (waiting for complete response).
 
@@ -233,7 +235,19 @@ export GCOP_UI_STREAMING=false
 
 # Switch default provider
 export GCOP_LLM_DEFAULT_PROVIDER=openai
+
+# Force UI language
+export GCOP_UI_LANGUAGE=zh-CN
 ```
+
+### Locale Selection Priority
+
+gcop-rs resolves UI language in this order:
+
+1. `GCOP_UI_LANGUAGE` environment variable
+2. `[ui].language` in config file
+3. System locale
+4. Fallback to English (`en`)
 
 ## Override with Command-Line
 

@@ -102,6 +102,7 @@ min_severity = "info"  # critical | warning | info
 colored = true
 verbose = false
 streaming = true  # 启用流式输出（实时打字效果）
+language = "en"  # 可选：强制 UI 语言（如 "en"、"zh-CN"）
 
 # 注意：流式输出支持 OpenAI 与 Claude 风格的 API。
 # Ollama 会自动回退到转圈圈模式。
@@ -166,6 +167,7 @@ max_size = 10485760      # 最大文件大小（10MB）
 | `colored` | Boolean | `true` | 启用彩色输出 |
 | `verbose` | Boolean | `false` | *(目前未使用)* 请使用 `--verbose` / `-v` 启用 debug 日志 |
 | `streaming` | Boolean | `true` | 启用流式输出（实时打字效果） |
+| `language` | String | `null`（自动） | 强制 UI 语言（如 `"en"`、`"zh-CN"`）；未设置时自动检测 |
 
 > **关于流式输出：** 目前仅 OpenAI 和 Claude 风格的 API 支持流式输出。使用 Ollama 时，系统会自动回退到转圈圈模式（等待完整响应）。
 
@@ -233,7 +235,19 @@ export GCOP_UI_STREAMING=false
 
 # 切换默认 provider
 export GCOP_LLM_DEFAULT_PROVIDER=openai
+
+# 强制 UI 语言
+export GCOP_UI_LANGUAGE=zh-CN
 ```
+
+### 语言选择优先级
+
+gcop-rs 会按以下顺序决定 UI 语言：
+
+1. 环境变量 `GCOP_UI_LANGUAGE`
+2. 配置文件中的 `[ui].language`
+3. 系统语言
+4. 回退到英文（`en`）
 
 ## 命令行覆盖
 

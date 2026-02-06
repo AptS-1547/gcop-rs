@@ -217,7 +217,7 @@ gcop-rs review [OPTIONS] <COMMAND>
 | Changes | `gcop-rs review changes` | Review working tree changes (similar to `git diff`) |
 | Commit | `gcop-rs review commit <HASH>` | Review a specific commit |
 | Range | `gcop-rs review range <RANGE>` | Review commit range (e.g., `HEAD~3..HEAD`) |
-| File | `gcop-rs review file <PATH>` | Review a single file |
+| File | `gcop-rs review file <PATH>` | Review a single file (directories currently unsupported) |
 
 **Options**:
 
@@ -585,6 +585,7 @@ These environment variables affect gcop-rs behavior:
 | `ANTHROPIC_API_KEY` | Claude API key (fallback if not in config) |
 | `OPENAI_API_KEY` | OpenAI API key (fallback) |
 | `VISUAL` / `EDITOR` | Editor for commit message editing and `gcop-rs config edit` |
+| `GCOP_UI_LANGUAGE` | Force UI language early in startup (before config is fully loaded) |
 | `GCOP_*` | Override config values via environment variables (e.g., `GCOP_UI_COLORED=false`) |
 | `NO_COLOR` | Disable colored output (set to any value) |
 

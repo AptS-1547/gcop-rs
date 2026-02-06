@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-02-07
+
+### Added
+
+- **Internationalization (i18n)**: Full multi-language support with `rust-i18n` and `sys-locale`
+  - 399 translation keys covering all UI elements, error messages, and CLI help text
+  - Supported languages: English (default), Chinese (zh-CN)
+  - Language detection priority: `GCOP_UI_LANGUAGE` env var > config `ui.language` > system locale > English fallback
+  - Runtime-localized CLI help text using clap derive + runtime override pattern
+
+### Changed
+
+- **UI modules refactored**: All hardcoded strings replaced with i18n translation keys
+- **Error messages localized**: `localized_message()` and `localized_suggestion()` methods on all error types
+- **`OutputFormat` implements `FromStr` trait**: Standard trait implementation replacing custom `from_str` method
+
 ## [0.7.3] - 2025-02-06
 
 ### Added

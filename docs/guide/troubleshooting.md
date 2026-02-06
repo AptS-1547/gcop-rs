@@ -117,7 +117,9 @@ export ANTHROPIC_API_KEY="sk-ant-your-key"
    ```bash
    curl -x $HTTP_PROXY https://api.openai.com
    ```
-4. The request will automatically retry up to 3 times with backoff
+4. Increase `network.request_timeout` in config if needed, then retry manually
+
+> **Note**: Timeout errors currently fail fast (no automatic retry). Auto-retry applies to connection failures and HTTP 429 rate limits.
 
 ### Issue: "API connection failed"
 
@@ -213,6 +215,7 @@ Since v0.1.6, gcop-rs automatically retries failed requests:
 **What gets retried**:
 - ✅ Connection failures
 - ✅ 429 Rate limit errors
+- ❌ Request timeout errors
 - ❌ 401/403 Authentication errors (won't retry)
 - ❌ 400 Bad request errors (won't retry)
 

@@ -217,7 +217,7 @@ gcop-rs review [OPTIONS] <COMMAND>
 | 变更 | `gcop-rs review changes` | 审查工作区未暂存变更（类似 `git diff`） |
 | 提交 | `gcop-rs review commit <HASH>` | 审查特定提交 |
 | 范围 | `gcop-rs review range <RANGE>` | 审查提交范围（如 `HEAD~3..HEAD`） |
-| 文件 | `gcop-rs review file <PATH>` | 审查单个文件 |
+| 文件 | `gcop-rs review file <PATH>` | 审查单个文件（当前不支持目录） |
 
 **选项**:
 
@@ -585,6 +585,7 @@ fi
 | `ANTHROPIC_API_KEY` | Claude API key（如果不在配置中则作为回退） |
 | `OPENAI_API_KEY` | OpenAI API key（回退） |
 | `VISUAL` / `EDITOR` | commit message 编辑与 `gcop-rs config edit` 使用的编辑器 |
+| `GCOP_UI_LANGUAGE` | 在启动早期强制指定 UI 语言（在完整加载配置前生效） |
 | `GCOP_*` | 通过环境变量覆盖配置项（如 `GCOP_UI_COLORED=false`） |
 | `NO_COLOR` | 禁用彩色输出（设置为任意值） |
 

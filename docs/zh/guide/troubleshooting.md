@@ -117,7 +117,9 @@ export ANTHROPIC_API_KEY="sk-ant-your-key"
    ```bash
    curl -x $HTTP_PROXY https://api.openai.com
    ```
-4. 请求会自动重试最多 3 次并退避
+4. 按需提高配置中的 `network.request_timeout`，然后手动重试
+
+> **注意**：超时错误当前为快速失败（不会自动重试）。自动重试仅适用于连接失败和 HTTP 429 限流。
 
 ### 问题: "API connection failed"
 
@@ -213,6 +215,7 @@ export NO_PROXY=localhost,127.0.0.1,.local
 **会被重试的错误**：
 - ✅ 连接失败
 - ✅ 429 限流错误
+- ❌ 请求超时错误
 - ❌ 401/403 认证错误（不重试）
 - ❌ 400 请求格式错误（不重试）
 
