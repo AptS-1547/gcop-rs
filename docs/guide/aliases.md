@@ -9,7 +9,7 @@ gcop-rs provides 14 carefully designed git aliases that streamline common tasks:
 | Alias | Command | Description |
 |-------|---------|-------------|
 | `git c` | `gcop-rs commit` | Quick AI-powered commit |
-| `git r` | `gcop-rs review` | AI review of changes |
+| `git r` | `gcop-rs review <TARGET>` | AI review of changes |
 | `git s` | `gcop-rs stats` | Repository statistics |
 | `git ac` | `git add -A && gcop-rs commit` | Add all and commit |
 | `git cp` | `gcop-rs commit && git push` | Commit and push |
@@ -143,7 +143,7 @@ git push
 
 Get AI-powered code review.
 
-**Command**: `gcop-rs review`
+**Command**: `gcop-rs review <TARGET>`
 
 **Usage**:
 ```bash
@@ -335,7 +335,7 @@ Direct access to gcop-rs command.
 **Usage**:
 ```bash
 git cop commit
-git cop review
+git cop review changes
 git cop --version
 ```
 
@@ -407,7 +407,7 @@ git checkout -b feature/auth
 git acp
 
 # Review, commit, and push
-git r && git acp
+git r changes && git acp
 
 # Undo, edit, and recommit
 git undo && vim src/auth.rs && git c
@@ -421,7 +421,7 @@ Create your own aliases that build on gcop-rs:
 # Add to your shell rc file (~/.bashrc, ~/.zshrc)
 alias gac="git ac"          # Even shorter add-commit
 alias gacp="git acp"        # Even shorter add-commit-push
-alias review="git r"        # Plain 'review' command
+alias review="git r changes"  # Plain 'review' command
 ```
 
 ## Troubleshooting
@@ -477,7 +477,7 @@ gcop-rs alias --force
 ### Recommended Workflow
 
 1. **Start with `git c`**: Use as your default commit command
-2. **Use `git r`** before committing for quality checks
+2. **Use `git r changes`** before committing for quality checks
 3. **Use `git ac`** for quick commits of all changes
 4. **Reserve `git acp`** for confident, tested changes
 
@@ -490,7 +490,7 @@ Use full `gcop-rs` commands instead of aliases when:
 
 ### Safety Tips
 
-1. **Review before `git acp`**: This pushes immediately, so use `git r` first
+1. **Review before `git acp`**: This pushes immediately, so use `git r changes` first
 2. **Use `git undo`** freely: It's safe for local changes
 3. **Be careful with `git pf`**: Only force push to your own branches
 4. **Check status**: Run `git status` after `git undo` to see your staged changes
@@ -508,7 +508,7 @@ vim src/profile.rs
 vim src/routes.rs
 
 # Review changes
-git r
+git r changes
 
 # Commit (all changes)
 git ac
@@ -534,13 +534,13 @@ git c --yes
 
 ```bash
 # Before creating PR
-git r                 # Check your changes
+git r changes         # Check your changes
 
 # If issues found, fix them
 vim src/auth.rs
 
 # Review again
-git r
+git r changes
 
 # Satisfied? Commit
 git c

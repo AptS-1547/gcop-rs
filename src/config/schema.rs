@@ -117,6 +117,11 @@ pub struct UIConfig {
     /// 是否启用流式输出（实时打字效果）
     #[serde(default = "default_true")]
     pub streaming: bool,
+
+    /// 界面语言（BCP 47 格式，如 "en", "zh-CN"）
+    /// None 表示自动检测系统语言
+    #[serde(default)]
+    pub language: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -223,6 +228,7 @@ impl Default for UIConfig {
             colored: true,
             verbose: false,
             streaming: true,
+            language: None,
         }
     }
 }

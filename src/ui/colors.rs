@@ -53,34 +53,37 @@ pub fn step(step: &str, msg: &str, colored: bool) {
 
 /// 格式化 diff 统计信息
 pub fn format_diff_stats(stats: &DiffStats, colored: bool) -> String {
-    let files_str = if stats.files_changed.len() == 1 {
-        "1 file"
+    use rust_i18n::t;
+
+    let count = stats.files_changed.len();
+    let files_str = if count == 1 {
+        t!("diff.files_changed", count = 1)
     } else {
-        &format!("{} files", stats.files_changed.len())
+        t!("diff.files_changed_plural", count = count)
     };
 
     let insertions_str = if stats.insertions == 1 {
-        "1 insertion(+)"
+        t!("diff.insertions", count = 1)
     } else {
-        &format!("{} insertions(+)", stats.insertions)
+        t!("diff.insertions_plural", count = stats.insertions)
     };
 
     let deletions_str = if stats.deletions == 1 {
-        "1 deletion(-)"
+        t!("diff.deletions", count = 1)
     } else {
-        &format!("{} deletions(-)", stats.deletions)
+        t!("diff.deletions_plural", count = stats.deletions)
     };
 
     if colored {
         format!(
-            "{} changed, {}, {}",
+            "{}, {}, {}",
             files_str.bold(),
             insertions_str.green(),
             deletions_str.red()
         )
     } else {
         format!(
-            "{} changed, {}, {}",
+            "{}, {}, {}",
             files_str, insertions_str, deletions_str
         )
     }

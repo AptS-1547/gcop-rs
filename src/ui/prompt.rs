@@ -32,6 +32,8 @@ pub fn commit_action_menu(
     retry_count: usize,
     colored: bool,
 ) -> Result<CommitAction> {
+    use rust_i18n::t;
+
     // 构建选项列表
     let mut options = Vec::new();
 
@@ -40,45 +42,45 @@ pub fn commit_action_menu(
         options.push(format!(
             "{} {}",
             "✓".green().bold(),
-            "Accept - Use this commit message".green()
+            t!("commit.actions.accept").green()
         ));
 
         if allow_edit {
             options.push(format!(
                 "{} {}",
                 "✎".yellow().bold(),
-                "Edit - Manually edit the message".yellow()
+                t!("commit.actions.edit").yellow()
             ));
         }
 
         options.push(format!(
             "{} {}",
             "↻".blue().bold(),
-            "Retry - Regenerate".blue()
+            t!("commit.actions.retry").blue()
         ));
 
         options.push(format!(
             "{} {}",
             "↻+".blue().bold(),
-            "Retry with feedback - Add instructions".blue()
+            t!("commit.actions.retry_feedback").blue()
         ));
 
         options.push(format!(
             "{} {}",
             "✕".red().bold(),
-            "Quit - Cancel commit".red()
+            t!("commit.actions.quit").red()
         ));
     } else {
-        // 纯文本版本（保持原样）
-        options.push("✓ Accept - Use this commit message".to_string());
+        // 纯文本版本
+        options.push(format!("✓ {}", t!("commit.actions.accept")));
 
         if allow_edit {
-            options.push("✎ Edit - Manually edit the message".to_string());
+            options.push(format!("✎ {}", t!("commit.actions.edit")));
         }
 
-        options.push("↻ Retry - Regenerate".to_string());
-        options.push("↻+ Retry with feedback - Add instructions".to_string());
-        options.push("✕ Quit - Cancel commit".to_string());
+        options.push(format!("↻ {}", t!("commit.actions.retry")));
+        options.push(format!("↻+ {}", t!("commit.actions.retry_feedback")));
+        options.push(format!("✕ {}", t!("commit.actions.quit")));
     }
 
     // 根据重试次数调整提示文字
@@ -86,20 +88,20 @@ pub fn commit_action_menu(
         if retry_count == 0 {
             format!(
                 "{} {}",
-                "Choose next action:".cyan().bold(),
-                "(ESC to quit)".dimmed()
+                t!("commit.choose_action").cyan().bold(),
+                t!("messages.esc_to_quit").dimmed()
             )
         } else {
             format!(
                 "{} {}",
-                "Not satisfied? Choose again:".cyan().bold(),
-                "(ESC to quit)".dimmed()
+                t!("commit.not_satisfied").cyan().bold(),
+                t!("messages.esc_to_quit").dimmed()
             )
         }
     } else if retry_count == 0 {
-        "Choose next action (ESC to quit):".to_string()
+        format!("{} {}", t!("commit.choose_action"), t!("messages.esc_to_quit"))
     } else {
-        "Not satisfied? Choose again (ESC to quit):".to_string()
+        format!("{} {}", t!("commit.not_satisfied"), t!("messages.esc_to_quit"))
     };
 
     let selection = Select::new()
@@ -148,7 +150,9 @@ pub fn commit_action_menu(
 /// * `Ok(None)` - 用户未输入或取消
 /// * `Err(_)` - 发生错误
 pub fn get_retry_feedback(colored: bool) -> Result<Option<String>> {
-    let hint = "Provide instructions for regeneration (e.g., \"use Chinese\", \"be more concise\", \"include more details\")";
+    use rust_i18n::t;
+
+    let hint = t!("commit.feedback_hint");
     if colored {
         println!("\n{}", hint.cyan());
     } else {
@@ -156,7 +160,7 @@ pub fn get_retry_feedback(colored: bool) -> Result<Option<String>> {
     }
 
     let feedback: String = Input::new()
-        .with_prompt("Instructions")
+        .with_prompt(t!("commit.feedback_prompt").to_string())
         .allow_empty(true)
         .interact_text()
         .map_err(|_| GcopError::UserCancelled)?;
@@ -168,15 +172,12 @@ pub fn get_retry_feedback(colored: bool) -> Result<Option<String>> {
         let truncated = &trimmed[..MAX_FEEDBACK_LENGTH];
         if colored {
             println!(
-                "{} Feedback too long, truncated to {} characters",
+                "{} {}",
                 "⚠".yellow(),
-                MAX_FEEDBACK_LENGTH
+                t!("commit.feedback_too_long", length = MAX_FEEDBACK_LENGTH).yellow()
             );
         } else {
-            println!(
-                "⚠ Feedback too long, truncated to {} characters",
-                MAX_FEEDBACK_LENGTH
-            );
+            println!("{}", t!("commit.feedback_too_long", length = MAX_FEEDBACK_LENGTH));
         }
         Ok(Some(truncated.to_string()))
     } else if trimmed.is_empty() {

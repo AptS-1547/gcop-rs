@@ -9,7 +9,7 @@ gcop-rs 提供 14 个精心设计的 git 别名，简化常见任务：
 | 别名 | 命令 | 说明 |
 |------|------|------|
 | `git c` | `gcop-rs commit` | 快速 AI 提交 |
-| `git r` | `gcop-rs review` | AI 审查变更 |
+| `git r` | `gcop-rs review <TARGET>` | AI 审查变更 |
 | `git s` | `gcop-rs stats` | 仓库统计 |
 | `git ac` | `git add -A && gcop-rs commit` | 添加所有并提交 |
 | `git cp` | `gcop-rs commit && git push` | 提交并推送 |
@@ -143,7 +143,7 @@ git push
 
 对变更进行 AI 代码审查。
 
-**命令**: `gcop-rs review`
+**命令**: `gcop-rs review <TARGET>`
 
 **用法**:
 ```bash
@@ -335,7 +335,7 @@ git ghelp
 **用法**:
 ```bash
 git cop commit
-git cop review
+git cop review changes
 git cop --version
 ```
 
@@ -407,7 +407,7 @@ git checkout -b feature/auth
 git acp
 
 # 审查、提交并推送
-git r && git acp
+git r changes && git acp
 
 # 撤销、编辑并重新提交
 git undo && vim src/auth.rs && git c
@@ -421,7 +421,7 @@ git undo && vim src/auth.rs && git c
 # 添加到你的 shell rc 文件 (~/.bashrc, ~/.zshrc)
 alias gac="git ac"          # 更短的 add-commit
 alias gacp="git acp"        # 更短的 add-commit-push
-alias review="git r"        # 简单的 'review' 命令
+alias review="git r changes"  # 简单的 'review' 命令
 ```
 
 ## 故障排除
@@ -477,7 +477,7 @@ gcop-rs alias --force
 ### 推荐工作流
 
 1. **从 `git c` 开始**: 将其作为默认提交命令
-2. **提交前使用 `git r`** 进行质量检查
+2. **提交前使用 `git r changes`** 进行质量检查
 3. **使用 `git ac`** 快速提交所有变更
 4. **保留 `git acp`** 用于经过测试的、确定的变更
 
@@ -490,7 +490,7 @@ gcop-rs alias --force
 
 ### 安全提示
 
-1. **`git acp` 前先审查**: 这会立即推送，所以先用 `git r` 检查
+1. **`git acp` 前先审查**: 这会立即推送，所以先用 `git r changes` 检查
 2. **自由使用 `git undo`**: 对本地变更是安全的
 3. **小心使用 `git pf`**: 只对你自己的分支强制推送
 4. **检查状态**: `git undo` 后运行 `git status` 查看暂存的变更
@@ -508,7 +508,7 @@ vim src/profile.rs
 vim src/routes.rs
 
 # 审查变更
-git r
+git r changes
 
 # 提交（所有变更）
 git ac
@@ -534,13 +534,13 @@ git c --yes
 
 ```bash
 # 创建 PR 前
-git r                 # 检查你的变更
+git r changes         # 检查你的变更
 
 # 如果发现问题，修复它们
 vim src/auth.rs
 
 # 再次审查
-git r
+git r changes
 
 # 满意？提交
 git c

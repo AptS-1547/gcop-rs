@@ -1,0 +1,60 @@
+_version: 1
+
+# 通用 UI 消息
+ui.success: "✓ %{msg}"
+ui.error: "✗ %{msg}"
+ui.warning: "⚠ %{msg}"
+ui.info: "ℹ %{msg}"
+ui.step: "[%{step}] %{msg}"
+ui.esc_to_quit: "（ESC 退出）"
+ui.ctrl_c_to_cancel: "（Ctrl+C 取消）"
+
+# 通用词汇
+common.yes: "是"
+common.no: "否"
+common.cancel: "取消"
+common.accept: "接受"
+common.edit: "编辑"
+common.retry: "重试"
+common.quit: "退出"
+common.done: "完成"
+common.failed: "失败"
+common.loading: "加载中"
+
+# Messages 命名空间
+messages.success: "✓ %{msg}"
+messages.error: "✗ %{msg}"
+messages.warning: "⚠ %{msg}"
+messages.info: "ℹ %{msg}"
+messages.step: "[%{step}] %{msg}"
+messages.esc_to_quit: "（ESC 退出）"
+messages.ctrl_c_to_cancel: "（Ctrl+C 取消）"
+
+# Commit 操作菜单
+commit.choose_action: "选择下一步操作："
+commit.not_satisfied: "不满意？再次选择："
+commit.actions.accept: "接受 - 使用此提交消息"
+commit.actions.edit: "编辑 - 手动修改消息"
+commit.actions.retry: "重试 - 重新生成"
+commit.actions.retry_feedback: "带反馈重试 - 添加指示"
+commit.actions.quit: "退出 - 取消提交"
+commit.feedback_hint: '提供重新生成的指示（例如："使用中文"、"更简洁"、"包含更多细节"）'
+commit.feedback_prompt: "指示内容"
+commit.feedback_too_long: "⚠ 反馈太长，已截断到 %{length} 个字符"
+commit.feedback_empty: "未提供反馈，将使用现有指示重试。"
+commit.edit_cancelled: "编辑已取消。"
+
+# Spinner 消息
+spinner.generating: "正在生成提交消息..."
+spinner.regenerating: "正在重新生成提交消息..."
+spinner.reviewing: "正在使用 AI 审查代码..."
+spinner.waiting: "等待中... %{seconds}秒"
+spinner.cancel_hint: "（Ctrl+C 取消）"
+
+# Diff 统计
+diff.files_changed: "%{count} 个文件已更改"
+diff.files_changed_plural: "%{count} 个文件已更改"
+diff.insertions: "%{count} 处插入(+)"
+diff.insertions_plural: "%{count} 处插入(+)"
+diff.deletions: "%{count} 处删除(-)"
+diff.deletions_plural: "%{count} 处删除(-)"

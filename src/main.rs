@@ -1,17 +1,22 @@
-mod cli;
-mod commands;
-mod config;
-mod error;
-mod git;
-mod llm;
-mod ui;
+#[macro_use]
+extern crate rust_i18n;
+
+// Re-export all library modules
+use gcop_rs::*;
 
 use anyhow::Result;
 use clap::Parser;
 use cli::{Cli, Commands};
 use tokio::runtime::Runtime;
 
+// Initialize i18n for binary crate
+// This ensures translations are available in main.rs context
+i18n!("locales", fallback = "en");
+
 fn main() -> Result<()> {
+    // 在解析 CLI 之前初始化语言（支持多语言 help text）
+    init_locale_early();
+
     // 先解析 CLI 参数
     let cli = Cli::parse();
 
@@ -201,5 +206,63 @@ fn main() -> Result<()> {
                 Ok(())
             }
         }
+    })
+}
+
+/// Initialize locale early in the startup process
+///
+/// Priority order:
+/// 1. Environment variable GCOP_UI_LANGUAGE (highest priority)
+/// 2. Configuration file ui.language
+/// 3. System locale detection
+/// 4. Fallback to English
+fn init_locale_early() {
+    let locale = std::env::var("GCOP_UI_LANGUAGE")
+        .ok()
+        .or_else(|| get_language_from_config().ok())
+        .or_else(detect_system_locale)
+        .unwrap_or_else(|| "en".to_string());
+
+    rust_i18n::set_locale(&locale);
+}
+
+/// Attempt to read language setting from config file
+///
+/// This is a lightweight read that only parses the ui.language field
+/// without loading the entire configuration or validating providers.
+fn get_language_from_config() -> Result<String> {
+    use directories::ProjectDirs;
+
+    // Get config path (same logic as config::get_config_path)
+    let config_path = ProjectDirs::from("", "", "gcop")
+        .map(|dirs| dirs.config_dir().join("config.toml"))
+        .ok_or_else(|| anyhow::anyhow!("Could not determine config directory"))?;
+
+    if !config_path.exists() {
+        return Err(anyhow::anyhow!("Config file not found"));
+    }
+
+    let content = std::fs::read_to_string(&config_path)?;
+    let config: toml::Value = toml::from_str(&content)?;
+
+    // Extract ui.language if present
+    if let Some(language) = config
+        .get("ui")
+        .and_then(|ui| ui.get("language"))
+        .and_then(|lang| lang.as_str())
+    {
+        Ok(language.to_string())
+    } else {
+        Err(anyhow::anyhow!("ui.language not found in config"))
+    }
+}
+
+/// Detect system locale using sys-locale crate
+///
+/// Returns locale in BCP 47 format (e.g., "en", "zh-CN", "ja-JP")
+fn detect_system_locale() -> Option<String> {
+    sys_locale::get_locale().map(|locale| {
+        // Normalize locale format: "zh_CN" -> "zh-CN"
+        locale.replace('_', "-")
     })
 }

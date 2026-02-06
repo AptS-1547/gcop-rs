@@ -1,0 +1,60 @@
+_version: 1
+
+# Common UI messages
+ui.success: "✓ %{msg}"
+ui.error: "✗ %{msg}"
+ui.warning: "⚠ %{msg}"
+ui.info: "ℹ %{msg}"
+ui.step: "[%{step}] %{msg}"
+ui.esc_to_quit: "(ESC to quit)"
+ui.ctrl_c_to_cancel: "(Ctrl+C to cancel)"
+
+# Common words
+common.yes: "Yes"
+common.no: "No"
+common.cancel: "Cancel"
+common.accept: "Accept"
+common.edit: "Edit"
+common.retry: "Retry"
+common.quit: "Quit"
+common.done: "Done"
+common.failed: "Failed"
+common.loading: "Loading"
+
+# Messages namespace
+messages.success: "✓ %{msg}"
+messages.error: "✗ %{msg}"
+messages.warning: "⚠ %{msg}"
+messages.info: "ℹ %{msg}"
+messages.step: "[%{step}] %{msg}"
+messages.esc_to_quit: "(ESC to quit)"
+messages.ctrl_c_to_cancel: "(Ctrl+C to cancel)"
+
+# Commit action menu
+commit.choose_action: "Choose next action:"
+commit.not_satisfied: "Not satisfied? Choose again:"
+commit.actions.accept: "Accept - Use this commit message"
+commit.actions.edit: "Edit - Manually edit the message"
+commit.actions.retry: "Retry - Regenerate"
+commit.actions.retry_feedback: "Retry with feedback - Add instructions"
+commit.actions.quit: "Quit - Cancel commit"
+commit.feedback_hint: 'Provide instructions for regeneration (e.g., "use Chinese", "be more concise", "include more details")'
+commit.feedback_prompt: "Instructions"
+commit.feedback_too_long: "⚠ Feedback too long, truncated to %{length} characters"
+commit.feedback_empty: "No feedback provided, will retry with existing instructions."
+commit.edit_cancelled: "Edit cancelled."
+
+# Spinner messages
+spinner.generating: "Generating commit message..."
+spinner.regenerating: "Regenerating commit message..."
+spinner.reviewing: "Reviewing code with AI..."
+spinner.waiting: "Waiting... %{seconds}s"
+spinner.cancel_hint: "(Ctrl+C to cancel)"
+
+# Diff stats
+diff.files_changed: "%{count} file changed"
+diff.files_changed_plural: "%{count} files changed"
+diff.insertions: "%{count} insertion(+)"
+diff.insertions_plural: "%{count} insertions(+)"
+diff.deletions: "%{count} deletion(-)"
+diff.deletions_plural: "%{count} deletions(-)"

@@ -36,6 +36,8 @@ impl Spinner {
 
     /// 创建带取消提示的 spinner
     pub fn new_with_cancel_hint(message: &str, colored: bool) -> Self {
+        use rust_i18n::t;
+
         let pb = ProgressBar::new_spinner();
         let template = if colored {
             "{spinner:.green} {msg:.cyan}"
@@ -47,7 +49,7 @@ impl Spinner {
                 .template(template)
                 .expect("Invalid template"),
         );
-        let display_message = format!("{} (Ctrl+C to cancel)", message);
+        let display_message = format!("{} {}", message, t!("spinner.cancel_hint"));
         pb.set_message(display_message);
         pb.enable_steady_tick(std::time::Duration::from_millis(80));
         Self {
@@ -60,6 +62,8 @@ impl Spinner {
 
     /// 启动时间显示（每秒更新一次）
     pub fn start_time_display(&mut self) {
+        use rust_i18n::t;
+
         let pb = self.pb.clone();
         let base_msg = self.base_message.clone();
 
@@ -68,8 +72,10 @@ impl Spinner {
             loop {
                 let elapsed = start.elapsed().as_secs();
                 pb.set_message(format!(
-                    "{} (Ctrl+C to cancel) Waiting... {}s",
-                    base_msg, elapsed
+                    "{} {} {}",
+                    base_msg,
+                    t!("spinner.cancel_hint"),
+                    t!("spinner.waiting", seconds = elapsed)
                 ));
                 tokio::time::sleep(std::time::Duration::from_secs(1)).await;
             }

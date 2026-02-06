@@ -89,10 +89,12 @@ model = "codellama:13b"
 [commit]
 show_diff_preview = true
 allow_edit = true
+confirm_before_commit = true  # Reserved for future use (currently unused)
 max_retries = 10
 
 # Review Settings
 [review]
+show_full_diff = true  # Reserved for future use (currently unused)
 min_severity = "info"  # critical | warning | info
 
 # UI Settings
@@ -136,8 +138,8 @@ Each provider under `[llm.providers.<name>]` supports:
 | `api_key` | String | Yes* | API key (*not required for Ollama) |
 | `endpoint` | String | No | API endpoint (uses default if not set) |
 | `model` | String | Yes | Model name |
-| `temperature` | Float | No | Temperature (0.0-1.0, default: 0.3) |
-| `max_tokens` | Integer | No | Max tokens for response (Claude-style defaults to 2000; OpenAI-style only sends if set) |
+| `temperature` | Float | No | Temperature (0.0-1.0). Claude/OpenAI-style defaults to 0.3; Ollama uses provider default when omitted |
+| `max_tokens` | Integer | No | Max response tokens. Claude-style defaults to 2000; OpenAI-style sends only if set; Ollama currently ignores this field |
 
 ### Commit Settings
 
@@ -145,6 +147,7 @@ Each provider under `[llm.providers.<name>]` supports:
 |--------|------|---------|-------------|
 | `show_diff_preview` | Boolean | `true` | Show diff stats before generating |
 | `allow_edit` | Boolean | `true` | Allow editing generated message |
+| `confirm_before_commit` | Boolean | `true` | *(Currently unused)* Reserved for a future final confirmation step before commit |
 | `max_retries` | Integer | `10` | Max retry attempts for regenerating messages |
 | `custom_prompt` | String | No | Custom system prompt / instructions for commit generation |
 
@@ -152,6 +155,7 @@ Each provider under `[llm.providers.<name>]` supports:
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
+| `show_full_diff` | Boolean | `true` | *(Currently unused)* Reserved for future full/compact diff control |
 | `min_severity` | String | `"info"` | Minimum severity to display: `"critical"`, `"warning"`, or `"info"` |
 | `custom_prompt` | String | No | Custom system prompt / instructions for code review |
 

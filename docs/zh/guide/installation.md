@@ -2,7 +2,7 @@
 
 ## 系统要求
 
-- **Rust**: 1.92.0 或更高版本（Rust 2024 edition）
+- **Rust**: 1.93.0 或更高版本（Rust 2024 edition）
 - **Git**: 2.0 或更高版本
 - **操作系统**: Linux、macOS 或 Windows
 
@@ -137,7 +137,7 @@ cargo install --path .
 
 ```bash
 gcop-rs --version
-# 应该输出当前版本（例如：gcop-rs 0.6.1）
+# 应该输出当前版本（例如：gcop-rs 0.7.3）
 
 gcop-rs --help
 # 应该显示帮助信息

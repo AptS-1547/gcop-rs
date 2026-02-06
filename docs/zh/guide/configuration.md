@@ -89,10 +89,12 @@ model = "codellama:13b"
 [commit]
 show_diff_preview = true
 allow_edit = true
+confirm_before_commit = true  # 预留字段（当前未生效）
 max_retries = 10
 
 # Review 设置
 [review]
+show_full_diff = true  # 预留字段（当前未生效）
 min_severity = "info"  # critical | warning | info
 
 # UI 设置
@@ -136,8 +138,8 @@ max_size = 10485760      # 最大文件大小（10MB）
 | `api_key` | String | 是* | API key（*Ollama 不需要） |
 | `endpoint` | String | 否 | API 端点（未设置时使用默认值） |
 | `model` | String | 是 | 模型名称 |
-| `temperature` | Float | 否 | 温度参数（0.0-1.0，默认: 0.3） |
-| `max_tokens` | Integer | 否 | 最大响应 token 数（Claude 风格默认 2000；OpenAI 风格未设置时不会发送该字段） |
+| `temperature` | Float | 否 | 温度参数（0.0-1.0）。Claude/OpenAI 风格默认 0.3；Ollama 未设置时使用模型默认值 |
+| `max_tokens` | Integer | 否 | 最大响应 token 数。Claude 风格默认 2000；OpenAI 风格仅在设置时发送；Ollama 当前会忽略该字段 |
 
 ### Commit 设置
 
@@ -145,6 +147,7 @@ max_size = 10485760      # 最大文件大小（10MB）
 |------|------|--------|------|
 | `show_diff_preview` | Boolean | `true` | 生成前显示 diff 统计 |
 | `allow_edit` | Boolean | `true` | 允许编辑生成的消息 |
+| `confirm_before_commit` | Boolean | `true` | *(当前未使用)* 预留给未来“提交前最终确认”能力 |
 | `max_retries` | Integer | `10` | 重新生成的最大次数 |
 | `custom_prompt` | String | 无 | 自定义 system prompt / 指令（用于提交信息生成） |
 
@@ -152,6 +155,7 @@ max_size = 10485760      # 最大文件大小（10MB）
 
 | 选项 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
+| `show_full_diff` | Boolean | `true` | *(当前未使用)* 预留给未来“完整/精简 diff”切换能力 |
 | `min_severity` | String | `"info"` | 最低显示的严重性：`"critical"`、`"warning"` 或 `"info"` |
 | `custom_prompt` | String | 无 | 自定义 system prompt / 指令（用于代码审查） |
 
