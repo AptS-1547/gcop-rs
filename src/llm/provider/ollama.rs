@@ -2,14 +2,10 @@ use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
-use super::base::{
-    build_endpoint, get_temperature_optional, process_commit_response, process_review_response,
-    send_llm_request,
-};
+use super::base::{ApiBackend, build_endpoint, get_temperature_optional, send_llm_request};
 use super::utils::{DEFAULT_OLLAMA_BASE, OLLAMA_API_SUFFIX};
 use crate::config::{NetworkConfig, ProviderConfig};
 use crate::error::{GcopError, Result};
-use crate::llm::{CommitContext, LLMProvider, ReviewResult, ReviewType};
 
 /// Ollama API provider
 ///
@@ -133,6 +129,13 @@ impl OllamaProvider {
             colored,
         })
     }
+}
+
+#[async_trait]
+impl ApiBackend for OllamaProvider {
+    fn name(&self) -> &str {
+        &self.name
+    }
 
     async fn call_api(
         &self,
@@ -174,49 +177,6 @@ impl OllamaProvider {
         .await?;
 
         Ok(response.response)
-    }
-}
-
-#[async_trait]
-impl LLMProvider for OllamaProvider {
-    async fn generate_commit_message(
-        &self,
-        diff: &str,
-        context: Option<CommitContext>,
-        spinner: Option<&crate::ui::Spinner>,
-    ) -> Result<String> {
-        let ctx = context.unwrap_or_default();
-        let (system, user) =
-            crate::llm::prompt::build_commit_prompt_split(diff, &ctx, ctx.custom_prompt.as_deref());
-        tracing::debug!(
-            "Commit prompt split - system ({} chars), user ({} chars)",
-            system.len(),
-            user.len()
-        );
-        let response = self.call_api(&system, &user, spinner).await?;
-        Ok(process_commit_response(response))
-    }
-
-    async fn review_code(
-        &self,
-        diff: &str,
-        review_type: ReviewType,
-        custom_prompt: Option<&str>,
-        spinner: Option<&crate::ui::Spinner>,
-    ) -> Result<ReviewResult> {
-        let (system, user) =
-            crate::llm::prompt::build_review_prompt_split(diff, &review_type, custom_prompt);
-        tracing::debug!(
-            "Review prompt split - system ({} chars), user ({} chars)",
-            system.len(),
-            user.len()
-        );
-        let response = self.call_api(&system, &user, spinner).await?;
-        process_review_response(&response)
-    }
-
-    fn name(&self) -> &str {
-        &self.name
     }
 
     async fn validate(&self) -> Result<()> {
@@ -283,10 +243,13 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     use crate::error::GcopError;
-    use crate::llm::provider::test_utils::{test_network_config_no_retry, test_provider_config};
+    use crate::llm::provider::test_utils::{
+        ensure_crypto_provider, test_network_config_no_retry, test_provider_config,
+    };
 
     #[tokio::test]
     async fn test_ollama_success_response_parsing() {
+        ensure_crypto_provider();
         let mut server = Server::new_async().await;
         let mock = server
             .mock("POST", "/api/generate")
@@ -311,6 +274,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_ollama_api_error_401() {
+        ensure_crypto_provider();
         let mut server = Server::new_async().await;
         let mock = server
             .mock("POST", "/api/generate")
@@ -334,6 +298,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_ollama_api_error_429() {
+        ensure_crypto_provider();
         let mut server = Server::new_async().await;
         let mock = server
             .mock("POST", "/api/generate")

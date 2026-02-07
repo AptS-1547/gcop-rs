@@ -6,6 +6,15 @@
 use crate::config::{NetworkConfig, ProviderConfig};
 use std::collections::HashMap;
 
+/// 在测试中安装 rustls crypto provider
+///
+/// reqwest 0.13 + rustls-no-provider 需要手动安装 crypto provider，
+/// 生产代码在 main.rs 中完成，测试需要单独调用。
+/// 多次调用是安全的（install_default 失败时忽略即可）。
+pub fn ensure_crypto_provider() {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+}
+
 /// Create a `NetworkConfig` with max_retries set to 0 (no retry)
 ///
 /// Useful for testing API error responses without waiting for retries.

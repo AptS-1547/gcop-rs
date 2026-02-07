@@ -68,7 +68,7 @@ This interactive wizard will:
 Use `gcop-rs config edit` to open config file in your system editor, or create manually at:
 - **Linux**: `~/.config/gcop/config.toml`
 - **macOS**: `~/Library/Application Support/gcop/config.toml`
-- **Windows**: `%APPDATA%\gcop\config.toml`
+- **Windows**: `%APPDATA%\gcop\config\config.toml`
 
 ```toml
 [llm]
@@ -79,10 +79,7 @@ api_key = "sk-ant-your-key-here"
 model = "claude-sonnet-4-5-20250929"
 ```
 
-Or use environment variables:
-```bash
-export ANTHROPIC_API_KEY="sk-ant-your-key"
-```
+Or set values via `GCOP__*` overrides (for example: `GCOP__LLM__PROVIDERS__CLAUDE__API_KEY`).
 
 See [docs/guide/configuration.md](docs/guide/configuration.md) for all options.
 
@@ -94,8 +91,8 @@ git add .
 gcop-rs commit
 # Or use the alias: git c
 
-# Review uncommitted changes
-gcop-rs review
+# Review unstaged working tree changes
+gcop-rs review changes
 # Or use the alias: git r
 
 # Complete workflow
@@ -125,7 +122,7 @@ After installation, you can use these shortcuts:
 
 ```bash
 git c          # AI commit message and commit
-git r          # AI review uncommitted changes
+git r          # AI review unstaged working tree changes
 git s          # Show repository statistics
 git ac         # Add all changes and commit with AI
 git cp         # Commit with AI and push
@@ -213,10 +210,11 @@ Choose next action:
 Review code changes with AI.
 
 ```bash
-gcop-rs review                   # Review uncommitted changes
-gcop-rs review --commit <hash>   # Review a commit
-gcop-rs review --range main..dev # Review commit range
-gcop-rs review --file src/main.rs # Review a file
+gcop-rs review changes                 # Review unstaged working tree changes
+gcop-rs review commit <hash>           # Review a commit
+gcop-rs review range main..dev         # Review commit range
+gcop-rs review file src/main.rs        # Review a file
+gcop-rs review --format json changes   # JSON output for automation
 ```
 
 **Output formats**: `--format text|json|markdown`
@@ -234,8 +232,6 @@ gcop-rs config edit
 # Validate configuration and test provider connection
 gcop-rs config validate
 
-# Show current configuration
-gcop-rs config show
 ```
 
 `config edit` validates your config after saving (like `visudo`) and works even when config is corrupted.
@@ -283,7 +279,7 @@ Displays:
 Config file location (platform-specific):
 - **Linux**: `~/.config/gcop/config.toml`
 - **macOS**: `~/Library/Application Support/gcop/config.toml`
-- **Windows**: `%APPDATA%\gcop\config.toml`
+- **Windows**: `%APPDATA%\gcop\config\config.toml`
 
 Example configuration with Claude API:
 

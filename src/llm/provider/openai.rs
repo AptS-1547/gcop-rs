@@ -4,15 +4,14 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 
 use super::base::{
-    build_endpoint, extract_api_key, get_max_tokens_optional, get_temperature,
-    process_commit_response, process_review_response, send_llm_request, validate_api_key,
-    validate_http_endpoint,
+    ApiBackend, build_endpoint, extract_api_key, get_max_tokens_optional, get_temperature,
+    send_llm_request, validate_api_key, validate_http_endpoint,
 };
 use super::streaming::process_openai_stream;
 use super::utils::{DEFAULT_OPENAI_BASE, OPENAI_API_SUFFIX};
 use crate::config::{NetworkConfig, ProviderConfig};
 use crate::error::{GcopError, Result};
-use crate::llm::{CommitContext, LLMProvider, ReviewResult, ReviewType, StreamChunk, StreamHandle};
+use crate::llm::{StreamChunk, StreamHandle};
 
 /// OpenAI API provider
 ///
@@ -99,17 +98,8 @@ struct OpenAIRequest {
     temperature: f32,
     #[serde(skip_serializing_if = "Option::is_none")]
     max_tokens: Option<u32>,
-}
-
-/// 流式请求结构体
-#[derive(Serialize)]
-struct OpenAIStreamRequest {
-    model: String,
-    messages: Vec<MessagePayload>,
-    temperature: f32,
     #[serde(skip_serializing_if = "Option::is_none")]
-    max_tokens: Option<u32>,
-    stream: bool,
+    stream: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -160,6 +150,13 @@ impl OpenAIProvider {
             colored,
         })
     }
+}
+
+#[async_trait]
+impl ApiBackend for OpenAIProvider {
+    fn name(&self) -> &str {
+        &self.name
+    }
 
     async fn call_api(
         &self,
@@ -181,6 +178,7 @@ impl OpenAIProvider {
             ],
             temperature: self.temperature,
             max_tokens: self.max_tokens,
+            stream: None,
         };
 
         tracing::debug!(
@@ -214,11 +212,14 @@ impl OpenAIProvider {
             .ok_or_else(|| GcopError::Llm(rust_i18n::t!("provider.openai_no_choices").to_string()))
     }
 
-    /// 流式 API 调用
+    fn supports_streaming(&self) -> bool {
+        true
+    }
+
     async fn call_api_streaming(&self, system: &str, user_message: &str) -> Result<StreamHandle> {
         let (tx, rx) = mpsc::channel(64);
 
-        let request = OpenAIStreamRequest {
+        let request = OpenAIRequest {
             model: self.model.clone(),
             messages: vec![
                 MessagePayload {
@@ -232,7 +233,7 @@ impl OpenAIProvider {
             ],
             temperature: self.temperature,
             max_tokens: self.max_tokens,
-            stream: true,
+            stream: Some(true),
         };
 
         tracing::debug!(
@@ -281,49 +282,6 @@ impl OpenAIProvider {
 
         Ok(StreamHandle { receiver: rx })
     }
-}
-
-#[async_trait]
-impl LLMProvider for OpenAIProvider {
-    async fn generate_commit_message(
-        &self,
-        diff: &str,
-        context: Option<CommitContext>,
-        spinner: Option<&crate::ui::Spinner>,
-    ) -> Result<String> {
-        let ctx = context.unwrap_or_default();
-        let (system, user) =
-            crate::llm::prompt::build_commit_prompt_split(diff, &ctx, ctx.custom_prompt.as_deref());
-        tracing::debug!(
-            "Commit prompt split - system ({} chars), user ({} chars)",
-            system.len(),
-            user.len()
-        );
-        let response = self.call_api(&system, &user, spinner).await?;
-        Ok(process_commit_response(response))
-    }
-
-    async fn review_code(
-        &self,
-        diff: &str,
-        review_type: ReviewType,
-        custom_prompt: Option<&str>,
-        spinner: Option<&crate::ui::Spinner>,
-    ) -> Result<ReviewResult> {
-        let (system, user) =
-            crate::llm::prompt::build_review_prompt_split(diff, &review_type, custom_prompt);
-        tracing::debug!(
-            "Review prompt split - system ({} chars), user ({} chars)",
-            system.len(),
-            user.len()
-        );
-        let response = self.call_api(&system, &user, spinner).await?;
-        process_review_response(&response)
-    }
-
-    fn name(&self) -> &str {
-        &self.name
-    }
 
     async fn validate(&self) -> Result<()> {
         validate_api_key(&self.api_key)?;
@@ -336,6 +294,7 @@ impl LLMProvider for OpenAIProvider {
             }],
             temperature: 1.0,
             max_tokens: Some(1), // Minimize API cost
+            stream: None,
         };
 
         let auth_header = format!("Bearer {}", self.api_key);
@@ -348,28 +307,6 @@ impl LLMProvider for OpenAIProvider {
         )
         .await
     }
-
-    fn supports_streaming(&self) -> bool {
-        true
-    }
-
-    async fn generate_commit_message_streaming(
-        &self,
-        diff: &str,
-        context: Option<CommitContext>,
-    ) -> Result<StreamHandle> {
-        let ctx = context.unwrap_or_default();
-        let (system, user) =
-            crate::llm::prompt::build_commit_prompt_split(diff, &ctx, ctx.custom_prompt.as_deref());
-
-        tracing::debug!(
-            "OpenAI streaming - system ({} chars), user ({} chars)",
-            system.len(),
-            user.len()
-        );
-
-        self.call_api_streaming(&system, &user).await
-    }
 }
 
 #[cfg(test)]
@@ -379,10 +316,13 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     use crate::error::GcopError;
-    use crate::llm::provider::test_utils::{test_network_config_no_retry, test_provider_config};
+    use crate::llm::provider::test_utils::{
+        ensure_crypto_provider, test_network_config_no_retry, test_provider_config,
+    };
 
     #[tokio::test]
     async fn test_openai_success_response_parsing() {
+        ensure_crypto_provider();
         let mut server = Server::new_async().await;
         let mock = server
             .mock("POST", "/v1/chat/completions")
@@ -411,6 +351,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_openai_api_error_401() {
+        ensure_crypto_provider();
         let mut server = Server::new_async().await;
         let mock = server
             .mock("POST", "/v1/chat/completions")
@@ -438,6 +379,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_openai_api_error_429() {
+        ensure_crypto_provider();
         let mut server = Server::new_async().await;
         let mock = server
             .mock("POST", "/v1/chat/completions")

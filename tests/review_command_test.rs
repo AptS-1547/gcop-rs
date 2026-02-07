@@ -220,7 +220,7 @@ async fn test_review_empty_uncommitted_changes_error() {
     assert!(result.is_err());
     match result.unwrap_err() {
         GcopError::InvalidInput(msg) => {
-            assert!(msg.contains("No uncommitted changes"));
+            assert!(msg.contains("No unstaged changes"));
         }
         _ => panic!("Expected InvalidInput error"),
     }

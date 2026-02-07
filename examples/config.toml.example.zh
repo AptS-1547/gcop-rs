@@ -20,7 +20,7 @@ default_provider = "claude"
 
 # Claude Provider
 [llm.providers.claude]
-# API key（或使用环境变量 ANTHROPIC_API_KEY）
+# API key
 api_key = "sk-ant-api03-your-key-here"
 
 # 模型选择:
@@ -36,7 +36,7 @@ model = "claude-sonnet-4-5-20250929"
 
 # OpenAI Provider
 [llm.providers.openai]
-# API key（或使用环境变量 OPENAI_API_KEY）
+# API key
 api_key = "sk-your-openai-key-here"
 # 推荐模型: gpt-4-turbo | gpt-4 | gpt-3.5-turbo
 model = "gpt-4-turbo"

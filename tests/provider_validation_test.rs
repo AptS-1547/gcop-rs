@@ -11,6 +11,10 @@ use gcop_rs::llm::provider::openai::OpenAIProvider;
 use mockito::Server;
 use std::collections::HashMap;
 
+fn ensure_crypto_provider() {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+}
+
 fn test_network_config() -> NetworkConfig {
     NetworkConfig {
         max_retries: 0, // 禁用重试
@@ -22,6 +26,7 @@ fn test_network_config() -> NetworkConfig {
 
 #[tokio::test]
 async fn test_claude_validate_success() {
+    ensure_crypto_provider();
     let mut server = Server::new_async().await;
     let mock = server
         .mock("POST", "/v1/messages")
@@ -50,6 +55,7 @@ async fn test_claude_validate_success() {
 
 #[tokio::test]
 async fn test_claude_validate_401_unauthorized() {
+    ensure_crypto_provider();
     let mut server = Server::new_async().await;
     let mock = server
         .mock("POST", "/v1/messages")
@@ -86,6 +92,7 @@ async fn test_claude_validate_401_unauthorized() {
 
 #[tokio::test]
 async fn test_claude_validate_429_rate_limit() {
+    ensure_crypto_provider();
     let mut server = Server::new_async().await;
     let mock = server
         .mock("POST", "/v1/messages")
@@ -122,6 +129,7 @@ async fn test_claude_validate_429_rate_limit() {
 
 #[tokio::test]
 async fn test_claude_validate_empty_api_key() {
+    ensure_crypto_provider();
     let provider_config = ProviderConfig {
         api_style: None,
         endpoint: None,
@@ -150,6 +158,7 @@ async fn test_claude_validate_empty_api_key() {
 
 #[tokio::test]
 async fn test_openai_validate_success() {
+    ensure_crypto_provider();
     let mut server = Server::new_async().await;
     let mock = server
         .mock("POST", "/v1/chat/completions")
@@ -178,6 +187,7 @@ async fn test_openai_validate_success() {
 
 #[tokio::test]
 async fn test_openai_validate_401_unauthorized() {
+    ensure_crypto_provider();
     let mut server = Server::new_async().await;
     let mock = server
         .mock("POST", "/v1/chat/completions")
@@ -216,6 +226,7 @@ async fn test_openai_validate_401_unauthorized() {
 
 #[tokio::test]
 async fn test_ollama_validate_success() {
+    ensure_crypto_provider();
     let mut server = Server::new_async().await;
     let mock = server
         .mock("GET", "/api/tags")
@@ -244,6 +255,7 @@ async fn test_ollama_validate_success() {
 
 #[tokio::test]
 async fn test_ollama_validate_model_not_found() {
+    ensure_crypto_provider();
     let mut server = Server::new_async().await;
     let mock = server
         .mock("GET", "/api/tags")
@@ -282,6 +294,7 @@ async fn test_ollama_validate_model_not_found() {
 
 #[tokio::test]
 async fn test_ollama_validate_connection_error() {
+    ensure_crypto_provider();
     let provider_config = ProviderConfig {
         api_style: None,
         endpoint: Some("http://localhost:99999/api/generate".to_string()), // 无效端口

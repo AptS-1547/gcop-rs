@@ -63,7 +63,7 @@ gcop-rs init
 使用 `gcop-rs config edit` 在系统编辑器中打开配置文件，或手动创建于：
 - **Linux**: `~/.config/gcop/config.toml`
 - **macOS**: `~/Library/Application Support/gcop/config.toml`
-- **Windows**: `%APPDATA%\gcop\config.toml`
+- **Windows**: `%APPDATA%\gcop\config\config.toml`
 
 ```toml
 [llm]
@@ -74,10 +74,7 @@ api_key = "sk-ant-your-key-here"
 model = "claude-sonnet-4-5-20250929"
 ```
 
-或使用环境变量：
-```bash
-export ANTHROPIC_API_KEY="sk-ant-your-key"
-```
+也可以使用 `GCOP__*` 环境变量覆盖（例如：`GCOP__LLM__PROVIDERS__CLAUDE__API_KEY`）。
 
 详见 [docs/zh/guide/configuration.md](docs/zh/guide/configuration.md)。
 
@@ -89,8 +86,8 @@ git add .
 gcop-rs commit
 # 或使用别名: git c
 
-# 审查未提交的变更
-gcop-rs review
+# 审查工作区未暂存变更
+gcop-rs review changes
 # 或使用别名: git r
 
 # 完整工作流
@@ -120,7 +117,7 @@ gcop-rs init  # 会提示是否安装别名
 
 ```bash
 git c          # AI 生成提交信息并提交
-git r          # AI 审查未提交的变更
+git r          # AI 审查工作区未暂存变更
 git s          # 显示仓库统计
 git ac         # 添加所有变更并用 AI 提交
 git cp         # AI 提交并推送
@@ -208,10 +205,11 @@ feat(auth): 实现 JWT 令牌验证
 使用 AI 审查代码变更。
 
 ```bash
-gcop-rs review                   # 审查未提交的变更
-gcop-rs review --commit <hash>   # 审查特定 commit
-gcop-rs review --range main..dev # 审查 commit 范围
-gcop-rs review --file src/main.rs # 审查特定文件
+gcop-rs review changes                 # 审查工作区未暂存变更
+gcop-rs review commit <hash>           # 审查特定 commit
+gcop-rs review range main..dev         # 审查 commit 范围
+gcop-rs review file src/main.rs        # 审查特定文件
+gcop-rs review --format json changes   # 输出 JSON 用于自动化
 ```
 
 **输出格式**: `--format text|json|markdown`
@@ -229,8 +227,6 @@ gcop-rs config edit
 # 验证配置并测试 provider 连接
 gcop-rs config validate
 
-# 显示当前配置
-gcop-rs config show
 ```
 
 `config edit` 会在保存后校验配置（类似 `visudo`），即使配置损坏也能运行。
@@ -278,7 +274,7 @@ gcop-rs stats --author "name"       # 按作者过滤
 配置文件位置（平台特定）：
 - **Linux**: `~/.config/gcop/config.toml`
 - **macOS**: `~/Library/Application Support/gcop/config.toml`
-- **Windows**: `%APPDATA%\gcop\config.toml`
+- **Windows**: `%APPDATA%\gcop\config\config.toml`
 
 使用 Claude API 的示例配置：
 

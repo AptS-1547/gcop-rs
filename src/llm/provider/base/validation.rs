@@ -147,8 +147,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_validate_http_endpoint_success() {
+        use crate::llm::provider::test_utils::ensure_crypto_provider;
         use mockito::Server;
         use serde::Serialize;
+        ensure_crypto_provider();
 
         #[derive(Serialize)]
         struct TestRequest {
@@ -184,8 +186,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_validate_http_endpoint_auth_error() {
+        use crate::llm::provider::test_utils::ensure_crypto_provider;
         use mockito::Server;
         use serde::Serialize;
+        ensure_crypto_provider();
 
         #[derive(Serialize)]
         struct TestRequest {

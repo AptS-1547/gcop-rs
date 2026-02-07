@@ -50,8 +50,9 @@ gcop-rs config validate
 
 **Checks**:
 - Loads and parses configuration (defaults + config file + `GCOP__*` env overrides)
-- Lists providers that are successfully instantiated from your configured chain
-- Validates provider connections through the configured provider chain (`default_provider` + `fallback_providers`)
+- Lists configured providers (as loaded from config)
+- Builds provider chain from `default_provider` + `fallback_providers` (providers that fail to instantiate are skipped)
+- Validates provider connections through the instantiated provider chain
 - Succeeds if at least one instantiated provider validates
 
 **Example output**:
