@@ -107,7 +107,7 @@ fn main() -> Result<()> {
                 if let Err(e) = commands::review::run(&options, &config).await {
                     // JSON 模式下输出 JSON 错误
                     if is_json {
-                        let _ = commands::review::output_json_error(&e);
+                        let _ = commands::json::output_json_error::<llm::ReviewResult>(&e);
                         std::process::exit(1);
                     }
                     // 错误处理
@@ -175,7 +175,7 @@ fn main() -> Result<()> {
                 if let Err(e) = commands::stats::run(&options, config.ui.colored) {
                     // JSON 模式下输出 JSON 错误
                     if is_json {
-                        let _ = commands::stats::output_json_error(&e);
+                        let _ = commands::json::output_json_error::<commands::stats::RepoStats>(&e);
                         std::process::exit(1);
                     }
                     ui::error(&e.localized_message(), config.ui.colored);

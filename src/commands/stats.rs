@@ -6,7 +6,7 @@ use serde::Serialize;
 use super::format::OutputFormat;
 use super::options::StatsOptions;
 use crate::commands::json::ErrorJson;
-use crate::error::{GcopError, Result};
+use crate::error::Result;
 use crate::git::{CommitInfo, GitOperations, repository::GitRepository};
 use crate::ui;
 
@@ -342,17 +342,6 @@ fn output_json(stats: &RepoStats) -> Result<()> {
         success: true,
         data: Some(stats.clone()),
         error: None,
-    };
-    println!("{}", serde_json::to_string_pretty(&output)?);
-    Ok(())
-}
-
-/// JSON 格式错误输出
-pub fn output_json_error(err: &GcopError) -> Result<()> {
-    let output = StatsJsonOutput {
-        success: false,
-        data: None,
-        error: Some(ErrorJson::from_error(err)),
     };
     println!("{}", serde_json::to_string_pretty(&output)?);
     Ok(())

@@ -289,17 +289,6 @@ fn print_json(result: &ReviewResult) -> Result<()> {
     Ok(())
 }
 
-/// JSON 格式错误输出
-pub fn output_json_error(err: &GcopError) -> Result<()> {
-    let output = ReviewJsonOutput {
-        success: false,
-        data: None,
-        error: Some(ErrorJson::from_error(err)),
-    };
-    println!("{}", serde_json::to_string_pretty(&output)?);
-    Ok(())
-}
-
 /// 以 Markdown 格式输出审查结果
 fn print_markdown(result: &ReviewResult, description: &str, _colored: bool) {
     println!(

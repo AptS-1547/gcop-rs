@@ -5,7 +5,7 @@ use serde::Serialize;
 
 use super::options::CommitOptions;
 use crate::commands::commit_state_machine::{CommitState, GenerationResult, UserAction};
-use crate::commands::json::ErrorJson;
+use crate::commands::json::{self, ErrorJson};
 use crate::config::AppConfig;
 use crate::error::{GcopError, Result};
 use crate::git::{DiffStats, GitOperations, repository::GitRepository};
@@ -84,7 +84,7 @@ async fn run_with_deps(
     // 2. 检查 staged changes
     if !repo.has_staged_changes()? {
         if is_json {
-            output_json_error(&GcopError::NoStagedChanges)?;
+            json::output_json_error::<CommitData>(&GcopError::NoStagedChanges)?;
             return Err(GcopError::NoStagedChanges);
         }
         ui::error(&rust_i18n::t!("commit.no_staged_changes"), colored);
@@ -132,7 +132,7 @@ async fn run_with_deps(
                 output_json_success(&message, &stats, false)?;
             }
             Err(e) => {
-                output_json_error(&e)?;
+                json::output_json_error::<CommitData>(&e)?;
                 return Err(e);
             }
         }
@@ -472,17 +472,6 @@ fn output_json_success(message: &str, stats: &DiffStats, committed: bool) -> Res
             committed,
         }),
         error: None,
-    };
-    println!("{}", serde_json::to_string_pretty(&output)?);
-    Ok(())
-}
-
-/// JSON 格式错误输出
-fn output_json_error(err: &GcopError) -> Result<()> {
-    let output = CommitJsonOutput {
-        success: false,
-        data: None,
-        error: Some(ErrorJson::from_error(err)),
     };
     println!("{}", serde_json::to_string_pretty(&output)?);
     Ok(())
