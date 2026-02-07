@@ -6,6 +6,9 @@ pub mod openai;
 pub mod streaming;
 pub mod utils;
 
+#[cfg(test)]
+pub mod test_utils;
+
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 

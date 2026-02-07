@@ -5,7 +5,7 @@ use tokio::sync::mpsc;
 
 use super::base::{
     build_endpoint, extract_api_key, get_max_tokens, get_temperature, process_commit_response,
-    process_review_response, send_llm_request,
+    process_review_response, send_llm_request, validate_api_key, validate_http_endpoint,
 };
 use super::streaming::process_claude_stream;
 use super::utils::{CLAUDE_API_SUFFIX, DEFAULT_CLAUDE_BASE};
@@ -304,14 +304,7 @@ impl LLMProvider for ClaudeProvider {
     }
 
     async fn validate(&self) -> Result<()> {
-        if self.api_key.is_empty() {
-            return Err(GcopError::Config(
-                rust_i18n::t!("provider.api_key_empty").to_string(),
-            ));
-        }
-
-        // Send minimal test request to validate API connection
-        tracing::debug!("Validating Claude API connection...");
+        validate_api_key(&self.api_key)?;
 
         let test_request = ClaudeRequest {
             model: self.model.clone(),
@@ -324,35 +317,17 @@ impl LLMProvider for ClaudeProvider {
             }],
         };
 
-        // Direct request without retry (fast fail)
-        let response = self
-            .client
-            .post(&self.endpoint)
-            .header("Content-Type", "application/json")
-            .header("x-api-key", &self.api_key)
-            .header("anthropic-version", "2023-06-01")
-            .json(&test_request)
-            .send()
-            .await
-            .map_err(GcopError::Network)?;
-
-        // Check status code
-        let status = response.status();
-        if !status.is_success() {
-            let body = response.text().await.unwrap_or_default();
-            return Err(GcopError::LlmApi {
-                status: status.as_u16(),
-                message: rust_i18n::t!(
-                    "provider.api_validation_failed",
-                    provider = "Claude",
-                    body = body
-                )
-                .to_string(),
-            });
-        }
-
-        tracing::debug!("Claude API connection validated successfully");
-        Ok(())
+        validate_http_endpoint(
+            &self.client,
+            &self.endpoint,
+            &[
+                ("x-api-key", self.api_key.as_str()),
+                ("anthropic-version", "2023-06-01"),
+            ],
+            &test_request,
+            "Claude",
+        )
+        .await
     }
 
     fn supports_streaming(&self) -> bool {
@@ -383,29 +358,9 @@ mod tests {
     use super::*;
     use mockito::Server;
     use pretty_assertions::assert_eq;
-    use std::collections::HashMap;
 
-    use crate::config::{NetworkConfig, ProviderConfig};
     use crate::error::GcopError;
-
-    fn test_network_config_no_retry() -> NetworkConfig {
-        NetworkConfig {
-            max_retries: 0,
-            ..Default::default()
-        }
-    }
-
-    fn test_provider_config(base_url: String) -> ProviderConfig {
-        ProviderConfig {
-            api_style: None,
-            endpoint: Some(base_url),
-            api_key: Some("sk-ant-test".to_string()),
-            model: "claude-3-haiku-20240307".to_string(),
-            max_tokens: None,
-            temperature: None,
-            extra: HashMap::new(),
-        }
-    }
+    use crate::llm::provider::test_utils::{test_network_config_no_retry, test_provider_config};
 
     #[tokio::test]
     async fn test_claude_success_response_parsing() {
@@ -421,7 +376,11 @@ mod tests {
             .await;
 
         let provider = ClaudeProvider::new(
-            &test_provider_config(server.url()),
+            &test_provider_config(
+                server.url(),
+                Some("sk-ant-test".to_string()),
+                "claude-3-haiku-20240307".to_string(),
+            ),
             "claude",
             &test_network_config_no_retry(),
             false,
@@ -444,7 +403,11 @@ mod tests {
             .await;
 
         let provider = ClaudeProvider::new(
-            &test_provider_config(server.url()),
+            &test_provider_config(
+                server.url(),
+                Some("sk-ant-test".to_string()),
+                "claude-3-haiku-20240307".to_string(),
+            ),
             "claude",
             &test_network_config_no_retry(),
             false,
@@ -467,7 +430,11 @@ mod tests {
             .await;
 
         let provider = ClaudeProvider::new(
-            &test_provider_config(server.url()),
+            &test_provider_config(
+                server.url(),
+                Some("sk-ant-test".to_string()),
+                "claude-3-haiku-20240307".to_string(),
+            ),
             "claude",
             &test_network_config_no_retry(),
             false,

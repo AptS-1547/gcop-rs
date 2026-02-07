@@ -278,29 +278,9 @@ mod tests {
     use super::*;
     use mockito::Server;
     use pretty_assertions::assert_eq;
-    use std::collections::HashMap;
 
-    use crate::config::{NetworkConfig, ProviderConfig};
     use crate::error::GcopError;
-
-    fn test_network_config_no_retry() -> NetworkConfig {
-        NetworkConfig {
-            max_retries: 0,
-            ..Default::default()
-        }
-    }
-
-    fn test_provider_config(base_url: String) -> ProviderConfig {
-        ProviderConfig {
-            api_style: None,
-            endpoint: Some(base_url),
-            api_key: None,
-            model: "llama3".to_string(),
-            max_tokens: None,
-            temperature: None,
-            extra: HashMap::new(),
-        }
-    }
+    use crate::llm::provider::test_utils::{test_network_config_no_retry, test_provider_config};
 
     #[tokio::test]
     async fn test_ollama_success_response_parsing() {
@@ -314,7 +294,7 @@ mod tests {
             .await;
 
         let provider = OllamaProvider::new(
-            &test_provider_config(server.url()),
+            &test_provider_config(server.url(), None, "llama3".to_string()),
             "ollama",
             &test_network_config_no_retry(),
             false,
@@ -337,7 +317,7 @@ mod tests {
             .await;
 
         let provider = OllamaProvider::new(
-            &test_provider_config(server.url()),
+            &test_provider_config(server.url(), None, "llama3".to_string()),
             "ollama",
             &test_network_config_no_retry(),
             false,
@@ -360,7 +340,7 @@ mod tests {
             .await;
 
         let provider = OllamaProvider::new(
-            &test_provider_config(server.url()),
+            &test_provider_config(server.url(), None, "llama3".to_string()),
             "ollama",
             &test_network_config_no_retry(),
             false,

@@ -6,12 +6,15 @@
 //! - `config` - 配置提取工具函数
 //! - `response` - 响应处理和 JSON 清理
 //! - `retry` - HTTP 请求发送与重试逻辑
+//! - `validation` - API 验证辅助函数
 
 pub mod config;
 pub mod response;
 pub mod retry;
+pub mod validation;
 
 // 重新导出常用函数，保持向后兼容
 pub use config::*;
 pub use response::*;
 pub use retry::send_llm_request;
+pub use validation::*;
