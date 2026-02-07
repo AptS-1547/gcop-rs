@@ -175,66 +175,20 @@ fn print_text(result: &ReviewResult, description: &str, config: &AppConfig) {
 
         for (i, issue) in result.issues.iter().enumerate() {
             // 根据配置过滤严重性
-            let min_severity = match config.review.min_severity.as_str() {
-                "critical" => IssueSeverity::Critical,
-                "warning" => IssueSeverity::Warning,
-                _ => IssueSeverity::Info,
-            };
+            let min_severity = IssueSeverity::from_config_str(&config.review.min_severity);
 
             // 跳过低于最小严重性的问题
-            let issue_level = match issue.severity {
-                IssueSeverity::Critical => 0,
-                IssueSeverity::Warning => 1,
-                IssueSeverity::Info => 2,
-            };
-
-            let min_level = match min_severity {
-                IssueSeverity::Critical => 0,
-                IssueSeverity::Warning => 1,
-                IssueSeverity::Info => 2,
-            };
-
-            if issue_level > min_level {
+            if issue.severity.level() > min_severity.level() {
                 continue;
             }
-
-            // 格式化严重性标签
-            let severity_label = match issue.severity {
-                IssueSeverity::Critical => {
-                    if colored {
-                        rust_i18n::t!("review.severity.critical").to_string()
-                    } else {
-                        rust_i18n::t!("review.severity.bracket_critical").to_string()
-                    }
-                }
-                IssueSeverity::Warning => {
-                    if colored {
-                        rust_i18n::t!("review.severity.warning").to_string()
-                    } else {
-                        rust_i18n::t!("review.severity.bracket_warning").to_string()
-                    }
-                }
-                IssueSeverity::Info => {
-                    if colored {
-                        rust_i18n::t!("review.severity.info").to_string()
-                    } else {
-                        rust_i18n::t!("review.severity.bracket_info").to_string()
-                    }
-                }
-            };
 
             // 输出问题
             print!("  {}. ", i + 1);
 
             if colored {
-                use colored::Colorize;
-                match issue.severity {
-                    IssueSeverity::Critical => print!("{}", severity_label.red().bold()),
-                    IssueSeverity::Warning => print!("{}", severity_label.yellow().bold()),
-                    IssueSeverity::Info => print!("{}", severity_label.blue().bold()),
-                }
+                print!("{}", issue.severity.colored_label());
             } else {
-                print!("{}", severity_label);
+                print!("{}", issue.severity.label(false));
             }
 
             println!(" {}", issue.description);

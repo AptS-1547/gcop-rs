@@ -209,7 +209,7 @@ fn add_git_alias(name: &str, command: &str) -> Result<()> {
         .status()?;
 
     if !status.success() {
-        return Err(GcopError::Other(
+        return Err(GcopError::GitCommand(
             rust_i18n::t!("alias.config_failed").to_string(),
         ));
     }

@@ -201,7 +201,7 @@ impl CommitState {
     /// - `MaxRetriesExceeded` → `Err(MaxRetriesExceeded)`
     ///
     /// # 错误
-    /// - 在非 `Generating` 状态调用此方法会返回 [`GcopError::Other`]
+    /// - 在非 `Generating` 状态调用此方法会返回 [`GcopError::InvalidInput`]
     ///
     /// # 示例
     /// ```
@@ -232,7 +232,7 @@ impl CommitState {
                     }
                 }
             },
-            _ => Err(GcopError::Other(format!(
+            _ => Err(GcopError::InvalidInput(format!(
                 "handle_generation called in wrong state: {:?}",
                 self
             ))),

@@ -5,6 +5,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+use crate::error::{GcopError, Result};
+
 /// 应用配置
 ///
 /// gcop-rs 的顶层配置结构，从平台相关配置目录下的 `config.toml` 加载。
@@ -179,7 +181,6 @@ impl std::fmt::Debug for ProviderConfig {
 /// # 字段
 /// - `show_diff_preview`: 生成前是否显示 diff 预览（默认 true）
 /// - `allow_edit`: 是否允许编辑生成的消息（默认 true）
-/// - `confirm_before_commit`: 提交前是否需要确认（默认 true，当前未使用，预留字段）
 /// - `custom_prompt`: 自定义 prompt 模板（可选）
 /// - `max_retries`: 最大重试次数（默认 10）
 ///
@@ -188,7 +189,6 @@ impl std::fmt::Debug for ProviderConfig {
 /// [commit]
 /// show_diff_preview = true
 /// allow_edit = true
-/// confirm_before_commit = true  # 预留字段（当前未生效）
 /// max_retries = 10
 /// custom_prompt = "Generate a concise commit message"
 /// ```
@@ -201,10 +201,6 @@ pub struct CommitConfig {
     /// 是否允许编辑生成的消息
     #[serde(default = "default_true")]
     pub allow_edit: bool,
-
-    /// 提交前是否需要确认（当前未使用，预留字段）
-    #[serde(default = "default_true")]
-    pub confirm_before_commit: bool,
 
     /// 自定义 commit message 生成的 system prompt 文本
     /// 不做占位符替换（如 `{diff}` 会按字面量传递）
@@ -221,23 +217,17 @@ pub struct CommitConfig {
 /// 控制代码审查的行为。
 ///
 /// # 字段
-/// - `show_full_diff`: 审查时是否显示完整 diff（默认 true，当前未使用，预留字段）
 /// - `min_severity`: 最低显示的问题严重性（"info", "warning", "critical"）
 /// - `custom_prompt`: 自定义 prompt 模板（可选）
 ///
 /// # 示例
 /// ```toml
 /// [review]
-/// show_full_diff = true  # 预留字段（当前未生效）
 /// min_severity = "warning"
 /// custom_prompt = "Focus on security issues"
 /// ```
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ReviewConfig {
-    /// 审查时是否显示完整 diff（当前未使用，预留字段）
-    #[serde(default = "default_true")]
-    pub show_full_diff: bool,
-
     /// 最低显示的问题严重性
     #[serde(default = "default_severity")]
     pub min_severity: String,
@@ -254,7 +244,6 @@ pub struct ReviewConfig {
 ///
 /// # 字段
 /// - `colored`: 是否启用彩色输出（默认 true）
-/// - `verbose`: 是否显示详细信息（默认 false，当前未使用；命令行 `-v` 为主）
 /// - `streaming`: 是否启用流式输出（打字机效果，默认 true）
 /// - `language`: 界面语言（BCP 47 格式，如 "en", "zh-CN"，默认自动检测）
 ///
@@ -262,7 +251,6 @@ pub struct ReviewConfig {
 /// ```toml
 /// [ui]
 /// colored = true
-/// verbose = false
 /// streaming = true
 /// language = "zh-CN"
 /// ```
@@ -271,10 +259,6 @@ pub struct UIConfig {
     /// 是否启用彩色输出
     #[serde(default = "default_true")]
     pub colored: bool,
-
-    /// 是否显示详细信息（当前未使用；命令行 `-v` 为主）
-    #[serde(default)]
-    pub verbose: bool,
 
     /// 是否启用流式输出（实时打字效果）
     #[serde(default = "default_true")]
@@ -404,7 +388,6 @@ impl Default for CommitConfig {
         Self {
             show_diff_preview: true,
             allow_edit: true,
-            confirm_before_commit: true,
             custom_prompt: None,
             max_retries: default_commit_max_retries(),
         }
@@ -414,7 +397,6 @@ impl Default for CommitConfig {
 impl Default for ReviewConfig {
     fn default() -> Self {
         Self {
-            show_full_diff: true,
             min_severity: "info".to_string(),
             custom_prompt: None,
         }
@@ -425,7 +407,6 @@ impl Default for UIConfig {
     fn default() -> Self {
         Self {
             colored: true,
-            verbose: false,
             streaming: true,
             language: None,
         }
@@ -449,5 +430,58 @@ impl Default for FileConfig {
         Self {
             max_size: default_max_file_size(),
         }
+    }
+}
+
+// === 验证逻辑 ===
+
+impl AppConfig {
+    /// 验证配置的合法性
+    pub fn validate(&self) -> Result<()> {
+        for (name, provider) in &self.llm.providers {
+            provider.validate(name)?;
+        }
+        self.network.validate()?;
+        Ok(())
+    }
+}
+
+impl ProviderConfig {
+    /// 验证 provider 配置
+    pub fn validate(&self, name: &str) -> Result<()> {
+        if let Some(temp) = self.temperature
+            && !(0.0..=2.0).contains(&temp)
+        {
+            return Err(GcopError::Config(format!(
+                "Provider '{}': temperature {} out of range [0.0, 2.0]",
+                name, temp
+            )));
+        }
+        if let Some(ref key) = self.api_key
+            && key.trim().is_empty()
+        {
+            return Err(GcopError::Config(format!(
+                "Provider '{}': api_key is empty",
+                name
+            )));
+        }
+        Ok(())
+    }
+}
+
+impl NetworkConfig {
+    /// 验证网络配置
+    pub fn validate(&self) -> Result<()> {
+        if self.request_timeout == 0 {
+            return Err(GcopError::Config(
+                "network.request_timeout cannot be 0".into(),
+            ));
+        }
+        if self.connect_timeout == 0 {
+            return Err(GcopError::Config(
+                "network.connect_timeout cannot be 0".into(),
+            ));
+        }
+        Ok(())
     }
 }

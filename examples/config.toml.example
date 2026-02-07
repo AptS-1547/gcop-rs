@@ -109,8 +109,6 @@ min_severity = "info"
 [ui]
 # Enable colored output
 colored = true
-# Enable verbose logging
-verbose = false
 # Enable streaming output (real-time typing effect, like ChatGPT)
 # Only works with OpenAI-style APIs; other providers fallback to spinner
 streaming = true

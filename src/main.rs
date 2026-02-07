@@ -17,7 +17,7 @@ fn main() -> Result<()> {
     // 0. 安装 rustls crypto provider
     rustls::crypto::ring::default_provider()
         .install_default()
-        .expect("Failed to install rustls crypto provider");
+        .map_err(|_| anyhow::anyhow!("Failed to install rustls crypto provider"))?;
 
     // 1. 加载配置（一次加载，全局复用）
     //    保存 Result，成功时复用，失败时按命令决定是否报错

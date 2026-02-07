@@ -251,7 +251,7 @@ impl ApiBackend for ClaudeProvider {
             let body = response.text().await.unwrap_or_default();
             return Err(GcopError::LlmApi {
                 status: status.as_u16(),
-                message: format!("Claude: {}", body),
+                message: format!("{}: {}", self.name, body),
             });
         }
 

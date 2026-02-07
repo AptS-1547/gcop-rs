@@ -65,14 +65,12 @@ fn test_app_config_default_network() {
 fn test_app_config_default_ui() {
     let config = AppConfig::default();
     assert!(config.ui.colored);
-    assert!(!config.ui.verbose);
     assert!(config.ui.streaming);
 }
 
 #[test]
 fn test_app_config_default_review() {
     let config = AppConfig::default();
-    assert!(config.review.show_full_diff);
     assert_eq!(config.review.min_severity, "info");
 }
 
@@ -148,16 +146,6 @@ fn test_env_var_can_be_read() {
     let _guard = EnvGuard::set("GCOP__UI__COLORED", "false");
     // 验证环境变量被正确设置
     assert_eq!(env::var("GCOP__UI__COLORED").unwrap(), "false");
-}
-
-#[test]
-#[serial]
-fn test_env_var_bool_parsing() {
-    // 测试 config crate 的 bool 解析能力
-    let _guard = EnvGuard::set("GCOP__UI__VERBOSE", "true");
-    let config = loader::load_config_from_path(None).unwrap();
-    // ui.verbose 默认是 false，环境变量覆盖为 true
-    assert!(config.ui.verbose);
 }
 
 #[test]
@@ -316,19 +304,11 @@ fn test_serde_empty_config_matches_default() {
         default_config.commit.allow_edit
     );
     assert_eq!(
-        deserialized.commit.confirm_before_commit,
-        default_config.commit.confirm_before_commit
-    );
-    assert_eq!(
         deserialized.commit.max_retries,
         default_config.commit.max_retries
     );
 
     // Review
-    assert_eq!(
-        deserialized.review.show_full_diff,
-        default_config.review.show_full_diff
-    );
     assert_eq!(
         deserialized.review.min_severity,
         default_config.review.min_severity
@@ -336,7 +316,6 @@ fn test_serde_empty_config_matches_default() {
 
     // UI
     assert_eq!(deserialized.ui.colored, default_config.ui.colored);
-    assert_eq!(deserialized.ui.verbose, default_config.ui.verbose);
     assert_eq!(deserialized.ui.streaming, default_config.ui.streaming);
 
     // Network

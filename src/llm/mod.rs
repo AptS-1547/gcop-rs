@@ -413,3 +413,48 @@ pub enum IssueSeverity {
     Warning,
     Info,
 }
+
+impl IssueSeverity {
+    /// 数值等级，用于过滤比较（越小越严重）
+    pub fn level(&self) -> u8 {
+        match self {
+            Self::Critical => 0,
+            Self::Warning => 1,
+            Self::Info => 2,
+        }
+    }
+
+    /// 从配置字符串解析
+    pub fn from_config_str(s: &str) -> Self {
+        match s {
+            "critical" => Self::Critical,
+            "warning" => Self::Warning,
+            _ => Self::Info,
+        }
+    }
+
+    /// 获取 i18n 标签
+    pub fn label(&self, colored: bool) -> String {
+        match (self, colored) {
+            (Self::Critical, true) => rust_i18n::t!("review.severity.critical").to_string(),
+            (Self::Critical, false) => {
+                rust_i18n::t!("review.severity.bracket_critical").to_string()
+            }
+            (Self::Warning, true) => rust_i18n::t!("review.severity.warning").to_string(),
+            (Self::Warning, false) => rust_i18n::t!("review.severity.bracket_warning").to_string(),
+            (Self::Info, true) => rust_i18n::t!("review.severity.info").to_string(),
+            (Self::Info, false) => rust_i18n::t!("review.severity.bracket_info").to_string(),
+        }
+    }
+
+    /// 彩色输出标签
+    pub fn colored_label(&self) -> String {
+        use colored::Colorize;
+        let label = self.label(true);
+        match self {
+            Self::Critical => label.red().bold().to_string(),
+            Self::Warning => label.yellow().bold().to_string(),
+            Self::Info => label.blue().bold().to_string(),
+        }
+    }
+}

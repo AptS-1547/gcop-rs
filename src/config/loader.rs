@@ -52,6 +52,9 @@ pub(crate) fn load_config_from_path(config_path: Option<PathBuf>) -> Result<AppC
     // 当 CI=1 时，使用 GCOP_CI_* 环境变量构建临时 provider 配置
     apply_ci_mode_overrides(&mut app_config)?;
 
+    // 4. 验证配置合法性
+    app_config.validate()?;
+
     Ok(app_config)
 }
 
