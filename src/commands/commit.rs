@@ -69,11 +69,9 @@ async fn run_with_deps(
     repo: &dyn GitOperations,
     provider: &Arc<dyn LLMProvider>,
 ) -> Result<()> {
-    let is_json = options.format.is_json();
-    // JSON 模式禁用彩色输出
     let colored = options.effective_colored(config);
 
-    // 将命令行参数合并为一条反馈（便于不加引号时使用）
+    // 合并命令行参数为一条反馈（便于不加引号时使用）
     // e.g. `gcop-rs commit use Chinese` -> "use Chinese"
     let initial_feedbacks = if options.feedback.is_empty() {
         vec![]
@@ -81,65 +79,36 @@ async fn run_with_deps(
         vec![options.feedback.join(" ")]
     };
 
-    // 2. 检查 staged changes
+    // JSON 模式：独立流程
+    if options.format.is_json() {
+        return handle_json_mode(options, config, repo, provider, &initial_feedbacks).await;
+    }
+
+    // 检查 staged changes
     if !repo.has_staged_changes()? {
-        if is_json {
-            json::output_json_error::<CommitData>(&GcopError::NoStagedChanges)?;
-            return Err(GcopError::NoStagedChanges);
-        }
         ui::error(&rust_i18n::t!("commit.no_staged_changes"), colored);
         return Err(GcopError::NoStagedChanges);
     }
 
-    // 3. 获取 diff 和统计
+    // 获取 diff 和统计
     let diff = repo.get_staged_diff()?;
     let stats = repo.get_diff_stats(&diff)?;
 
-    // JSON 模式跳过 UI 输出
-    if !is_json {
-        ui::step(
-            &rust_i18n::t!("commit.step1"),
-            &rust_i18n::t!(
-                "commit.analyzed",
-                files = stats.files_changed.len(),
-                changes = stats.insertions + stats.deletions
-            ),
-            colored,
-        );
+    ui::step(
+        &rust_i18n::t!("commit.step1"),
+        &rust_i18n::t!(
+            "commit.analyzed",
+            files = stats.files_changed.len(),
+            changes = stats.insertions + stats.deletions
+        ),
+        colored,
+    );
 
-        // 4. 显示预览（可选）
-        if config.commit.show_diff_preview {
-            println!("\n{}", ui::format_diff_stats(&stats, colored));
-        }
+    if config.commit.show_diff_preview {
+        println!("\n{}", ui::format_diff_stats(&stats, colored));
     }
 
-    // JSON 模式：生成 message 并输出 JSON（隐式 dry_run）
-    if is_json {
-        // JSON 模式禁用流式输出
-        let result = generate_message_no_streaming(
-            provider,
-            repo,
-            &diff,
-            &stats,
-            config,
-            &initial_feedbacks,
-            options.verbose,
-        )
-        .await;
-
-        match result {
-            Ok(message) => {
-                output_json_success(&message, &stats, false)?;
-            }
-            Err(e) => {
-                json::output_json_error::<CommitData>(&e)?;
-                return Err(e);
-            }
-        }
-        return Ok(());
-    }
-
-    // dry_run 模式：只生成并输出 commit message
+    // dry_run 模式：只生成不提交
     if options.dry_run {
         let (message, already_displayed) = generate_message(
             provider,
@@ -158,7 +127,7 @@ async fn run_with_deps(
         return Ok(());
     }
 
-    // 5. 状态机主循环
+    // 交互模式：状态机主循环
     let should_edit = config.commit.allow_edit && !options.no_edit;
     let max_retries = config.commit.max_retries;
 
@@ -170,119 +139,34 @@ async fn run_with_deps(
     loop {
         state = match state {
             CommitState::Generating { attempt, feedbacks } => {
-                // 使用状态机方法检查重试上限
-                let gen_state = CommitState::Generating {
+                handle_generating(
                     attempt,
-                    feedbacks: feedbacks.clone(),
-                };
-
-                if gen_state.is_at_max_retries(max_retries) {
-                    ui::warning(
-                        &rust_i18n::t!("commit.max_retries", count = max_retries),
-                        colored,
-                    );
-                    // 使用 MaxRetriesExceeded 变体，直接触发错误
-                    gen_state
-                        .handle_generation(GenerationResult::MaxRetriesExceeded, options.yes)?;
-                    unreachable!("MaxRetriesExceeded should return error");
-                }
-
-                // 生成 message
-                let (message, already_displayed) = generate_message(
-                    provider,
+                    feedbacks,
+                    max_retries,
+                    colored,
+                    options,
+                    config,
                     repo,
+                    provider,
                     &diff,
                     &stats,
-                    config,
-                    &feedbacks,
-                    attempt,
-                    options.verbose,
                 )
-                .await?;
-
-                // 使用状态机方法处理生成结果
-                let gen_state = CommitState::Generating { attempt, feedbacks };
-                let result = GenerationResult::Success(message.clone());
-                let next_state = gen_state.handle_generation(result, options.yes)?;
-
-                // 显示生成的消息（除非 --yes 直接接受，或流式模式已经显示过）
-                if !options.yes && !already_displayed {
-                    display_message(&message, attempt, colored);
-                }
-
-                next_state
+                .await?
             }
 
             CommitState::WaitingForAction {
                 ref message,
                 attempt,
                 ref feedbacks,
-            } => {
-                ui::step(
-                    &rust_i18n::t!("commit.step3"),
-                    &rust_i18n::t!("commit.choose_action"),
-                    colored,
-                );
-                let ui_action = ui::commit_action_menu(message, should_edit, attempt, colored)?;
-
-                // 映射 UI action 到状态机 action，处理编辑逻辑
-                let user_action = match ui_action {
-                    ui::CommitAction::Accept => UserAction::Accept,
-
-                    ui::CommitAction::Edit => {
-                        ui::step(
-                            &rust_i18n::t!("commit.step3"),
-                            &rust_i18n::t!("commit.opening_editor"),
-                            colored,
-                        );
-                        match ui::edit_text(message) {
-                            Ok(edited) => {
-                                display_edited_message(&edited, colored);
-                                UserAction::Edit {
-                                    new_message: edited,
-                                }
-                            }
-                            Err(GcopError::UserCancelled) => {
-                                ui::warning(&rust_i18n::t!("commit.edit_cancelled"), colored);
-                                UserAction::EditCancelled
-                            }
-                            Err(e) => return Err(e),
-                        }
-                    }
-
-                    ui::CommitAction::Retry => UserAction::Retry,
-
-                    ui::CommitAction::RetryWithFeedback => {
-                        let new_feedback = ui::get_retry_feedback(colored)?;
-                        if new_feedback.is_none() {
-                            ui::warning(&rust_i18n::t!("commit.feedback.empty"), colored);
-                        }
-                        UserAction::RetryWithFeedback {
-                            feedback: new_feedback,
-                        }
-                    }
-
-                    ui::CommitAction::Quit => UserAction::Quit,
-                };
-
-                // 克隆 WaitingForAction 状态以调用 handle_action
-                let waiting_state = CommitState::WaitingForAction {
-                    message: message.clone(),
-                    attempt,
-                    feedbacks: feedbacks.clone(),
-                };
-                waiting_state.handle_action(user_action)
-            }
+            } => handle_waiting_for_action(message, attempt, feedbacks, should_edit, colored)?,
 
             CommitState::Accepted { ref message } => {
-                // 执行 commit
                 ui::step(
                     &rust_i18n::t!("commit.step4"),
                     &rust_i18n::t!("commit.creating"),
                     colored,
                 );
                 repo.commit(message)?;
-
                 println!();
                 ui::success(&rust_i18n::t!("commit.success"), colored);
                 if options.verbose {
@@ -297,6 +181,159 @@ async fn run_with_deps(
             }
         };
     }
+}
+
+/// JSON 模式的完整处理流程
+async fn handle_json_mode(
+    options: &CommitOptions<'_>,
+    config: &AppConfig,
+    repo: &dyn GitOperations,
+    provider: &Arc<dyn LLMProvider>,
+    initial_feedbacks: &[String],
+) -> Result<()> {
+    if !repo.has_staged_changes()? {
+        json::output_json_error::<CommitData>(&GcopError::NoStagedChanges)?;
+        return Err(GcopError::NoStagedChanges);
+    }
+
+    let diff = repo.get_staged_diff()?;
+    let stats = repo.get_diff_stats(&diff)?;
+
+    match generate_message_no_streaming(
+        provider,
+        repo,
+        &diff,
+        &stats,
+        config,
+        initial_feedbacks,
+        options.verbose,
+    )
+    .await
+    {
+        Ok(message) => output_json_success(&message, &stats, false),
+        Err(e) => {
+            json::output_json_error::<CommitData>(&e)?;
+            Err(e)
+        }
+    }
+}
+
+/// 处理 Generating 状态
+#[allow(clippy::too_many_arguments)]
+async fn handle_generating(
+    attempt: usize,
+    feedbacks: Vec<String>,
+    max_retries: usize,
+    colored: bool,
+    options: &CommitOptions<'_>,
+    config: &AppConfig,
+    repo: &dyn GitOperations,
+    provider: &Arc<dyn LLMProvider>,
+    diff: &str,
+    stats: &DiffStats,
+) -> Result<CommitState> {
+    // 检查重试上限
+    let gen_state = CommitState::Generating {
+        attempt,
+        feedbacks: feedbacks.clone(),
+    };
+
+    if gen_state.is_at_max_retries(max_retries) {
+        ui::warning(
+            &rust_i18n::t!("commit.max_retries", count = max_retries),
+            colored,
+        );
+        gen_state.handle_generation(GenerationResult::MaxRetriesExceeded, options.yes)?;
+        unreachable!("MaxRetriesExceeded should return error");
+    }
+
+    // 生成 message
+    let (message, already_displayed) = generate_message(
+        provider,
+        repo,
+        diff,
+        stats,
+        config,
+        &feedbacks,
+        attempt,
+        options.verbose,
+    )
+    .await?;
+
+    // 使用状态机方法处理生成结果
+    let gen_state = CommitState::Generating { attempt, feedbacks };
+    let result = GenerationResult::Success(message.clone());
+    let next_state = gen_state.handle_generation(result, options.yes)?;
+
+    // 显示生成的消息（除非 --yes 直接接受，或流式模式已经显示过）
+    if !options.yes && !already_displayed {
+        display_message(&message, attempt, colored);
+    }
+
+    Ok(next_state)
+}
+
+/// 处理 WaitingForAction 状态
+fn handle_waiting_for_action(
+    message: &str,
+    attempt: usize,
+    feedbacks: &[String],
+    should_edit: bool,
+    colored: bool,
+) -> Result<CommitState> {
+    ui::step(
+        &rust_i18n::t!("commit.step3"),
+        &rust_i18n::t!("commit.choose_action"),
+        colored,
+    );
+    let ui_action = ui::commit_action_menu(message, should_edit, attempt, colored)?;
+
+    // 映射 UI action 到状态机 action，处理编辑逻辑
+    let user_action = match ui_action {
+        ui::CommitAction::Accept => UserAction::Accept,
+
+        ui::CommitAction::Edit => {
+            ui::step(
+                &rust_i18n::t!("commit.step3"),
+                &rust_i18n::t!("commit.opening_editor"),
+                colored,
+            );
+            match ui::edit_text(message) {
+                Ok(edited) => {
+                    display_edited_message(&edited, colored);
+                    UserAction::Edit {
+                        new_message: edited,
+                    }
+                }
+                Err(GcopError::UserCancelled) => {
+                    ui::warning(&rust_i18n::t!("commit.edit_cancelled"), colored);
+                    UserAction::EditCancelled
+                }
+                Err(e) => return Err(e),
+            }
+        }
+
+        ui::CommitAction::Retry => UserAction::Retry,
+
+        ui::CommitAction::RetryWithFeedback => {
+            let new_feedback = ui::get_retry_feedback(colored)?;
+            if new_feedback.is_none() {
+                ui::warning(&rust_i18n::t!("commit.feedback.empty"), colored);
+            }
+            UserAction::RetryWithFeedback {
+                feedback: new_feedback,
+            }
+        }
+
+        ui::CommitAction::Quit => UserAction::Quit,
+    };
+
+    let waiting_state = CommitState::WaitingForAction {
+        message: message.to_string(),
+        attempt,
+        feedbacks: feedbacks.to_vec(),
+    };
+    Ok(waiting_state.handle_action(user_action))
 }
 
 /// 生成 commit message
