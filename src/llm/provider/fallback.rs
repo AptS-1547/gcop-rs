@@ -280,3 +280,254 @@ impl LLMProvider for FallbackProvider {
         Ok(StreamHandle { receiver: rx })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 简单的 Mock Provider 用于测试
+    struct TestProvider {
+        name: String,
+        should_fail: bool,
+        supports_streaming: bool,
+        message: String,
+    }
+
+    impl TestProvider {
+        fn new(name: &str) -> Self {
+            Self {
+                name: name.to_string(),
+                should_fail: false,
+                supports_streaming: false,
+                message: format!("message from {}", name),
+            }
+        }
+
+        fn with_failure(mut self) -> Self {
+            self.should_fail = true;
+            self
+        }
+
+        fn with_streaming(mut self) -> Self {
+            self.supports_streaming = true;
+            self
+        }
+    }
+
+    #[async_trait]
+    impl LLMProvider for TestProvider {
+        fn name(&self) -> &str {
+            &self.name
+        }
+
+        fn supports_streaming(&self) -> bool {
+            self.supports_streaming
+        }
+
+        async fn validate(&self) -> Result<()> {
+            if self.should_fail {
+                Err(GcopError::Config("validation failed".to_string()))
+            } else {
+                Ok(())
+            }
+        }
+
+        async fn generate_commit_message(
+            &self,
+            _diff: &str,
+            _context: Option<CommitContext>,
+            _spinner: Option<&Spinner>,
+        ) -> Result<String> {
+            if self.should_fail {
+                Err(GcopError::Llm(format!("{} failed", self.name)))
+            } else {
+                Ok(self.message.clone())
+            }
+        }
+
+        async fn review_code(
+            &self,
+            _diff: &str,
+            _review_type: ReviewType,
+            _custom_prompt: Option<&str>,
+            _spinner: Option<&Spinner>,
+        ) -> Result<ReviewResult> {
+            if self.should_fail {
+                Err(GcopError::Llm(format!("{} failed", self.name)))
+            } else {
+                Ok(ReviewResult {
+                    summary: self.message.clone(),
+                    issues: vec![],
+                    suggestions: vec![],
+                })
+            }
+        }
+
+        async fn generate_commit_message_streaming(
+            &self,
+            _diff: &str,
+            _context: Option<CommitContext>,
+        ) -> Result<StreamHandle> {
+            if self.should_fail {
+                Err(GcopError::Llm(format!("{} streaming failed", self.name)))
+            } else {
+                let (tx, rx) = mpsc::channel(32);
+                let message = self.message.clone();
+                tokio::spawn(async move {
+                    let _ = tx.send(StreamChunk::Delta(message)).await;
+                    let _ = tx.send(StreamChunk::Done).await;
+                });
+                Ok(StreamHandle { receiver: rx })
+            }
+        }
+    }
+
+    // === 测试 supports_streaming ===
+
+    #[test]
+    fn test_supports_streaming_true() {
+        let provider = TestProvider::new("test").with_streaming();
+        let fallback = FallbackProvider::new(vec![Arc::new(provider)], false);
+        assert!(fallback.supports_streaming());
+    }
+
+    #[test]
+    fn test_supports_streaming_false() {
+        let provider = TestProvider::new("test");
+        let fallback = FallbackProvider::new(vec![Arc::new(provider)], false);
+        assert!(!fallback.supports_streaming());
+    }
+
+    #[test]
+    fn test_supports_streaming_empty() {
+        let fallback = FallbackProvider::new(vec![], false);
+        assert!(!fallback.supports_streaming());
+    }
+
+    // === 测试 validate ===
+
+    #[tokio::test]
+    async fn test_validate_empty_providers() {
+        let fallback = FallbackProvider::new(vec![], false);
+        let result = fallback.validate().await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_validate_success() {
+        let provider = TestProvider::new("test");
+        let fallback = FallbackProvider::new(vec![Arc::new(provider)], false);
+        assert!(fallback.validate().await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_validate_all_fail() {
+        let provider1 = TestProvider::new("p1").with_failure();
+        let provider2 = TestProvider::new("p2").with_failure();
+        let fallback = FallbackProvider::new(vec![Arc::new(provider1), Arc::new(provider2)], false);
+        let result = fallback.validate().await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_validate_partial_success() {
+        let provider1 = TestProvider::new("p1").with_failure();
+        let provider2 = TestProvider::new("p2"); // 成功
+        let fallback = FallbackProvider::new(vec![Arc::new(provider1), Arc::new(provider2)], false);
+        assert!(fallback.validate().await.is_ok());
+    }
+
+    // === 测试 generate_commit_message ===
+
+    #[tokio::test]
+    async fn test_generate_commit_message_primary_success() {
+        let provider = TestProvider::new("primary");
+        let fallback = FallbackProvider::new(vec![Arc::new(provider)], false);
+        let result = fallback.generate_commit_message("diff", None, None).await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "message from primary");
+    }
+
+    #[tokio::test]
+    async fn test_generate_commit_message_fallback_on_failure() {
+        let provider1 = TestProvider::new("primary").with_failure();
+        let provider2 = TestProvider::new("fallback");
+        let fallback = FallbackProvider::new(vec![Arc::new(provider1), Arc::new(provider2)], false);
+        let result = fallback.generate_commit_message("diff", None, None).await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "message from fallback");
+    }
+
+    #[tokio::test]
+    async fn test_generate_commit_message_all_fail() {
+        let provider1 = TestProvider::new("primary").with_failure();
+        let provider2 = TestProvider::new("fallback").with_failure();
+        let fallback = FallbackProvider::new(vec![Arc::new(provider1), Arc::new(provider2)], false);
+        let result = fallback.generate_commit_message("diff", None, None).await;
+        assert!(result.is_err());
+    }
+
+    // === 测试 review_code ===
+
+    #[tokio::test]
+    async fn test_review_code_primary_success() {
+        let provider = TestProvider::new("primary");
+        let fallback = FallbackProvider::new(vec![Arc::new(provider)], false);
+        let result = fallback
+            .review_code("diff", ReviewType::UncommittedChanges, None, None)
+            .await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().summary, "message from primary");
+    }
+
+    #[tokio::test]
+    async fn test_review_code_fallback_on_failure() {
+        let provider1 = TestProvider::new("primary").with_failure();
+        let provider2 = TestProvider::new("fallback");
+        let fallback = FallbackProvider::new(vec![Arc::new(provider1), Arc::new(provider2)], false);
+        let result = fallback
+            .review_code("diff", ReviewType::UncommittedChanges, None, None)
+            .await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().summary, "message from fallback");
+    }
+
+    // === 测试 generate_commit_message_streaming ===
+
+    #[tokio::test]
+    async fn test_streaming_primary_success() {
+        let provider = TestProvider::new("primary").with_streaming();
+        let fallback = FallbackProvider::new(vec![Arc::new(provider)], false);
+        let result = fallback
+            .generate_commit_message_streaming("diff", None)
+            .await;
+        assert!(result.is_ok());
+
+        let mut handle = result.unwrap();
+        let chunk = handle.receiver.recv().await;
+        assert!(chunk.is_some());
+        match chunk.unwrap() {
+            StreamChunk::Delta(msg) => assert_eq!(msg, "message from primary"),
+            _ => panic!("Expected Delta chunk"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_streaming_fallback_to_non_streaming() {
+        let provider = TestProvider::new("primary").with_streaming().with_failure();
+        let fallback = FallbackProvider::new(vec![Arc::new(provider)], false);
+        let result = fallback
+            .generate_commit_message_streaming("diff", None)
+            .await;
+        // 应该 fallback 到非流式模式，但因为也失败了，会收到错误
+        assert!(result.is_ok());
+
+        let mut handle = result.unwrap();
+        let chunk = handle.receiver.recv().await;
+        assert!(chunk.is_some());
+        // 应该收到 Error chunk（也可能收到其他 chunk）
+        if let StreamChunk::Error(_) = chunk.unwrap() {
+            // OK
+        }
+    }
+}

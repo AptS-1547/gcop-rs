@@ -2,7 +2,7 @@
 //!
 //! 用于解析 OpenAI/Claude 等 API 的流式响应
 
-use futures::StreamExt;
+use futures_util::StreamExt;
 use reqwest::Response;
 use serde::Deserialize;
 use tokio::sync::mpsc;
@@ -53,7 +53,7 @@ pub async fn process_openai_stream(
     let mut parse_errors = 0usize;
 
     while let Some(chunk_result) = stream.next().await {
-        let chunk: bytes::Bytes = chunk_result.map_err(GcopError::Network)?;
+        let chunk = chunk_result.map_err(GcopError::Network)?;
         buffer.push_str(&String::from_utf8_lossy(&chunk));
 
         // 按行处理
@@ -172,7 +172,7 @@ pub async fn process_claude_stream(
     let mut parse_errors = 0usize;
 
     while let Some(chunk_result) = stream.next().await {
-        let chunk: bytes::Bytes = chunk_result.map_err(GcopError::Network)?;
+        let chunk = chunk_result.map_err(GcopError::Network)?;
         buffer.push_str(&String::from_utf8_lossy(&chunk));
 
         // Claude SSE 使用双换行分隔事件块

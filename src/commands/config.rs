@@ -3,7 +3,7 @@ use crate::error::{GcopError, Result};
 use crate::llm::provider::create_provider;
 use crate::ui;
 use colored::Colorize;
-use dialoguer::Select;
+use dialoguer::{Editor, Select};
 
 /// 编辑后用户可选的操作
 enum EditAction {
@@ -58,12 +58,10 @@ fn edit(colored: bool) -> Result<()> {
             )
         );
 
-        // 使用 edit crate 编辑（自动选择 $VISUAL > $EDITOR > platform default）
-        let edited = edit::edit(&content).map_err(|e| {
-            GcopError::Other(
-                rust_i18n::t!("config.editor_error", error = e.to_string()).to_string(),
-            )
-        })?;
+        // 使用 dialoguer Editor 编辑（自动选择 $VISUAL > $EDITOR > platform default）
+        let edited = Editor::new()
+            .edit(&content)?
+            .unwrap_or_else(|| content.clone()); // 用户取消则保持原内容
 
         // 校验配置（直接在内存校验）
         match toml::from_str::<config::AppConfig>(&edited) {

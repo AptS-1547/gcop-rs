@@ -259,3 +259,344 @@ impl GitOperations for GitRepository {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::path::Path;
+    use tempfile::TempDir;
+
+    /// 创建临时 git 仓库用于测试
+    fn create_test_repo() -> (TempDir, GitRepository) {
+        let dir = TempDir::new().unwrap();
+        let repo = Repository::init(dir.path()).unwrap();
+
+        // 设置用户信息
+        let mut config = repo.config().unwrap();
+        config.set_str("user.name", "Test User").unwrap();
+        config.set_str("user.email", "test@example.com").unwrap();
+
+        let git_repo = GitRepository {
+            repo,
+            max_file_size: DEFAULT_MAX_FILE_SIZE,
+        };
+
+        (dir, git_repo)
+    }
+
+    /// 在仓库中创建文件
+    fn create_file(dir: &Path, name: &str, content: &str) {
+        let file_path = dir.join(name);
+        fs::write(&file_path, content).unwrap();
+    }
+
+    /// 暂存文件
+    fn stage_file(repo: &Repository, name: &str) {
+        let mut index = repo.index().unwrap();
+        index.add_path(Path::new(name)).unwrap();
+        index.write().unwrap();
+    }
+
+    /// 创建 commit
+    fn create_commit(repo: &Repository, message: &str) {
+        let mut index = repo.index().unwrap();
+        let oid = index.write_tree().unwrap();
+        let tree = repo.find_tree(oid).unwrap();
+        let sig = repo.signature().unwrap();
+
+        let parent_commit = repo.head().ok().and_then(|h| h.peel_to_commit().ok());
+
+        if let Some(parent) = parent_commit {
+            repo.commit(Some("HEAD"), &sig, &sig, message, &tree, &[&parent])
+                .unwrap();
+        } else {
+            repo.commit(Some("HEAD"), &sig, &sig, message, &tree, &[])
+                .unwrap();
+        }
+    }
+
+    // === 测试 is_empty ===
+
+    #[test]
+    fn test_is_empty_true_for_new_repo() {
+        let (_dir, git_repo) = create_test_repo();
+        assert!(git_repo.is_empty().unwrap());
+    }
+
+    #[test]
+    fn test_is_empty_false_after_commit() {
+        let (dir, git_repo) = create_test_repo();
+        create_file(dir.path(), "test.txt", "hello");
+        stage_file(&git_repo.repo, "test.txt");
+        create_commit(&git_repo.repo, "Initial commit");
+
+        assert!(!git_repo.is_empty().unwrap());
+    }
+
+    // === 测试 get_current_branch ===
+
+    #[test]
+    fn test_get_current_branch_empty_repo() {
+        let (_dir, git_repo) = create_test_repo();
+        assert_eq!(git_repo.get_current_branch().unwrap(), None);
+    }
+
+    #[test]
+    fn test_get_current_branch_normal() {
+        let (dir, git_repo) = create_test_repo();
+        create_file(dir.path(), "test.txt", "hello");
+        stage_file(&git_repo.repo, "test.txt");
+        create_commit(&git_repo.repo, "Initial commit");
+
+        let branch = git_repo.get_current_branch().unwrap();
+        assert!(branch.is_some());
+        // 默认分支是 master 或 main
+        let branch_name = branch.unwrap();
+        assert!(branch_name == "master" || branch_name == "main");
+    }
+
+    #[test]
+    fn test_get_current_branch_detached_head() {
+        let (dir, git_repo) = create_test_repo();
+        create_file(dir.path(), "test.txt", "hello");
+        stage_file(&git_repo.repo, "test.txt");
+        create_commit(&git_repo.repo, "Initial commit");
+
+        // 获取 commit hash 并 checkout 到 detached HEAD
+        let head = git_repo.repo.head().unwrap();
+        let commit = head.peel_to_commit().unwrap();
+        git_repo.repo.set_head_detached(commit.id()).unwrap();
+
+        assert_eq!(git_repo.get_current_branch().unwrap(), None);
+    }
+
+    // === 测试 has_staged_changes ===
+
+    #[test]
+    fn test_has_staged_changes_false_empty_repo() {
+        let (_dir, git_repo) = create_test_repo();
+        assert!(!git_repo.has_staged_changes().unwrap());
+    }
+
+    #[test]
+    fn test_has_staged_changes_true() {
+        let (dir, git_repo) = create_test_repo();
+        create_file(dir.path(), "test.txt", "hello");
+        stage_file(&git_repo.repo, "test.txt");
+
+        assert!(git_repo.has_staged_changes().unwrap());
+    }
+
+    #[test]
+    fn test_has_staged_changes_false_after_commit() {
+        let (dir, git_repo) = create_test_repo();
+        create_file(dir.path(), "test.txt", "hello");
+        stage_file(&git_repo.repo, "test.txt");
+        create_commit(&git_repo.repo, "Initial commit");
+
+        assert!(!git_repo.has_staged_changes().unwrap());
+    }
+
+    // === 测试 get_staged_diff ===
+
+    #[test]
+    fn test_get_staged_diff_empty_repo() {
+        let (dir, git_repo) = create_test_repo();
+        create_file(dir.path(), "test.txt", "hello world");
+        stage_file(&git_repo.repo, "test.txt");
+
+        let diff = git_repo.get_staged_diff().unwrap();
+        assert!(diff.contains("hello world"));
+        assert!(diff.contains("+hello world"));
+    }
+
+    #[test]
+    fn test_get_staged_diff_normal() {
+        let (dir, git_repo) = create_test_repo();
+        create_file(dir.path(), "test.txt", "hello");
+        stage_file(&git_repo.repo, "test.txt");
+        create_commit(&git_repo.repo, "Initial commit");
+
+        // 修改文件并暂存
+        create_file(dir.path(), "test.txt", "hello world");
+        stage_file(&git_repo.repo, "test.txt");
+
+        let diff = git_repo.get_staged_diff().unwrap();
+        assert!(diff.contains("-hello"));
+        assert!(diff.contains("+hello world"));
+    }
+
+    // === 测试 get_uncommitted_diff ===
+
+    #[test]
+    fn test_get_uncommitted_diff() {
+        let (dir, git_repo) = create_test_repo();
+        create_file(dir.path(), "test.txt", "hello");
+        stage_file(&git_repo.repo, "test.txt");
+        create_commit(&git_repo.repo, "Initial commit");
+
+        // 修改文件但不暂存
+        create_file(dir.path(), "test.txt", "hello world");
+
+        let diff = git_repo.get_uncommitted_diff().unwrap();
+        assert!(diff.contains("-hello"));
+        assert!(diff.contains("+hello world"));
+    }
+
+    // === 测试 get_commit_diff ===
+
+    #[test]
+    fn test_get_commit_diff_initial_commit() {
+        let (dir, git_repo) = create_test_repo();
+        create_file(dir.path(), "test.txt", "hello");
+        stage_file(&git_repo.repo, "test.txt");
+        create_commit(&git_repo.repo, "Initial commit");
+
+        let head = git_repo.repo.head().unwrap();
+        let commit = head.peel_to_commit().unwrap();
+        let hash = commit.id().to_string();
+
+        let diff = git_repo.get_commit_diff(&hash).unwrap();
+        assert!(diff.contains("+hello"));
+    }
+
+    #[test]
+    fn test_get_commit_diff_normal() {
+        let (dir, git_repo) = create_test_repo();
+        create_file(dir.path(), "test.txt", "hello");
+        stage_file(&git_repo.repo, "test.txt");
+        create_commit(&git_repo.repo, "Initial commit");
+
+        // 第二次提交
+        create_file(dir.path(), "test.txt", "hello world");
+        stage_file(&git_repo.repo, "test.txt");
+        create_commit(&git_repo.repo, "Second commit");
+
+        let head = git_repo.repo.head().unwrap();
+        let commit = head.peel_to_commit().unwrap();
+        let hash = commit.id().to_string();
+
+        let diff = git_repo.get_commit_diff(&hash).unwrap();
+        assert!(diff.contains("-hello"));
+        assert!(diff.contains("+hello world"));
+    }
+
+    #[test]
+    fn test_get_commit_diff_invalid_hash() {
+        let (_dir, git_repo) = create_test_repo();
+        let result = git_repo.get_commit_diff("invalid_hash");
+        assert!(result.is_err());
+    }
+
+    // === 测试 get_range_diff ===
+
+    #[test]
+    fn test_get_range_diff() {
+        let (dir, git_repo) = create_test_repo();
+        create_file(dir.path(), "test.txt", "version1");
+        stage_file(&git_repo.repo, "test.txt");
+        create_commit(&git_repo.repo, "First commit");
+
+        let first_commit = git_repo.repo.head().unwrap().peel_to_commit().unwrap();
+
+        create_file(dir.path(), "test.txt", "version2");
+        stage_file(&git_repo.repo, "test.txt");
+        create_commit(&git_repo.repo, "Second commit");
+
+        let second_commit = git_repo.repo.head().unwrap().peel_to_commit().unwrap();
+
+        let range = format!("{}..{}", first_commit.id(), second_commit.id());
+        let diff = git_repo.get_range_diff(&range).unwrap();
+
+        assert!(diff.contains("-version1"));
+        assert!(diff.contains("+version2"));
+    }
+
+    #[test]
+    fn test_get_range_diff_invalid_format() {
+        let (dir, git_repo) = create_test_repo();
+        create_file(dir.path(), "test.txt", "hello");
+        stage_file(&git_repo.repo, "test.txt");
+        create_commit(&git_repo.repo, "Initial commit");
+
+        let result = git_repo.get_range_diff("invalid_range");
+        assert!(result.is_err());
+    }
+
+    // === 测试 get_file_content ===
+
+    #[test]
+    fn test_get_file_content() {
+        let (dir, git_repo) = create_test_repo();
+        let file_path = dir.path().join("test.txt");
+        fs::write(&file_path, "hello world").unwrap();
+
+        let content = git_repo
+            .get_file_content(file_path.to_str().unwrap())
+            .unwrap();
+        assert_eq!(content, "hello world");
+    }
+
+    #[test]
+    fn test_get_file_content_too_large() {
+        let (dir, git_repo) = create_test_repo();
+        let file_path = dir.path().join("large.txt");
+
+        // 创建超过 max_file_size 的文件
+        let large_content = "x".repeat((DEFAULT_MAX_FILE_SIZE + 1) as usize);
+        fs::write(&file_path, large_content).unwrap();
+
+        let result = git_repo.get_file_content(file_path.to_str().unwrap());
+        assert!(result.is_err());
+    }
+
+    // === 测试 get_commit_history ===
+
+    #[test]
+    fn test_get_commit_history_empty_repo() {
+        let (_dir, git_repo) = create_test_repo();
+        let commits = git_repo.get_commit_history().unwrap();
+        assert!(commits.is_empty());
+    }
+
+    #[test]
+    fn test_get_commit_history() {
+        let (dir, git_repo) = create_test_repo();
+
+        create_file(dir.path(), "test.txt", "v1");
+        stage_file(&git_repo.repo, "test.txt");
+        create_commit(&git_repo.repo, "First commit");
+
+        create_file(dir.path(), "test.txt", "v2");
+        stage_file(&git_repo.repo, "test.txt");
+        create_commit(&git_repo.repo, "Second commit");
+
+        let commits = git_repo.get_commit_history().unwrap();
+        assert_eq!(commits.len(), 2);
+        assert_eq!(commits[0].message, "Second commit");
+        assert_eq!(commits[1].message, "First commit");
+        assert_eq!(commits[0].author_name, "Test User");
+        assert_eq!(commits[0].author_email, "test@example.com");
+    }
+
+    // === 测试 get_diff_stats ===
+
+    #[test]
+    fn test_get_diff_stats() {
+        let (_dir, git_repo) = create_test_repo();
+        let diff = r#"
+diff --git a/test.txt b/test.txt
+index 1234567..abcdefg 100644
+--- a/test.txt
++++ b/test.txt
+@@ -1,1 +1,2 @@
+ hello
++world
+"#;
+        let stats = git_repo.get_diff_stats(diff).unwrap();
+        assert_eq!(stats.files_changed.len(), 1);
+        assert_eq!(stats.insertions, 1);
+        assert_eq!(stats.deletions, 0);
+    }
+}

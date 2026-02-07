@@ -1,4 +1,5 @@
 use crate::error::{GcopError, Result};
+use dialoguer::Editor;
 
 /// 调用系统编辑器编辑文本
 ///
@@ -7,10 +8,12 @@ use crate::error::{GcopError, Result};
 ///
 /// # Returns
 /// * `Ok(String)` - 编辑后的内容
-/// * `Err(GcopError::UserCancelled)` - 用户清空了内容
+/// * `Err(GcopError::UserCancelled)` - 用户清空了内容或取消编辑
 /// * `Err(_)` - 其他错误
 pub fn edit_text(initial_content: &str) -> Result<String> {
-    let edited = edit::edit(initial_content)?;
+    let edited = Editor::new()
+        .edit(initial_content)?
+        .ok_or(GcopError::UserCancelled)?;
 
     // 移除前后空白，检查是否为空
     let trimmed = edited.trim();

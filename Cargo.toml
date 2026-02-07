@@ -42,15 +42,13 @@ lto = false
 [dependencies]
 anyhow = "1.0"
 async-trait = "0.1"
-bytes = "1.11"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.5", features = ["derive", "color"] }
 colored = "3"
 config = "0.15"
 dialoguer = { version = "0.12", features = ["editor"] }
 directories = "6.0"
-edit = "0.1"
-futures = "0.3"
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
 git2 = {version = "0.20", default-features = false }
 httpdate = "1.0"
 indicatif = "0.18.3"
@@ -60,7 +58,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sys-locale = "0.3"
 thiserror = "2.0"
-tokio = { version = "1.49", features = ["full"] }
+tokio = { version = "1.49", features = ["rt-multi-thread", "macros", "sync", "time"] }
 toml = "0.9"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
