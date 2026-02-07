@@ -17,7 +17,7 @@ impl ErrorJson {
         Self {
             code: error_to_code(err),
             message: err.to_string(),
-            suggestion: err.suggestion().map(String::from),
+            suggestion: err.localized_suggestion(),
         }
     }
 }

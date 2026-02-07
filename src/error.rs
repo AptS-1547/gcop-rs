@@ -74,6 +74,38 @@ pub enum GcopError {
     Other(String),
 }
 
+/// 将 Git ErrorCode 映射到建议key（用于去重）
+fn git_error_code_to_key(code: git2::ErrorCode) -> Option<&'static str> {
+    use git2::ErrorCode;
+    match code {
+        ErrorCode::GenericError | ErrorCode::BufSize | ErrorCode::User => None,
+        ErrorCode::NotFound => Some("git_not_found"),
+        ErrorCode::Exists => Some("git_exists"),
+        ErrorCode::Ambiguous => Some("git_ambiguous"),
+        ErrorCode::BareRepo => Some("git_bare_repo"),
+        ErrorCode::UnbornBranch => Some("git_unborn_branch"),
+        ErrorCode::Directory => Some("git_directory"),
+        ErrorCode::Owner => Some("git_owner"),
+        ErrorCode::Unmerged => Some("git_unmerged"),
+        ErrorCode::Conflict | ErrorCode::MergeConflict => Some("git_conflict"),
+        ErrorCode::NotFastForward => Some("git_not_fast_forward"),
+        ErrorCode::InvalidSpec => Some("git_invalid_spec"),
+        ErrorCode::Modified => Some("git_modified"),
+        ErrorCode::Uncommitted => Some("git_uncommitted"),
+        ErrorCode::IndexDirty => Some("git_index_dirty"),
+        ErrorCode::Locked => Some("git_locked"),
+        ErrorCode::Auth => Some("git_auth"),
+        ErrorCode::Certificate => Some("git_certificate"),
+        ErrorCode::Applied => Some("git_applied"),
+        ErrorCode::ApplyFail => Some("git_apply_fail"),
+        ErrorCode::Peel => Some("git_peel"),
+        ErrorCode::Eof => Some("git_eof"),
+        ErrorCode::Invalid => Some("git_invalid"),
+        ErrorCode::HashsumMismatch => Some("git_hashsum_mismatch"),
+        ErrorCode::Timeout => Some("git_timeout"),
+    }
+}
+
 impl GcopError {
     /// 获取本地化的错误消息
     pub fn localized_message(&self) -> String {
@@ -118,66 +150,8 @@ impl GcopError {
     /// 获取本地化的解决建议
     pub fn localized_suggestion(&self) -> Option<String> {
         match self {
-            GcopError::Git(wrapper) => {
-                use git2::ErrorCode;
-                match wrapper.0.code() {
-                    ErrorCode::GenericError | ErrorCode::BufSize | ErrorCode::User => None,
-                    ErrorCode::NotFound => {
-                        Some(rust_i18n::t!("suggestion.git_not_found").to_string())
-                    }
-                    ErrorCode::Exists => Some(rust_i18n::t!("suggestion.git_exists").to_string()),
-                    ErrorCode::Ambiguous => {
-                        Some(rust_i18n::t!("suggestion.git_ambiguous").to_string())
-                    }
-                    ErrorCode::BareRepo => {
-                        Some(rust_i18n::t!("suggestion.git_bare_repo").to_string())
-                    }
-                    ErrorCode::UnbornBranch => {
-                        Some(rust_i18n::t!("suggestion.git_unborn_branch").to_string())
-                    }
-                    ErrorCode::Directory => {
-                        Some(rust_i18n::t!("suggestion.git_directory").to_string())
-                    }
-                    ErrorCode::Owner => Some(rust_i18n::t!("suggestion.git_owner").to_string()),
-                    ErrorCode::Unmerged => {
-                        Some(rust_i18n::t!("suggestion.git_unmerged").to_string())
-                    }
-                    ErrorCode::Conflict | ErrorCode::MergeConflict => {
-                        Some(rust_i18n::t!("suggestion.git_conflict").to_string())
-                    }
-                    ErrorCode::NotFastForward => {
-                        Some(rust_i18n::t!("suggestion.git_not_fast_forward").to_string())
-                    }
-                    ErrorCode::InvalidSpec => {
-                        Some(rust_i18n::t!("suggestion.git_invalid_spec").to_string())
-                    }
-                    ErrorCode::Modified => {
-                        Some(rust_i18n::t!("suggestion.git_modified").to_string())
-                    }
-                    ErrorCode::Uncommitted => {
-                        Some(rust_i18n::t!("suggestion.git_uncommitted").to_string())
-                    }
-                    ErrorCode::IndexDirty => {
-                        Some(rust_i18n::t!("suggestion.git_index_dirty").to_string())
-                    }
-                    ErrorCode::Locked => Some(rust_i18n::t!("suggestion.git_locked").to_string()),
-                    ErrorCode::Auth => Some(rust_i18n::t!("suggestion.git_auth").to_string()),
-                    ErrorCode::Certificate => {
-                        Some(rust_i18n::t!("suggestion.git_certificate").to_string())
-                    }
-                    ErrorCode::Applied => Some(rust_i18n::t!("suggestion.git_applied").to_string()),
-                    ErrorCode::ApplyFail => {
-                        Some(rust_i18n::t!("suggestion.git_apply_fail").to_string())
-                    }
-                    ErrorCode::Peel => Some(rust_i18n::t!("suggestion.git_peel").to_string()),
-                    ErrorCode::Eof => Some(rust_i18n::t!("suggestion.git_eof").to_string()),
-                    ErrorCode::Invalid => Some(rust_i18n::t!("suggestion.git_invalid").to_string()),
-                    ErrorCode::HashsumMismatch => {
-                        Some(rust_i18n::t!("suggestion.git_hashsum_mismatch").to_string())
-                    }
-                    ErrorCode::Timeout => Some(rust_i18n::t!("suggestion.git_timeout").to_string()),
-                }
-            }
+            GcopError::Git(wrapper) => git_error_code_to_key(wrapper.0.code())
+                .map(|key| rust_i18n::t!(format!("suggestion.{}", key)).to_string()),
             GcopError::NoStagedChanges => {
                 Some(rust_i18n::t!("suggestion.no_staged_changes").to_string())
             }
@@ -241,122 +215,6 @@ impl GcopError {
             _ => None,
         }
     }
-
-    /// 获取错误的解决建议
-    pub fn suggestion(&self) -> Option<&str> {
-        match self {
-            // Git 错误：根据错误码提供针对性建议
-            GcopError::Git(wrapper) => {
-                use git2::ErrorCode;
-                match wrapper.0.code() {
-                    // 无法给出具体建议的错误
-                    ErrorCode::GenericError | ErrorCode::BufSize | ErrorCode::User => None,
-                    // 仓库和对象相关
-                    ErrorCode::NotFound => Some("Make sure you're in a git repository"),
-                    ErrorCode::Exists => {
-                        Some("Object already exists. Use --force to overwrite if intended")
-                    }
-                    ErrorCode::Ambiguous => {
-                        Some("Reference is ambiguous. Provide a more specific name")
-                    }
-                    ErrorCode::BareRepo => {
-                        Some("Cannot perform this operation in a bare repository")
-                    }
-                    ErrorCode::UnbornBranch => Some("Create an initial commit first"),
-                    ErrorCode::Directory => Some("Operation not valid for a directory"),
-                    ErrorCode::Owner => {
-                        Some("Repository is not owned by current user. Check file permissions")
-                    }
-                    // 合并和冲突相关
-                    ErrorCode::Unmerged => {
-                        Some("Resolve merge conflicts first with 'git add' or 'git rm'")
-                    }
-                    ErrorCode::Conflict => Some("Merge conflict detected. Resolve conflicts first"),
-                    ErrorCode::MergeConflict => {
-                        Some("A merge conflict exists. Resolve it before continuing")
-                    }
-                    // 引用和分支相关
-                    ErrorCode::NotFastForward => Some(
-                        "Pull remote changes first, or use --force if you know what you're doing",
-                    ),
-                    ErrorCode::InvalidSpec => Some("Invalid reference or revision specification"),
-                    ErrorCode::Modified => Some("Reference has been modified. Fetch and try again"),
-                    // 工作区和索引相关
-                    ErrorCode::Uncommitted => {
-                        Some("You have uncommitted changes. Commit or stash them first")
-                    }
-                    ErrorCode::IndexDirty => {
-                        Some("Unsaved changes in index would be overwritten. Commit or stash first")
-                    }
-                    // 锁和认证相关
-                    ErrorCode::Locked => {
-                        Some("Repository is locked. Another git process may be running")
-                    }
-                    ErrorCode::Auth => {
-                        Some("Authentication failed. Check your credentials or SSH key")
-                    }
-                    ErrorCode::Certificate => {
-                        Some("Server certificate verification failed. Check your SSL settings")
-                    }
-                    // 补丁相关
-                    ErrorCode::Applied => Some("Patch has already been applied"),
-                    ErrorCode::ApplyFail => Some("Patch application failed. Check for conflicts"),
-                    // 其他
-                    ErrorCode::Peel => Some("Cannot peel to the requested object type"),
-                    ErrorCode::Eof => Some("Unexpected end of file"),
-                    ErrorCode::Invalid => Some("Invalid operation or input"),
-                    ErrorCode::HashsumMismatch => {
-                        Some("Object checksum mismatch. Repository may be corrupted")
-                    }
-                    ErrorCode::Timeout => Some("Operation timed out. Check network connection"),
-                }
-            }
-            GcopError::NoStagedChanges => Some("Run 'git add <files>' to stage your changes first"),
-            GcopError::Config(msg) if msg.contains("API key not found") => {
-                if msg.contains("Claude") {
-                    Some(
-                        "Add 'api_key = \"sk-ant-...\"' to [llm.providers.claude] in ~/.config/gcop/config.toml, or set ANTHROPIC_API_KEY",
-                    )
-                } else if msg.contains("OpenAI") {
-                    Some(
-                        "Add 'api_key = \"sk-...\"' to [llm.providers.openai] in ~/.config/gcop/config.toml, or set OPENAI_API_KEY",
-                    )
-                } else {
-                    Some("Set api_key in ~/.config/gcop/config.toml")
-                }
-            }
-            GcopError::Config(msg) if msg.contains("not found in config") => Some(
-                "Check your ~/.config/gcop/config.toml or use the default providers: claude, openai, ollama",
-            ),
-            GcopError::Network(_) => {
-                Some("Check your network connection, proxy settings, or API endpoint configuration")
-            }
-            // 结构化 HTTP 状态码匹配
-            GcopError::LlmApi { status: 401, .. } => {
-                Some("Check if your API key is valid and has not expired")
-            }
-            GcopError::LlmApi { status: 429, .. } => {
-                Some("Rate limit exceeded. Wait a moment and try again, or upgrade your API plan")
-            }
-            GcopError::LlmApi { status, .. } if *status >= 500 => {
-                Some("API service is temporarily unavailable. Try again in a few moments")
-            }
-            // 非 HTTP 错误的字符串匹配
-            GcopError::Llm(msg) if msg.contains("timeout") => {
-                Some("The API request timed out. Check network or try again later")
-            }
-            GcopError::Llm(msg) if msg.contains("connection failed") => {
-                Some("Cannot connect to API server. Check endpoint URL, network, or DNS settings")
-            }
-            GcopError::Llm(msg) if msg.contains("Failed to parse") => {
-                Some("Try using --verbose flag to see the full LLM response and debug the issue")
-            }
-            GcopError::MaxRetriesExceeded(_) => Some(
-                "The LLM failed to generate a satisfactory message. Try providing clearer feedback or check if the diff is too complex",
-            ),
-            _ => None,
-        }
-    }
 }
 
 #[cfg(test)]
@@ -369,8 +227,8 @@ mod tests {
     fn test_suggestion_no_staged_changes() {
         let err = GcopError::NoStagedChanges;
         assert_eq!(
-            err.suggestion(),
-            Some("Run 'git add <files>' to stage your changes first")
+            err.localized_suggestion(),
+            Some("Run 'git add <files>' to stage your changes first".to_string())
         );
     }
 
@@ -379,7 +237,7 @@ mod tests {
     #[test]
     fn test_suggestion_config_claude_api_key() {
         let err = GcopError::Config("API key not found for Claude provider".to_string());
-        let suggestion = err.suggestion().unwrap();
+        let suggestion = err.localized_suggestion().unwrap();
         assert!(suggestion.contains("ANTHROPIC_API_KEY"));
         assert!(suggestion.contains("[llm.providers.claude]"));
     }
@@ -387,7 +245,7 @@ mod tests {
     #[test]
     fn test_suggestion_config_openai_api_key() {
         let err = GcopError::Config("API key not found for OpenAI".to_string());
-        let suggestion = err.suggestion().unwrap();
+        let suggestion = err.localized_suggestion().unwrap();
         assert!(suggestion.contains("OPENAI_API_KEY"));
         assert!(suggestion.contains("[llm.providers.openai]"));
     }
@@ -395,14 +253,14 @@ mod tests {
     #[test]
     fn test_suggestion_config_generic_api_key() {
         let err = GcopError::Config("API key not found for custom-provider".to_string());
-        let suggestion = err.suggestion().unwrap();
+        let suggestion = err.localized_suggestion().unwrap();
         assert_eq!(suggestion, "Set api_key in ~/.config/gcop/config.toml");
     }
 
     #[test]
     fn test_suggestion_config_provider_not_found() {
         let err = GcopError::Config("Provider 'unknown' not found in config".to_string());
-        let suggestion = err.suggestion().unwrap();
+        let suggestion = err.localized_suggestion().unwrap();
         assert!(suggestion.contains("Check your ~/.config/gcop/config.toml"));
         assert!(suggestion.contains("claude, openai, ollama"));
     }
@@ -424,14 +282,14 @@ mod tests {
     #[test]
     fn test_suggestion_llm_timeout() {
         let err = GcopError::Llm("Request timeout after 30s".to_string());
-        let suggestion = err.suggestion().unwrap();
+        let suggestion = err.localized_suggestion().unwrap();
         assert!(suggestion.contains("timed out"));
     }
 
     #[test]
     fn test_suggestion_llm_connection_failed() {
         let err = GcopError::Llm("connection failed: DNS resolution error".to_string());
-        let suggestion = err.suggestion().unwrap();
+        let suggestion = err.localized_suggestion().unwrap();
         assert!(suggestion.contains("endpoint URL"));
         assert!(suggestion.contains("DNS"));
     }
@@ -442,7 +300,7 @@ mod tests {
             status: 401,
             message: "Unauthorized".to_string(),
         };
-        let suggestion = err.suggestion().unwrap();
+        let suggestion = err.localized_suggestion().unwrap();
         assert!(suggestion.contains("API key"));
         assert!(suggestion.contains("expired"));
     }
@@ -453,7 +311,7 @@ mod tests {
             status: 429,
             message: "Too Many Requests".to_string(),
         };
-        let suggestion = err.suggestion().unwrap();
+        let suggestion = err.localized_suggestion().unwrap();
         assert!(suggestion.contains("Rate limit"));
         assert!(suggestion.contains("API plan"));
     }
@@ -469,8 +327,8 @@ mod tests {
             message: "Service Unavailable".to_string(),
         };
 
-        let suggestion_500 = err_500.suggestion().unwrap();
-        let suggestion_503 = err_503.suggestion().unwrap();
+        let suggestion_500 = err_500.localized_suggestion().unwrap();
+        let suggestion_503 = err_503.localized_suggestion().unwrap();
 
         assert!(suggestion_500.contains("temporarily unavailable"));
         assert!(suggestion_503.contains("temporarily unavailable"));
@@ -479,14 +337,14 @@ mod tests {
     #[test]
     fn test_suggestion_llm_parse_failed() {
         let err = GcopError::Llm("Failed to parse LLM response as JSON".to_string());
-        let suggestion = err.suggestion().unwrap();
+        let suggestion = err.localized_suggestion().unwrap();
         assert!(suggestion.contains("--verbose"));
     }
 
     #[test]
     fn test_suggestion_max_retries_exceeded() {
         let err = GcopError::MaxRetriesExceeded(5);
-        let suggestion = err.suggestion().unwrap();
+        let suggestion = err.localized_suggestion().unwrap();
         assert!(suggestion.contains("feedback"));
     }
 
@@ -506,10 +364,10 @@ mod tests {
 
         for err in cases {
             assert!(
-                err.suggestion().is_none(),
+                err.localized_suggestion().is_none(),
                 "Expected None for {:?}, got {:?}",
                 err,
-                err.suggestion()
+                err.localized_suggestion()
             );
         }
     }
