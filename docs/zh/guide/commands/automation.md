@@ -43,18 +43,18 @@ fi
 
 | 变量 | 说明 |
 |------|------|
-| `CI=1` 或 `CI_MODE=1` | 启用 CI 模式，使用简化的 provider 配置 |
-| `PROVIDER_TYPE` | Provider 类型：`claude`、`openai` 或 `ollama`（CI 模式必需） |
-| `PROVIDER_API_KEY` | Provider 的 API key（CI 模式必需） |
-| `PROVIDER_MODEL` | 模型名称（可选，有默认值） |
-| `PROVIDER_ENDPOINT` | 自定义 API 端点（可选） |
+| `CI=1` | 启用 CI 模式，使用简化的 provider 配置 |
+| `GCOP_CI_PROVIDER` | Provider 类型：`claude`、`openai` 或 `ollama`（CI 模式必需） |
+| `GCOP_CI_API_KEY` | Provider 的 API key（CI 模式必需） |
+| `GCOP_CI_MODEL` | 模型名称（可选，有默认值） |
+| `GCOP_CI_ENDPOINT` | 自定义 API 端点（可选） |
 
 **CI 模式示例**:
 ```bash
 export CI=1
-export PROVIDER_TYPE=claude
-export PROVIDER_API_KEY="sk-ant-..."
-export PROVIDER_MODEL="claude-sonnet-4-5-20250929"  # 可选
+export GCOP_CI_PROVIDER=claude
+export GCOP_CI_API_KEY="sk-ant-..."
+export GCOP_CI_MODEL="claude-sonnet-4-5-20250929"  # 可选
 gcop-rs commit
 ```
 

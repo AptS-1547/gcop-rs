@@ -139,24 +139,23 @@ default_provider = "deepseek"  # 修改这里
 
 ## API Key 管理
 
-### 配置文件 vs 环境变量
+### 配置文件
 
-**当前行为**：provider 的 `api_key` 从配置项读取。`ANTHROPIC_API_KEY` / `OPENAI_API_KEY` 这类环境变量不会自动注入 provider 配置（CI 模式下的 `PROVIDER_API_KEY` 除外）。
+Provider 的 `api_key` 在 `config.toml` 中设置：
 
 ```toml
-# 这个优先级更高
 [llm.providers.claude]
-api_key = "from-config"
+api_key = "sk-ant-..."
 ```
 
 ### CI 模式环境变量
 
-在 CI 模式（`CI=1` 或 `CI_MODE=1`）下，使用：
+在 CI 模式（`CI=1`）下，使用环境变量代替配置文件：
 
-- `PROVIDER_TYPE`
-- `PROVIDER_API_KEY`
-- `PROVIDER_MODEL`（可选）
-- `PROVIDER_ENDPOINT`（可选）
+- `GCOP_CI_PROVIDER` - Provider 类型：`claude`、`openai` 或 `ollama`
+- `GCOP_CI_API_KEY` - API key
+- `GCOP_CI_MODEL`（可选，有默认值）
+- `GCOP_CI_ENDPOINT`（可选）
 
 ## 参考
 

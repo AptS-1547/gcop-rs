@@ -33,10 +33,15 @@ use crate::llm::{CommitContext, LLMProvider, ReviewResult, ReviewType, StreamHan
 /// [llm.providers.openai]
 /// api_key = "sk-..."
 /// model = "gpt-4"
-/// base_url = "https://api.openai.com"  # 可选
+/// endpoint = "https://api.openai.com"  # 可选
 /// max_tokens = 1000  # 可选
 /// temperature = 0.7  # 可选
 /// ```
+///
+/// # 配置方式
+///
+/// 在 `config.toml` 中设置 `api_key` 和可选的 `endpoint`。
+/// CI 模式下使用 `GCOP_CI_API_KEY` 和 `GCOP_CI_ENDPOINT` 环境变量。
 ///
 /// # 特性
 /// - 支持流式响应（SSE）

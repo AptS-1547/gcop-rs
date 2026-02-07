@@ -222,22 +222,22 @@ export PROVIDER_API_KEY="sk-ant-your-key"
 
 ## CI 模式
 
-对于 CI/CD 环境，gcop-rs 提供通过环境变量的简化配置方式。当设置 `CI=1` 或 `CI_MODE=1` 时，可以使用 `PROVIDER_*` 变量配置 provider，无需配置文件。
+对于 CI/CD 环境，gcop-rs 提供通过环境变量的简化配置方式。当设置 `CI=1` 时，可以使用 `GCOP_CI_*` 变量配置 provider，无需配置文件。
 
 ### 必需变量
 
 | 变量 | 说明 | 示例 |
 |------|------|------|
-| `CI` 或 `CI_MODE` | 启用 CI 模式 | `1` |
-| `PROVIDER_TYPE` | Provider 类型 | `claude`、`openai` 或 `ollama` |
-| `PROVIDER_API_KEY` | API key | `sk-ant-...` |
+| `CI` | 启用 CI 模式 | `1` |
+| `GCOP_CI_PROVIDER` | Provider 类型 | `claude`、`openai` 或 `ollama` |
+| `GCOP_CI_API_KEY` | API key | `sk-ant-...` |
 
 ### 可选变量
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
-| `PROVIDER_MODEL` | 模型名称 | `claude-sonnet-4-5-20250929` (claude)<br>`gpt-4o-mini` (openai)<br>`llama3.2` (ollama) |
-| `PROVIDER_ENDPOINT` | 自定义 API 端点 | Provider 默认值 |
+| `GCOP_CI_MODEL` | 模型名称 | `claude-sonnet-4-5-20250929` (claude)<br>`gpt-4o-mini` (openai)<br>`llama3.2` (ollama) |
+| `GCOP_CI_ENDPOINT` | 自定义 API 端点 | Provider 默认值 |
 
 ### 示例
 
@@ -246,9 +246,9 @@ export PROVIDER_API_KEY="sk-ant-your-key"
 # CI 工作流示例
 
 export CI=1
-export PROVIDER_TYPE=claude
-export PROVIDER_API_KEY="$ANTHROPIC_API_KEY"  # 从 secrets 注入
-export PROVIDER_MODEL="claude-sonnet-4-5-20250929"
+export GCOP_CI_PROVIDER=claude
+export GCOP_CI_API_KEY="$SECRET_API_KEY"  # 从 CI secrets 注入
+export GCOP_CI_MODEL="claude-sonnet-4-5-20250929"
 
 # 生成 commit message
 gcop-rs commit --yes

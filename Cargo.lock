@@ -707,6 +707,7 @@ name = "gcop-rs"
 version = "0.8.0"
 dependencies = [
  "anyhow",
+ "arc-swap",
  "async-trait",
  "chrono",
  "clap",

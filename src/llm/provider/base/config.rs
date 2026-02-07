@@ -13,7 +13,9 @@ const DEFAULT_MAX_TOKENS: u32 = 2000;
 /// 默认 temperature
 const DEFAULT_TEMPERATURE: f32 = 0.3;
 
-/// 提取 API key（仅从配置文件读取）
+/// 提取 API key
+///
+/// 从配置文件读取。普通用户在 config.toml 中设置，CI 模式使用 `GCOP_CI_API_KEY`。
 ///
 /// # Arguments
 /// * `config` - Provider 配置
@@ -32,16 +34,15 @@ pub fn extract_api_key(config: &ProviderConfig, provider_name: &str) -> Result<S
 
 /// 构建完整 endpoint
 ///
+/// 从配置文件读取 endpoint，未配置时使用默认值。
+///
 /// # Arguments
 /// * `config` - Provider 配置
 /// * `default_base` - 默认 base URL
 /// * `suffix` - API 路径后缀
 pub fn build_endpoint(config: &ProviderConfig, default_base: &str, suffix: &str) -> String {
-    config
-        .endpoint
-        .as_ref()
-        .map(|e| complete_endpoint(e, suffix))
-        .unwrap_or_else(|| format!("{}{}", default_base, suffix))
+    let base = config.endpoint.as_deref().unwrap_or(default_base);
+    complete_endpoint(base, suffix)
 }
 
 /// 提取 extra 配置中的 u32 值

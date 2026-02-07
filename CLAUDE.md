@@ -96,8 +96,13 @@ src/
 │   ├── alias.rs               # alias 命令
 │   └── stats.rs               # stats 命令（仓库统计）
 ├── config/                    # 配置管理
-│   ├── mod.rs                 # 配置加载（文件 + 环境变量）
-│   └── schema.rs              # 配置数据结构
+│   ├── mod.rs                 # 模块导出 + 公开 API
+│   ├── structs.rs             # 配置数据结构定义
+│   ├── loader.rs              # 配置加载逻辑
+│   ├── env.rs                 # 环境变量处理
+│   ├── global.rs              # 全局配置单例
+│   ├── schema.rs              # 兼容性别名（deprecated）
+│   └── tests.rs               # 配置模块测试
 ├── git/                       # Git 操作封装
 │   ├── mod.rs                 # GitOperations trait 定义
 │   ├── repository.rs          # git2 实现
@@ -202,6 +207,73 @@ model = "claude-sonnet-4-5-20250929"
 max_retries = 10
 show_diff_preview = true
 ```
+
+### 配置架构
+
+#### 配置加载流程
+
+1. 启动时调用 `config::init_config()` 初始化全局配置
+2. 使用 `config::get_config()` 获取 `Arc<AppConfig>`（cheap clone）
+3. 配置存储在全局单例中（`OnceLock + ArcSwap`），避免重复加载
+
+#### 环境变量优先级
+
+配置加载优先级（从高到低）：
+
+**1. Config Crate 嵌套格式**（双下划线）
+最高优先级，覆盖所有其他来源：
+```bash
+# LLM 配置
+GCOP__LLM__DEFAULT_PROVIDER=openai
+GCOP__LLM__PROVIDERS__CLAUDE__API_KEY=sk-ant-xxx
+GCOP__LLM__PROVIDERS__CLAUDE__MODEL=claude-3
+GCOP__LLM__PROVIDERS__CLAUDE__ENDPOINT=https://custom.com
+
+# UI 配置
+GCOP__UI__COLORED=false
+GCOP__UI__STREAMING=false
+```
+
+**2. 独立环境变量**（Fallback）
+当嵌套格式未设置时生效，更直观易用：
+```bash
+# Provider API keys
+ANTHROPIC_API_KEY=sk-ant-xxx
+OPENAI_API_KEY=sk-xxx
+
+# Provider endpoints
+ANTHROPIC_BASE_URL=https://api.anthropic.com
+OPENAI_BASE_URL=https://api.openai.com
+OLLAMA_BASE_URL=http://localhost:11434
+```
+
+**3. 配置文件**
+最低优先级：
+- `~/.config/gcop/config.toml`（Linux/macOS）
+- `%APPDATA%\gcop\config.toml`（Windows）
+
+**特殊环境变量**：
+```bash
+# 语言设置（启动早期读取，单下划线）
+GCOP_UI_LANGUAGE=zh-CN
+
+# CI 模式（完全独立的机制）
+CI=1  # 或 CI_MODE=1
+PROVIDER_TYPE=claude
+PROVIDER_API_KEY=sk-test
+PROVIDER_MODEL=claude-3
+PROVIDER_ENDPOINT=https://custom.com
+```
+
+#### 配置模块结构
+
+- `structs.rs` - 配置数据结构定义
+- `loader.rs` - 配置加载逻辑（文件 + 环境变量 + CI 覆盖）
+- `env.rs` - 环境变量增强支持（独立 API key、endpoint）
+- `global.rs` - 全局单例管理（`init_config`, `get_config`）
+- `tests.rs` - 配置模块测试（22 个测试）
+- `schema.rs` - 兼容性别名（deprecated，将在 1.0.0 移除）
+
 
 ## 开发注意事项
 

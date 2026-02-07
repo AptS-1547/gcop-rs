@@ -43,18 +43,18 @@ These environment variables affect gcop-rs behavior:
 
 | Variable | Description |
 |----------|-------------|
-| `CI=1` or `CI_MODE=1` | Enable CI mode with simplified provider configuration |
-| `PROVIDER_TYPE` | Provider type: `claude`, `openai`, or `ollama` (required in CI mode) |
-| `PROVIDER_API_KEY` | API key for the provider (required in CI mode) |
-| `PROVIDER_MODEL` | Model name (optional, has defaults) |
-| `PROVIDER_ENDPOINT` | Custom API endpoint (optional) |
+| `CI=1` | Enable CI mode with simplified provider configuration |
+| `GCOP_CI_PROVIDER` | Provider type: `claude`, `openai`, or `ollama` (required in CI mode) |
+| `GCOP_CI_API_KEY` | API key for the provider (required in CI mode) |
+| `GCOP_CI_MODEL` | Model name (optional, has defaults) |
+| `GCOP_CI_ENDPOINT` | Custom API endpoint (optional) |
 
 **CI Mode Example**:
 ```bash
 export CI=1
-export PROVIDER_TYPE=claude
-export PROVIDER_API_KEY="sk-ant-..."
-export PROVIDER_MODEL="claude-sonnet-4-5-20250929"  # optional
+export GCOP_CI_PROVIDER=claude
+export GCOP_CI_API_KEY="sk-ant-..."
+export GCOP_CI_MODEL="claude-sonnet-4-5-20250929"  # optional
 gcop-rs commit
 ```
 

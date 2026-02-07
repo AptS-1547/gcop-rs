@@ -222,22 +222,22 @@ export PROVIDER_API_KEY="sk-ant-your-key"
 
 ## CI Mode
 
-For CI/CD environments, gcop-rs provides a simplified configuration via environment variables. When `CI=1` or `CI_MODE=1` is set, you can configure the provider using `PROVIDER_*` variables instead of a config file.
+For CI/CD environments, gcop-rs provides a simplified configuration via environment variables. When `CI=1` is set, you can configure the provider using `GCOP_CI_*` variables instead of a config file.
 
 ### Required Variables
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `CI` or `CI_MODE` | Enable CI mode | `1` |
-| `PROVIDER_TYPE` | Provider type | `claude`, `openai`, or `ollama` |
-| `PROVIDER_API_KEY` | API key | `sk-ant-...` |
+| `CI` | Enable CI mode | `1` |
+| `GCOP_CI_PROVIDER` | Provider type | `claude`, `openai`, or `ollama` |
+| `GCOP_CI_API_KEY` | API key | `sk-ant-...` |
 
 ### Optional Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `PROVIDER_MODEL` | Model name | `claude-sonnet-4-5-20250929` (claude)<br>`gpt-4o-mini` (openai)<br>`llama3.2` (ollama) |
-| `PROVIDER_ENDPOINT` | Custom API endpoint | Provider default |
+| `GCOP_CI_MODEL` | Model name | `claude-sonnet-4-5-20250929` (claude)<br>`gpt-4o-mini` (openai)<br>`llama3.2` (ollama) |
+| `GCOP_CI_ENDPOINT` | Custom API endpoint | Provider default |
 
 ### Example
 
@@ -246,9 +246,9 @@ For CI/CD environments, gcop-rs provides a simplified configuration via environm
 # CI workflow example
 
 export CI=1
-export PROVIDER_TYPE=claude
-export PROVIDER_API_KEY="$ANTHROPIC_API_KEY"  # from secrets
-export PROVIDER_MODEL="claude-sonnet-4-5-20250929"
+export GCOP_CI_PROVIDER=claude
+export GCOP_CI_API_KEY="$SECRET_API_KEY"  # from CI secrets
+export GCOP_CI_MODEL="claude-sonnet-4-5-20250929"
 
 # Generate commit message
 gcop-rs commit --yes

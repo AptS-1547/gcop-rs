@@ -30,9 +30,15 @@ use crate::llm::{CommitContext, LLMProvider, ReviewResult, ReviewType};
 ///
 /// [llm.providers.ollama]
 /// model = "llama3.2"
-/// base_url = "http://localhost:11434"  # 可选，默认值
+/// endpoint = "http://localhost:11434"  # 可选，默认值
 /// temperature = 0.7  # 可选
 /// ```
+///
+/// # 配置方式
+///
+/// 在 `config.toml` 中设置可选的 `endpoint`（默认 `http://localhost:11434`）。
+/// Ollama 本地运行，无需 API key。
+/// CI 模式下使用 `GCOP_CI_ENDPOINT` 环境变量。
 ///
 /// # 特性
 /// - 完全本地运行（无需 API key）

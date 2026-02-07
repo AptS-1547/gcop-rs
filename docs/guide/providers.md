@@ -139,24 +139,23 @@ default_provider = "deepseek"  # Change this
 
 ## API Key Management
 
-### Config File vs Environment Variable
+### Config File
 
-**Current behavior**: provider `api_key` is read from config entries. Environment variables like `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` are not auto-injected into provider config (except CI mode via `PROVIDER_API_KEY`).
+Provider `api_key` is configured in `config.toml`:
 
 ```toml
-# This takes precedence
 [llm.providers.claude]
-api_key = "from-config"
+api_key = "sk-ant-..."
 ```
 
-### CI Mode Environment Variable
+### CI Mode Environment Variables
 
-In CI mode (`CI=1` or `CI_MODE=1`), use:
+In CI mode (`CI=1`), use environment variables instead of config file:
 
-- `PROVIDER_TYPE`
-- `PROVIDER_API_KEY`
-- `PROVIDER_MODEL` (optional)
-- `PROVIDER_ENDPOINT` (optional)
+- `GCOP_CI_PROVIDER` - Provider type: `claude`, `openai`, or `ollama`
+- `GCOP_CI_API_KEY` - API key
+- `GCOP_CI_MODEL` (optional, has defaults)
+- `GCOP_CI_ENDPOINT` (optional)
 
 ## See Also
 
