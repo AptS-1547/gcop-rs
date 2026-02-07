@@ -69,23 +69,23 @@ fn apply_ci_mode_overrides(config: &mut AppConfig) -> Result<()> {
 
     // 读取 GCOP_CI_PROVIDER（必需）
     let provider_type = env::var("GCOP_CI_PROVIDER").map_err(|_| {
-        crate::error::GcopError::Config(
-            "CI mode enabled but GCOP_CI_PROVIDER not set. Must be 'claude', 'openai', or 'ollama'."
-                .to_string(),
-        )
+        crate::error::GcopError::Config(rust_i18n::t!("config.ci_provider_not_set").to_string())
     })?;
 
     // 验证 provider_type
     if !matches!(provider_type.as_str(), "claude" | "openai" | "ollama") {
-        return Err(crate::error::GcopError::Config(format!(
-            "Invalid GCOP_CI_PROVIDER '{}'. Must be 'claude', 'openai', or 'ollama'.",
-            provider_type
-        )));
+        return Err(crate::error::GcopError::Config(
+            rust_i18n::t!(
+                "config.ci_provider_invalid",
+                provider = provider_type.as_str()
+            )
+            .to_string(),
+        ));
     }
 
     // 读取 GCOP_CI_API_KEY（必需）
     let api_key = env::var("GCOP_CI_API_KEY").map_err(|_| {
-        crate::error::GcopError::Config("CI mode enabled but GCOP_CI_API_KEY not set.".to_string())
+        crate::error::GcopError::Config(rust_i18n::t!("config.ci_api_key_not_set").to_string())
     })?;
 
     // 读取 GCOP_CI_MODEL（可选，有默认值）

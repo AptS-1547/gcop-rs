@@ -13,4 +13,7 @@ mod tests;
 // 公开 API
 pub use global::{get_config, init_config};
 pub use loader::{get_config_dir, load_config};
-pub use structs::*;
+pub use structs::{
+    AppConfig, CommitConfig, FileConfig, LLMConfig, NetworkConfig, ProviderConfig, ReviewConfig,
+    UIConfig,
+};

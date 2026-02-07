@@ -14,9 +14,12 @@ use tokio::runtime::Runtime;
 i18n!("locales", fallback = "en");
 
 fn main() -> Result<()> {
-    // 1. 加载配置（早期加载，用于语言检测和后续所有命令）
-    //    配置损坏时 fallback 到默认值，确保 locale 初始化不会失败
-    let early_config = config::load_config().unwrap_or_default();
+    // 1. 加载配置（一次加载，全局复用）
+    //    保存 Result，成功时复用，失败时按命令决定是否报错
+    let config_result = config::load_config();
+
+    // locale 初始化用默认值兜底，确保不会因配置损坏而失败
+    let early_config = config_result.as_ref().cloned().unwrap_or_default();
 
     // 2. 初始化语言（需要在 CLI 解析前完成，支持多语言 help text）
     init_locale(&early_config);
@@ -38,14 +41,13 @@ fn main() -> Result<()> {
         )
         .init();
 
-    // 4. 判断是否需要严格配置校验
-    //    commit/review 命令需要完整配置（provider 等），配置损坏时报错
-    //    其他命令使用已加载的 early_config 即可
+    // 4. commit/review 命令需要完整配置（provider 等），配置损坏时报错
+    //    其他命令使用 fallback 默认值即可
     let config = if matches!(
         &cli.command,
         Commands::Commit { .. } | Commands::Review { .. }
     ) {
-        config::load_config()?
+        config_result?
     } else {
         early_config
     };
@@ -109,7 +111,10 @@ fn main() -> Result<()> {
                 if let Err(e) = commands::review::run(&options, &config).await {
                     // JSON 模式下输出 JSON 错误
                     if is_json {
-                        let _ = commands::json::output_json_error::<llm::ReviewResult>(&e);
+                        if let Err(je) = commands::json::output_json_error::<llm::ReviewResult>(&e)
+                        {
+                            eprintln!("Failed to output JSON error: {}", je);
+                        }
                         std::process::exit(1);
                     }
                     // 错误处理
@@ -177,7 +182,11 @@ fn main() -> Result<()> {
                 if let Err(e) = commands::stats::run(&options, config.ui.colored) {
                     // JSON 模式下输出 JSON 错误
                     if is_json {
-                        let _ = commands::json::output_json_error::<commands::stats::RepoStats>(&e);
+                        if let Err(je) =
+                            commands::json::output_json_error::<commands::stats::RepoStats>(&e)
+                        {
+                            eprintln!("Failed to output JSON error: {}", je);
+                        }
                         std::process::exit(1);
                     }
                     ui::error(&e.localized_message(), config.ui.colored);

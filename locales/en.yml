@@ -148,6 +148,9 @@ config.testing: "Testing provider connection..."
 config.validated: "Provider '%{provider}' validated successfully"
 config.validation_failed_short: "Validation failed: %{error}"
 config.suggestion: "💡 Suggestion: %{suggestion}"
+config.ci_provider_not_set: "CI mode enabled but GCOP_CI_PROVIDER not set. Must be 'claude', 'openai', or 'ollama'."
+config.ci_provider_invalid: "Invalid GCOP_CI_PROVIDER '%{provider}'. Must be 'claude', 'openai', or 'ollama'."
+config.ci_api_key_not_set: "CI mode enabled but GCOP_CI_API_KEY not set."
 
 # Alias command messages
 alias.not_found: "'gcop-rs' command not found in PATH"
@@ -364,6 +367,7 @@ provider.api_key_not_found_simple: "%{provider} API key not found. Set api_key i
 provider.no_valid_providers: "No valid providers configured. Check your config and API keys."
 provider.no_providers_configured: "No providers configured"
 provider.all_providers_failed_validation: "All %{count} provider(s) failed validation. Check your API keys and network."
+provider.empty_response: "%{provider} returned an empty response."
 provider.fallback_provider_failed: "%{provider} failed (%{error}), trying next provider..."
 provider.fallback_streaming_failed: "%{provider} streaming failed (%{error}), trying next provider..."
 provider.all_streaming_failed: "All streaming providers failed, falling back to non-streaming mode..."

@@ -29,14 +29,11 @@ pub fn init_config() -> Result<()> {
 ///
 /// 如果配置未初始化（即未调用 `init_config()`），返回错误。
 pub fn get_config() -> Result<Arc<AppConfig>> {
-    CONFIG
-        .get()
-        .map(|c| c.load_full())
-        .ok_or_else(|| {
-            crate::error::GcopError::Config(
-                "Config not initialized. Call init_config() first.".to_string(),
-            )
-        })
+    CONFIG.get().map(|c| c.load_full()).ok_or_else(|| {
+        crate::error::GcopError::Config(
+            "Config not initialized. Call init_config() first.".to_string(),
+        )
+    })
 }
 
 #[cfg(test)]

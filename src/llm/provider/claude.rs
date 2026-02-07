@@ -199,6 +199,12 @@ impl ClaudeProvider {
             .collect::<Vec<_>>()
             .join("\n");
 
+        if text.is_empty() {
+            return Err(crate::error::GcopError::Llm(
+                rust_i18n::t!("provider.empty_response", provider = "Claude").to_string(),
+            ));
+        }
+
         Ok(text)
     }
 

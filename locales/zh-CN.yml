@@ -148,6 +148,9 @@ config.testing: "正在测试 provider 连接..."
 config.validated: "Provider '%{provider}' 验证成功"
 config.validation_failed_short: "验证失败：%{error}"
 config.suggestion: "💡 建议：%{suggestion}"
+config.ci_provider_not_set: "CI 模式已启用但未设置 GCOP_CI_PROVIDER。必须为 'claude'、'openai' 或 'ollama'。"
+config.ci_provider_invalid: "无效的 GCOP_CI_PROVIDER '%{provider}'。必须为 'claude'、'openai' 或 'ollama'。"
+config.ci_api_key_not_set: "CI 模式已启用但未设置 GCOP_CI_API_KEY。"
 
 # Alias 命令消息
 alias.not_found: "PATH 中未找到 'gcop-rs' 命令"
@@ -364,6 +367,7 @@ provider.api_key_not_found_simple: "未找到 %{provider} API key。请在 confi
 provider.no_valid_providers: "未配置可用 provider。请检查配置和 API key。"
 provider.no_providers_configured: "未配置 provider"
 provider.all_providers_failed_validation: "所有 %{count} 个 provider 验证都失败了。请检查 API key 和网络。"
+provider.empty_response: "%{provider} 返回了空响应。"
 provider.fallback_provider_failed: "%{provider} 失败（%{error}），尝试下一个 provider..."
 provider.fallback_streaming_failed: "%{provider} 流式模式失败（%{error}），尝试下一个 provider..."
 provider.all_streaming_failed: "所有流式 provider 失败，回退到非流式模式..."

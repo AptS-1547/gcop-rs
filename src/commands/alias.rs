@@ -63,13 +63,16 @@ pub fn install_all(force: bool, colored: bool) -> Result<()> {
 
     let mut installed = 0;
     let mut skipped = 0;
+    let mut failed: Vec<String> = Vec::new();
 
     // 2. 逐个安装 alias
     for (name, command, description) in GCOP_ALIASES {
         match install_single_alias(name, command, description, force, colored) {
             Ok(true) => installed += 1,
             Ok(false) => skipped += 1,
-            Err(_) => {}
+            Err(e) => {
+                failed.push(format!("{}: {}", name, e));
+            }
         }
     }
 
@@ -80,6 +83,11 @@ pub fn install_all(force: bool, colored: bool) -> Result<()> {
             &rust_i18n::t!("alias.installed", count = installed),
             colored,
         );
+    }
+    if !failed.is_empty() {
+        for msg in &failed {
+            ui::error(msg, colored);
+        }
     }
     if skipped > 0 {
         println!(
