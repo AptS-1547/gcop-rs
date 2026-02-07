@@ -22,7 +22,7 @@ impl Spinner {
         pb.set_style(
             ProgressStyle::default_spinner()
                 .template(template)
-                .expect("Invalid template"),
+                .unwrap_or_else(|_| ProgressStyle::default_spinner()),
         );
         pb.set_message(message.to_string());
         pb.enable_steady_tick(std::time::Duration::from_millis(80));
@@ -47,7 +47,7 @@ impl Spinner {
         pb.set_style(
             ProgressStyle::default_spinner()
                 .template(template)
-                .expect("Invalid template"),
+                .unwrap_or_else(|_| ProgressStyle::default_spinner()),
         );
         let display_message = format!("{} {}", message, t!("spinner.cancel_hint"));
         pb.set_message(display_message);

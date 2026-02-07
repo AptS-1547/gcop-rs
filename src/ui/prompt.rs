@@ -136,7 +136,10 @@ pub fn commit_action_menu(
             2 => CommitAction::Retry,
             3 => CommitAction::RetryWithFeedback,
             4 => CommitAction::Quit,
-            _ => unreachable!(),
+            _ => {
+                tracing::error!("Unexpected selection (allow_edit=true): {}", selection);
+                CommitAction::Quit
+            }
         }
     } else {
         match selection {
@@ -144,7 +147,10 @@ pub fn commit_action_menu(
             1 => CommitAction::Retry,
             2 => CommitAction::RetryWithFeedback,
             3 => CommitAction::Quit,
-            _ => unreachable!(),
+            _ => {
+                tracing::error!("Unexpected selection (allow_edit=false): {}", selection);
+                CommitAction::Quit
+            }
         }
     };
 

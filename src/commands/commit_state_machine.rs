@@ -61,7 +61,9 @@ impl CommitState {
                     }
                 }
             },
-            _ => unreachable!("handle_generation called in wrong state"),
+            _ => Err(GcopError::Other(format!(
+                "handle_generation called in wrong state: {:?}", self
+            ))),
         }
     }
 
@@ -105,7 +107,10 @@ impl CommitState {
 
                 UserAction::Quit => CommitState::Cancelled,
             },
-            _ => unreachable!("handle_action called in wrong state"),
+            _ => {
+                tracing::error!("handle_action called in wrong state: {:?}", self);
+                CommitState::Cancelled
+            },
         }
     }
 }

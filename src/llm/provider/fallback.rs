@@ -66,7 +66,11 @@ impl FallbackProvider {
 
         // 如果只成功创建了一个，直接返回（避免不必要的包装）
         if providers.len() == 1 {
-            return Ok(providers.into_iter().next().unwrap());
+            // SAFETY: len() == 1 保证了有元素
+            return Ok(providers
+                .into_iter()
+                .next()
+                .expect("providers is non-empty: len() == 1"));
         }
 
         Ok(Arc::new(Self::new(providers, colored)))
