@@ -87,7 +87,7 @@ model = "codellama:13b"
 show_diff_preview = true
 allow_edit = true
 
-# 重新生成的最大次数 (默认: 10)
+# 最大生成尝试次数（包含首次生成，默认: 10）
 # max_retries = 10
 
 # 自定义 prompt（可选）
@@ -100,7 +100,7 @@ allow_edit = true
 # Review 配置
 # ============================================
 [review]
-# 最低显示问题严重性: "critical" | "warning" | "info"
+# text 输出下最低显示问题严重性: "critical" | "warning" | "info"
 min_severity = "info"
 
 # ============================================
@@ -110,9 +110,10 @@ min_severity = "info"
 # 启用彩色输出
 colored = true
 # 启用流式输出（实时打字效果，类似 ChatGPT）
-# 仅 OpenAI 风格的 API 支持，其他 provider 会回退到转圈圈模式
+# Claude/OpenAI 风格 API 支持；Ollama 风格 provider 会回退到转圈圈模式
 streaming = true
-# 语言设置（默认: en，可选: en | zh-CN）
+# 语言设置（可选）。不设置时会自动检测系统语言。
+# 示例: en | zh-CN
 # language = "en"
 
 # ============================================
@@ -139,5 +140,5 @@ max_retry_delay_ms = 60000
 # 文件配置
 # ============================================
 [file]
-# 最大文件大小（字节）(默认: 10MB)
+# `review file <PATH>` 可读取的最大文件大小（字节）(默认: 10MB)
 max_size = 10485760

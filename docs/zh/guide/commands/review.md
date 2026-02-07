@@ -55,6 +55,8 @@ gcop-rs review --format markdown changes > REVIEW.md
 
 > **注意**：当审查输入过大时，发送给 LLM 前会被截断。可通过配置中的 `[llm].max_diff_size` 调整上限。
 
+> **注意**：`review.min_severity` 当前仅对 `--format text` 生效；JSON 与 Markdown 输出会保留完整问题列表。
+
 **输出格式 (text)**:
 
 ```
@@ -81,7 +83,7 @@ gcop-rs review --format markdown changes > REVIEW.md
 **提示**:
 - 提交前使用以尽早发现问题
 - 使用 `--format json` 集成到 CI/CD
-- 在配置中设置 `min_severity` 过滤噪音
+- 在配置中设置 `min_severity` 可减少 text 输出噪音
 
 ## 参考
 

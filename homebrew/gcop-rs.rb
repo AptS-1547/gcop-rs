@@ -4,7 +4,7 @@
 class GcopRs < Formula
   desc "AI-powered Git commit message generator and code reviewer"
   homepage "https://github.com/AptS-1547/gcop-rs"
-  version "0.6.0"
+  version "0.9.0"
   license "MIT"
 
   on_macos do

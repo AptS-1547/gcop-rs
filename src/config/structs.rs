@@ -110,10 +110,10 @@ pub struct LLMConfig {
 /// # 字段
 /// - `api_style`: API 风格（"claude", "openai", "ollama"）
 /// - `endpoint`: 自定义 API 端点（可选）
-/// - `api_key`: API key（可选，除 CI 模式外当前需在 provider 配置中显式提供）
+/// - `api_key`: API key（可选；Claude/OpenAI 风格通常需要，Ollama 不需要）
 /// - `model`: 模型名称
 /// - `max_tokens`: 最大生成 token 数（可选）
-/// - `temperature`: 温度参数 0.0-1.0（可选）
+/// - `temperature`: 温度参数 0.0-2.0（可选）
 /// - `extra`: 其他自定义参数
 ///
 /// # 示例
@@ -137,6 +137,8 @@ pub struct ProviderConfig {
     pub endpoint: Option<String>,
 
     /// API key（当前从 provider 配置读取）
+    ///
+    /// 对 Claude/OpenAI 风格通常必需；Ollama 风格可为空。
     #[serde(skip_serializing)]
     pub api_key: Option<String>,
 
@@ -146,7 +148,7 @@ pub struct ProviderConfig {
     /// 最大生成 token 数
     pub max_tokens: Option<u32>,
 
-    /// 温度参数（0.0-1.0）
+    /// 温度参数（0.0-2.0）
     pub temperature: Option<f32>,
 
     /// 其他参数
@@ -182,7 +184,7 @@ impl std::fmt::Debug for ProviderConfig {
 /// - `show_diff_preview`: 生成前是否显示 diff 预览（默认 true）
 /// - `allow_edit`: 是否允许编辑生成的消息（默认 true）
 /// - `custom_prompt`: 自定义 prompt 模板（可选）
-/// - `max_retries`: 最大重试次数（默认 10）
+/// - `max_retries`: 最大生成尝试次数（默认 10，包含首次生成）
 ///
 /// # 示例
 /// ```toml
@@ -207,7 +209,7 @@ pub struct CommitConfig {
     #[serde(default)]
     pub custom_prompt: Option<String>,
 
-    /// 最大重试次数（用户手动重试）
+    /// 最大生成尝试次数（包含首次生成）
     #[serde(default = "default_commit_max_retries")]
     pub max_retries: usize,
 }
@@ -217,7 +219,7 @@ pub struct CommitConfig {
 /// 控制代码审查的行为。
 ///
 /// # 字段
-/// - `min_severity`: 最低显示的问题严重性（"info", "warning", "critical"）
+/// - `min_severity`: 文本输出时最低显示的问题严重性（"info", "warning", "critical"）
 /// - `custom_prompt`: 自定义 prompt 模板（可选）
 ///
 /// # 示例
@@ -228,7 +230,10 @@ pub struct CommitConfig {
 /// ```
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ReviewConfig {
-    /// 最低显示的问题严重性
+    /// 文本输出时最低显示的问题严重性
+    ///
+    /// 说明：当前仅 `review --format text` 会应用该过滤；
+    /// `json` / `markdown` 会保留完整问题列表。
     #[serde(default = "default_severity")]
     pub min_severity: String,
 
@@ -315,10 +320,11 @@ pub struct NetworkConfig {
 
 /// 文件配置
 ///
-/// 控制文件处理的限制。
+/// 控制本地文件读取的限制。
 ///
 /// # 字段
 /// - `max_size`: 最大文件大小（字节，默认 10MB）
+///   - 目前用于 `review file <PATH>` 读取工作区文件时的保护阈值
 ///
 /// # 示例
 /// ```toml
@@ -328,6 +334,8 @@ pub struct NetworkConfig {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct FileConfig {
     /// 最大文件大小（字节）
+    ///
+    /// 当前用于 `review file <PATH>` 的文件读取上限。
     #[serde(default = "default_max_file_size")]
     pub max_size: u64,
 }

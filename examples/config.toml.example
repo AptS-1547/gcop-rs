@@ -87,7 +87,7 @@ model = "codellama:13b"
 show_diff_preview = true
 allow_edit = true
 
-# Maximum retry attempts for regenerating commit messages (default: 10)
+# Maximum generation attempts, including the first generation (default: 10)
 # max_retries = 10
 
 # Custom prompt (optional)
@@ -100,7 +100,7 @@ allow_edit = true
 # Review Configuration
 # ============================================
 [review]
-# Minimum issue severity to display: "critical" | "warning" | "info"
+# Minimum issue severity shown in text output: "critical" | "warning" | "info"
 min_severity = "info"
 
 # ============================================
@@ -110,9 +110,10 @@ min_severity = "info"
 # Enable colored output
 colored = true
 # Enable streaming output (real-time typing effect, like ChatGPT)
-# Only works with OpenAI-style APIs; other providers fallback to spinner
+# Works with Claude/OpenAI-style APIs; Ollama-style providers fallback to spinner
 streaming = true
-# Language setting (default: en. optional: en | zh-CN)
+# Language setting (optional). If unset, gcop-rs auto-detects system locale.
+# Examples: en | zh-CN
 # language = "en"
 
 # ============================================
@@ -139,5 +140,5 @@ max_retry_delay_ms = 60000
 # File Configuration
 # ============================================
 [file]
-# Maximum file size for review in bytes (default: 10MB)
+# Maximum file size for `review file <PATH>` in bytes (default: 10MB)
 max_size = 10485760

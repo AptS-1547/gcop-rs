@@ -55,6 +55,8 @@ gcop-rs review --format markdown changes > REVIEW.md
 
 > **Note**: Very large review input is truncated before sending to the LLM. You can tune this limit via `[llm].max_diff_size` in config.
 
+> **Note**: `review.min_severity` currently filters issues only in `--format text`. JSON and Markdown outputs keep the full issue list.
+
 **Output Format (text)**:
 
 ```
@@ -81,7 +83,7 @@ Overall code quality is good.
 **Tips**:
 - Use before committing to catch issues early
 - Use `--format json` for CI/CD integration
-- Configure `min_severity` in config to filter noise
+- Configure `min_severity` in config to reduce noise in text output
 
 ## See Also
 

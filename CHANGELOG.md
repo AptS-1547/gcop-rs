@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-02-08
+
+### Added
+
+- **CI Mode Support**: New `GCOP_CI_*` environment variables for CI/CD pipeline integration
+- **Configuration Validation**: Startup validation for provider temperature, API keys, and network timeouts
+- **CI Security Audit**: New `audit` job with `rustsec/audit-check` for dependency vulnerability scanning
+- **CI Code Coverage**: New `coverage` job with `cargo-llvm-cov` and Codecov integration
+- **Diff Truncation**: Auto-truncate diff exceeding `max_diff_size` with localized warning
+- **IssueSeverity Methods**: `level()`, `from_config_str()`, `label()`, `colored_label()` for cleaner review output
+
+### Changed
+
+- **Config Module Restructured**: Split into `structs.rs`, `loader.rs`, `global.rs`, `tests.rs` with `OnceLock + ArcSwap` singleton
+- **LLM Provider Refactored**: New `ApiBackend` trait with blanket `LLMProvider` impl, split `base.rs` into sub-modules
+- **Error Handling**: Replaced `GcopError::Other` with specific variants, i18n-based suggestions
+- **Environment Variables**: Nested config uses double underscores (`GCOP__LLM__DEFAULT_PROVIDER`)
+- **Dependencies Optimized**: Replaced `futures` with `futures-util`, removed `bytes`/`edit`/`toml`, stripped release binary
+
+### Removed
+
+- Config fields: `commit.confirm_before_commit`, `review.show_full_diff`, `ui.verbose` (unused reserved fields)
+
 ## [0.8.0] - 2026-02-07
 
 ### Added
@@ -474,7 +497,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Edit action properly returns to menu without triggering regeneration
 - Commit message display no longer duplicates after editing
 
-[Unreleased]: https://github.com/AptS-1547/gcop-rs/compare/v0.7.3...HEAD
+[Unreleased]: https://github.com/AptS-1547/gcop-rs/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.9.0
+[0.8.0]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.8.0
 [0.7.3]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.7.3
 [0.7.2]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.7.2
 [0.7.1]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.7.1

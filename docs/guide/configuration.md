@@ -90,18 +90,15 @@ model = "codellama:13b"
 [commit]
 show_diff_preview = true
 allow_edit = true
-confirm_before_commit = true  # Reserved for future use (currently unused)
 max_retries = 10
 
 # Review Settings
 [review]
-show_full_diff = true  # Reserved for future use (currently unused)
-min_severity = "info"  # critical | warning | info
+min_severity = "info"  # critical | warning | info (applies to text output)
 
 # UI Settings
 [ui]
 colored = true
-verbose = false
 streaming = true  # Enable streaming output (real-time typing effect)
 language = "en"  # Optional: force UI language (e.g., "en", "zh-CN")
 
@@ -118,7 +115,7 @@ max_retry_delay_ms = 60000  # Max retry delay; also limits Retry-After header
 
 # File Settings
 [file]
-max_size = 10485760      # Max file size for review (10MB)
+max_size = 10485760      # Max file size for `review file <PATH>` (10MB)
 ```
 
 ## Configuration Options
@@ -141,7 +138,7 @@ Each provider under `[llm.providers.<name>]` supports:
 | `api_key` | String | Yes* | API key (*not required for Ollama) |
 | `endpoint` | String | No | API endpoint (uses default if not set) |
 | `model` | String | Yes | Model name |
-| `temperature` | Float | No | Temperature (0.0-1.0). Claude/OpenAI-style defaults to 0.3; Ollama uses provider default when omitted |
+| `temperature` | Float | No | Temperature (0.0-2.0). Claude/OpenAI-style defaults to 0.3; Ollama uses provider default when omitted |
 | `max_tokens` | Integer | No | Max response tokens. Claude-style defaults to 2000; OpenAI-style sends only if set; Ollama currently ignores this field |
 
 ### Commit Settings
@@ -150,16 +147,14 @@ Each provider under `[llm.providers.<name>]` supports:
 |--------|------|---------|-------------|
 | `show_diff_preview` | Boolean | `true` | Show diff stats before generating |
 | `allow_edit` | Boolean | `true` | Allow editing generated message |
-| `confirm_before_commit` | Boolean | `true` | *(Currently unused)* Reserved for a future final confirmation step before commit |
-| `max_retries` | Integer | `10` | Max retry attempts for regenerating messages |
+| `max_retries` | Integer | `10` | Max generation attempts (including the first generation) |
 | `custom_prompt` | String | No | Custom system prompt / instructions for commit generation |
 
 ### Review Settings
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `show_full_diff` | Boolean | `true` | *(Currently unused)* Reserved for future full/compact diff control |
-| `min_severity` | String | `"info"` | Minimum severity to display: `"critical"`, `"warning"`, or `"info"` |
+| `min_severity` | String | `"info"` | Minimum severity to display in **text output**: `"critical"`, `"warning"`, or `"info"` |
 | `custom_prompt` | String | No | Custom system prompt / instructions for code review |
 
 ### UI Settings
@@ -167,9 +162,10 @@ Each provider under `[llm.providers.<name>]` supports:
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `colored` | Boolean | `true` | Enable colored output |
-| `verbose` | Boolean | `false` | *(Currently unused)* Use `--verbose` / `-v` to enable debug logs |
 | `streaming` | Boolean | `true` | Enable streaming output (real-time typing effect) |
 | `language` | String | `null` (auto) | Force UI language (e.g., `"en"`, `"zh-CN"`); if unset, gcop-rs auto-detects |
+
+> **Legacy Keys:** Older config files may still contain keys such as `commit.confirm_before_commit`, `review.show_full_diff`, or `ui.verbose`. These keys are currently ignored.
 
 > **Note on Streaming:** Currently only OpenAI or Claude style APIs support streaming. When using Ollama providers, the system automatically falls back to spinner mode (waiting for complete response).
 
@@ -187,7 +183,7 @@ Each provider under `[llm.providers.<name>]` supports:
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `max_size` | Integer | `10485760` | Max file size for review in bytes (default: 10MB) |
+| `max_size` | Integer | `10485760` | Max file size in bytes when using `review file <PATH>` (default: 10MB) |
 
 ## API Key Configuration
 
