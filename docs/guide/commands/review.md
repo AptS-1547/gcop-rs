@@ -41,20 +41,24 @@ gcop-rs review range HEAD~3..HEAD
 gcop-rs review file src/auth.rs
 
 # Output as JSON for automation
-gcop-rs review changes --format json > review.json
+gcop-rs review --format json changes > review.json
 
 # Output as markdown for documentation
-gcop-rs review changes --format markdown > REVIEW.md
+gcop-rs review --format markdown changes > REVIEW.md
 ```
 
+> **Note**: `--format` / `--json` are options of the `review` command itself, so they must appear before the subcommand target (for example, `review --format json changes`).
+>
 > **Note**: `review changes` currently reviews unstaged changes only (index → working tree). Staged changes are not included.
 >
 > **Note**: `review file <PATH>` currently supports files only (directories are not supported).
 
+> **Note**: Very large review input is truncated before sending to the LLM. You can tune this limit via `[llm].max_diff_size` in config.
+
 **Output Format (text)**:
 
 ```
-ℹ Review: Uncommitted changes
+ℹ Review: Unstaged working tree changes
 
 📝 Summary:
 Added JWT authentication with proper error handling.

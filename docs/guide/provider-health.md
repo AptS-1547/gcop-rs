@@ -22,6 +22,8 @@ The command runs in two steps:
 
 Validation succeeds if **at least one provider** in that chain validates successfully.
 
+If a configured provider cannot be instantiated (for example, missing/invalid config), it is skipped during chain construction.
+
 ## Provider-Specific Validation Behavior
 
 ### Claude / OpenAI Style Providers
@@ -85,10 +87,12 @@ fallback_providers = ["openai", "ollama"]
 
 [llm.providers.claude]
 api_style = "claude"
+api_key = "sk-ant-..."
 model = "claude-3-5-haiku-20241022"
 
 [llm.providers.openai]
 api_style = "openai"
+api_key = "sk-..."
 model = "gpt-4o-mini"
 
 [llm.providers.ollama]

@@ -63,7 +63,7 @@ gcop-rs commit
 | Variable | Description |
 |----------|-------------|
 | `GCOP__*` | Override config values (use double underscores for nesting, e.g., `GCOP__UI__COLORED=false`) |
-| `GCOP__UI__LANGUAGE` | Force UI language early in startup (single underscore - special case) |
+| `GCOP__UI__LANGUAGE` | Force UI language early in startup (double underscores, same as other nested keys) |
 | `VISUAL` / `EDITOR` | Editor for commit message editing and `gcop-rs config edit` |
 
 **Config Override Example**:

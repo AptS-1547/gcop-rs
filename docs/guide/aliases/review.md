@@ -17,9 +17,11 @@ git r range HEAD~3..HEAD
 git r file src/auth.rs
 
 # Review with different format
-git r changes --format json
-git r changes --format markdown
+git r --format json changes
+git r --format markdown changes
 ```
+
+`--format` / `--json` belong to the `review` command, so place them before the target (`changes`, `commit`, `range`, `file`).
 
 **What it reviews**: `git r changes` reviews unstaged working tree changes (similar to `git diff`).
 

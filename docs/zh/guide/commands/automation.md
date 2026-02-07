@@ -63,7 +63,7 @@ gcop-rs commit
 | 变量 | 说明 |
 |------|------|
 | `GCOP__*` | 覆盖配置项（嵌套层级使用双下划线，如 `GCOP__UI__COLORED=false`） |
-| `GCOP__UI__LANGUAGE` | 在启动早期强制指定 UI 语言（单下划线 - 特殊情况） |
+| `GCOP__UI__LANGUAGE` | 在启动早期强制指定 UI 语言（使用双下划线，与其他嵌套键一致） |
 | `VISUAL` / `EDITOR` | commit message 编辑与 `gcop-rs config edit` 使用的编辑器 |
 
 **配置覆盖示例**:

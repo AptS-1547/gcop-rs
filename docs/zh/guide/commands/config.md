@@ -50,9 +50,9 @@ gcop-rs config validate
 
 **检查**:
 - 加载并解析配置（默认值 + 配置文件 + `GCOP__*` 环境变量覆盖）
-- 列出已配置的 providers
+- 列出从 provider 链中成功实例化的 providers
 - 按配置的 provider 链（`default_provider` + `fallback_providers`）验证 provider 连通性
-- 只要至少有一个配置的 provider 验证成功就会返回成功
+- 只要至少有一个成功实例化的 provider 验证成功就会返回成功
 
 **示例输出**:
 ```

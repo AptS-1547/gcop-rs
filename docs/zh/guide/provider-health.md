@@ -22,6 +22,8 @@ gcop-rs config validate
 
 只要这个链路中**至少一个 provider** 验证成功，命令就会返回成功。
 
+如果某个 provider 在创建阶段就失败（例如配置缺失或无效），它会在构建链路时被跳过。
+
 ## 不同 Provider 的验证方式
 
 ### Claude / OpenAI 风格 Provider
@@ -85,10 +87,12 @@ fallback_providers = ["openai", "ollama"]
 
 [llm.providers.claude]
 api_style = "claude"
+api_key = "sk-ant-..."
 model = "claude-3-5-haiku-20241022"
 
 [llm.providers.openai]
 api_style = "openai"
+api_key = "sk-..."
 model = "gpt-4o-mini"
 
 [llm.providers.ollama]

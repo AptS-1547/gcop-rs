@@ -55,7 +55,7 @@ gcop-rs alias --list
   git cop        → gcop-rs 主入口                           [✓ 已安装]
   git gcommit    → AI 生成提交信息并提交                    [✓ 已安装]
   git c          → 'git gcommit' 的简写                     [✓ 已安装]
-  git r          → AI 审查未提交的变更                      [✓ 已安装]
+  git r          → AI 审查工作区未暂存变更                  [✓ 已安装]
   ...
 ```
 

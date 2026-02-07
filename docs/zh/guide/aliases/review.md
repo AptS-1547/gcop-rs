@@ -17,9 +17,11 @@ git r range HEAD~3..HEAD
 git r file src/auth.rs
 
 # 使用不同格式审查
-git r changes --format json
-git r changes --format markdown
+git r --format json changes
+git r --format markdown changes
 ```
+
+`--format` / `--json` 属于 `review` 命令本身，建议放在目标（`changes`、`commit`、`range`、`file`）之前。
 
 **审查内容**: `git r changes` 会审查未暂存的工作区变更（类似 `git diff`）。
 

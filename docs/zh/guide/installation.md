@@ -137,7 +137,7 @@ cargo install --path .
 
 ```bash
 gcop-rs --version
-# 应该输出当前版本（例如：gcop-rs 0.7.3）
+# 应该输出当前版本（例如：gcop-rs 0.8.0）
 
 gcop-rs --help
 # 应该显示帮助信息

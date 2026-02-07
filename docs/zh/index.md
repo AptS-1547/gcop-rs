@@ -11,7 +11,7 @@ hero:
       link: /zh/guide/installation
     - theme: alt
       text: GitHub
-      link: https://github.com/Undertone0809/gcop-rs
+      link: https://github.com/AptS-1547/gcop-rs
 
 features:
   - title: AI 驱动

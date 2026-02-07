@@ -55,7 +55,7 @@ Output:
   git cop        → Main entry point for gcop-rs              [✓ installed]
   git gcommit    → AI commit message and commit changes      [✓ installed]
   git c          → Shorthand for 'git gcommit'               [✓ installed]
-  git r          → AI review of uncommitted changes          [✓ installed]
+  git r          → AI review of unstaged working tree changes [✓ installed]
   ...
 ```
 

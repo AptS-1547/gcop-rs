@@ -64,6 +64,7 @@ model = "claude-sonnet-4-5-20250929"
 [llm]
 default_provider = "claude"
 # fallback_providers = ["openai", "ollama"]  # 主 provider 失败时自动切换
+max_diff_size = 102400  # 发送给 LLM 前的最大 diff 字节数，超出会截断
 
 # Claude Provider
 [llm.providers.claude]
@@ -128,6 +129,7 @@ max_size = 10485760      # 最大文件大小（10MB）
 |------|------|--------|------|
 | `default_provider` | String | `"claude"` | 默认使用的 LLM provider |
 | `fallback_providers` | Array | `[]` | 备用 provider 列表，主 provider 失败时自动切换 |
+| `max_diff_size` | Integer | `102400` | 发送给 LLM 的最大 diff 大小（字节）；超出时会截断 |
 
 ### Provider 设置
 
@@ -189,10 +191,12 @@ max_size = 10485760      # 最大文件大小（10MB）
 
 ## API Key 配置
 
-### 优先级顺序
+### 配置来源
 
-1. **配置文件**（平台特定位置，见上方）
-2. **CI 模式环境变量**（`GCOP_CI_*`，仅在 `CI=1` 时）
+- **配置文件**（平台特定位置，见上方）
+- **CI 模式环境变量**（`GCOP_CI_*`，仅在 `CI=1` 时）
+
+当设置 `CI=1` 时，CI 模式 provider 配置会在文件/环境变量加载后生效，并成为最终默认 provider（`ci`）。
 
 ### 配置方式
 
@@ -266,6 +270,7 @@ gcop-rs commit --yes
 
 - **优先级**：`GCOP__*` 的优先级高于配置文件与默认值。
 - **映射方式**：嵌套配置项使用**双下划线** (`__`) 分隔。
+- **说明**：若设置了 `CI=1`，CI 模式 provider 配置会在该阶段后覆盖为最终默认 provider。
 
 **示例**：
 
@@ -277,7 +282,7 @@ export GCOP__UI__STREAMING=false
 # 切换默认 provider
 export GCOP__LLM__DEFAULT_PROVIDER=openai
 
-# 强制 UI 语言（特殊情况，使用单下划线）
+# 强制 UI 语言
 export GCOP__UI__LANGUAGE=zh-CN
 ```
 

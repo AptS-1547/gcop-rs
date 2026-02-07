@@ -64,6 +64,7 @@ model = "claude-sonnet-4-5-20250929"
 [llm]
 default_provider = "claude"
 # fallback_providers = ["openai", "ollama"]  # Auto-fallback when main provider fails
+max_diff_size = 102400  # Max diff bytes sent to LLM before truncation
 
 # Claude Provider
 [llm.providers.claude]
@@ -128,6 +129,7 @@ max_size = 10485760      # Max file size for review (10MB)
 |--------|------|---------|-------------|
 | `default_provider` | String | `"claude"` | Default LLM provider to use |
 | `fallback_providers` | Array | `[]` | Fallback provider list; automatically tries next when main provider fails |
+| `max_diff_size` | Integer | `102400` | Maximum diff size (bytes) sent to LLM; larger inputs are truncated |
 
 ### Provider Settings
 
@@ -189,10 +191,12 @@ Each provider under `[llm.providers.<name>]` supports:
 
 ## API Key Configuration
 
-### Priority Order
+### Sources
 
-1. **Config file** (platform-specific location, see above)
-2. **CI mode environment variables** (`GCOP_CI_*`, only when `CI=1`)
+- **Config file** (platform-specific location, see above)
+- **CI mode environment variables** (`GCOP_CI_*`, only when `CI=1`)
+
+When `CI=1`, CI-mode provider settings are applied after file/env loading, and become the effective default provider (`ci`).
 
 ### Methods
 
@@ -266,6 +270,7 @@ In addition to CI-mode provider env vars, gcop-rs supports overriding configurat
 
 - **Priority**: `GCOP__*` overrides config file and defaults.
 - **Mapping**: Nested keys are separated by **double underscores** (`__`).
+- **Note**: If `CI=1`, CI-mode provider settings are applied after this stage and become the effective default provider.
 
 **Examples**:
 
@@ -277,7 +282,7 @@ export GCOP__UI__STREAMING=false
 # Switch default provider
 export GCOP__LLM__DEFAULT_PROVIDER=openai
 
-# Force UI language (special case, uses single underscore)
+# Force UI language
 export GCOP__UI__LANGUAGE=zh-CN
 ```
 

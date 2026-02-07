@@ -14,6 +14,10 @@ default_provider = "claude"
 # Fallback providers: automatically try next provider when main provider fails
 # fallback_providers = ["openai", "ollama"]
 
+# Maximum diff size sent to LLM in bytes (default: 102400 = 100KB)
+# Diffs exceeding this limit will be truncated
+# max_diff_size = 102400
+
 # Claude Provider
 [llm.providers.claude]
 # API key (or use environment variable ANTHROPIC_API_KEY)

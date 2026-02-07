@@ -104,14 +104,13 @@ export NO_PROXY=localhost,127.0.0.1,.local
 
 ## Understanding Auto-Retry
 
-Since v0.1.6, gcop-rs automatically retries failed requests:
+gcop-rs automatically retries specific failures:
 
 **What gets retried**:
 - ✅ Connection failures
-- ✅ 429 Rate limit errors
+- ✅ HTTP 429 rate limit errors
 - ❌ Request timeout errors
-- ❌ 401/403 Authentication errors (won't retry)
-- ❌ 400 Bad request errors (won't retry)
+- ❌ Other HTTP errors (401/403/400/5xx)
 
 **Retry strategy**:
 - Maximum 3 retries (4 attempts total)
@@ -138,4 +137,3 @@ gcop-rs -v commit
 # Check the response in debug output
 # Look for "Claude API response body:" or "OpenAI API response body:"
 ```
-

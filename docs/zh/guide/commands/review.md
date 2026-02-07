@@ -41,20 +41,24 @@ gcop-rs review range HEAD~3..HEAD
 gcop-rs review file src/auth.rs
 
 # 输出为 JSON 用于自动化
-gcop-rs review changes --format json > review.json
+gcop-rs review --format json changes > review.json
 
 # 输出为 markdown 用于文档
-gcop-rs review changes --format markdown > REVIEW.md
+gcop-rs review --format markdown changes > REVIEW.md
 ```
 
+> **注意**：`--format` / `--json` 是 `review` 命令本身的选项，必须写在目标子命令之前（例如：`review --format json changes`）。
+>
 > **注意**：当前 `review changes` 只会审查未暂存的变更（类似 `git diff`），不会包含已暂存的变更。
 >
 > **注意**：`review file <PATH>` 当前仅支持文件（不支持目录）。
 
+> **注意**：当审查输入过大时，发送给 LLM 前会被截断。可通过配置中的 `[llm].max_diff_size` 调整上限。
+
 **输出格式 (text)**:
 
 ```
-ℹ 审查: 未提交的变更
+ℹ 审查: 工作区未暂存变更
 
 📝 总结:
 添加了 JWT 认证和适当的错误处理。
