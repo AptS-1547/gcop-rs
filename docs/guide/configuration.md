@@ -223,20 +223,20 @@ export OPENAI_API_KEY="sk-your-openai-key"
 
 In addition to provider API key env vars, gcop-rs supports overriding configuration values via environment variables with the `GCOP_` prefix.
 
-- **Priority**: `GCOP_*` overrides config file and defaults.
-- **Mapping**: Nested keys are separated by underscores.
+- **Priority**: `GCOP__*` overrides config file and defaults.
+- **Mapping**: Nested keys are separated by **double underscores** (`__`).
 
 **Examples**:
 
 ```bash
 # Disable colors and streaming output
-export GCOP_UI_COLORED=false
-export GCOP_UI_STREAMING=false
+export GCOP__UI__COLORED=false
+export GCOP__UI__STREAMING=false
 
 # Switch default provider
-export GCOP_LLM_DEFAULT_PROVIDER=openai
+export GCOP__LLM__DEFAULT_PROVIDER=openai
 
-# Force UI language
+# Force UI language (special case, uses single underscore)
 export GCOP_UI_LANGUAGE=zh-CN
 ```
 

@@ -223,20 +223,20 @@ export OPENAI_API_KEY="sk-your-openai-key"
 
 除了 provider API key 的环境变量外，gcop-rs 也支持用 `GCOP_` 前缀的环境变量覆盖配置项。
 
-- **优先级**：`GCOP_*` 的优先级高于配置文件与默认值。
-- **映射方式**：嵌套配置项使用下划线分隔。
+- **优先级**：`GCOP__*` 的优先级高于配置文件与默认值。
+- **映射方式**：嵌套配置项使用**双下划线** (`__`) 分隔。
 
 **示例**：
 
 ```bash
 # 关闭彩色与流式输出
-export GCOP_UI_COLORED=false
-export GCOP_UI_STREAMING=false
+export GCOP__UI__COLORED=false
+export GCOP__UI__STREAMING=false
 
 # 切换默认 provider
-export GCOP_LLM_DEFAULT_PROVIDER=openai
+export GCOP__LLM__DEFAULT_PROVIDER=openai
 
-# 强制 UI 语言
+# 强制 UI 语言（特殊情况，使用单下划线）
 export GCOP_UI_LANGUAGE=zh-CN
 ```
 

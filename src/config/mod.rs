@@ -10,7 +10,9 @@ pub use schema::*;
 /// 加载应用配置
 ///
 /// 配置加载优先级（从高到低）：
-/// 1. 环境变量（GCOP_* 前缀）
+/// 1. 环境变量（GCOP__* 前缀，双下划线表示嵌套）
+///    - 例如：`GCOP__LLM__DEFAULT_PROVIDER=openai`
+///    - 例如：`GCOP__UI__COLORED=false`
 /// 2. 配置文件（~/.config/gcop/config.toml）
 /// 3. 默认值
 pub fn load_config() -> Result<AppConfig> {
@@ -41,9 +43,11 @@ pub fn load_config() -> Result<AppConfig> {
     }
 
     // 3. 加载环境变量（GCOP_ 前缀，优先级最高）
+    // 使用双下划线作为嵌套层级分隔符，避免与字段名中的单下划线冲突
+    // 例如：GCOP__LLM__DEFAULT_PROVIDER -> llm.default_provider
     builder = builder.add_source(
         Environment::with_prefix("GCOP")
-            .separator("_")
+            .separator("__")
             .try_parsing(true),
     );
 
@@ -211,20 +215,31 @@ mod tests {
     #[test]
     #[serial]
     fn test_env_var_can_be_read() {
-        let _guard = EnvGuard::set("GCOP_UI_COLORED", "false");
+        let _guard = EnvGuard::set("GCOP__UI__COLORED", "false");
         // 验证环境变量被正确设置
-        assert_eq!(env::var("GCOP_UI_COLORED").unwrap(), "false");
+        assert_eq!(env::var("GCOP__UI__COLORED").unwrap(), "false");
     }
 
     #[test]
     #[serial]
     fn test_env_var_bool_parsing() {
         // 测试 config crate 的 bool 解析能力
-        let _guard = EnvGuard::set("GCOP_UI_VERBOSE", "true");
+        let _guard = EnvGuard::set("GCOP__UI__VERBOSE", "true");
         let config = load_config().unwrap();
         // ui.verbose 默认是 false，如果环境变量生效应该是 true
         // 但如果用户配置文件覆盖了，可能仍然是其他值
         // 这里我们只验证加载成功，不验证具体值
         let _ = config.ui.verbose;
+    }
+
+    #[test]
+    #[serial]
+    fn test_env_var_llm_default_provider() {
+        // 验证 GCOP__LLM__DEFAULT_PROVIDER 环境变量是否生效
+        // 注意：使用双下划线表示嵌套层级
+        let _guard = EnvGuard::set("GCOP__LLM__DEFAULT_PROVIDER", "test_provider");
+        let config = load_config().unwrap();
+        // 环境变量优先级最高，应该覆盖配置文件
+        assert_eq!(config.llm.default_provider, "test_provider");
     }
 }
