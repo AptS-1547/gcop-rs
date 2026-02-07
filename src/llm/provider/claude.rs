@@ -43,7 +43,7 @@ use crate::llm::{CommitContext, LLMProvider, ReviewResult, ReviewType, StreamChu
 ///
 /// # 特性
 /// - 支持流式响应（SSE）
-/// - 自动重试（3 次，指数退避）
+/// - 自动重试（指数退避，默认 3 次，可通过 `network.max_retries` 配置）
 /// - 支持 prompt caching（自动优化 API 成本）
 /// - 自定义端点（支持代理或兼容 API）
 ///

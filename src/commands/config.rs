@@ -168,7 +168,7 @@ async fn validate(colored: bool) -> Result<()> {
     }
     println!();
 
-    // 测试默认 provider 连接
+    // 验证 provider 链可用性（默认 provider + fallback providers）
     ui::step("2/2", &rust_i18n::t!("config.testing"), colored);
 
     let provider = create_provider(&config, None)?;

@@ -12,10 +12,11 @@ use crate::error::Result;
 /// 加载应用配置
 ///
 /// 配置加载优先级（从高到低）：
+/// 0. CI 模式覆盖（`CI=1` 时使用 `GCOP_CI_*`）
 /// 1. 环境变量（GCOP__* 前缀，双下划线表示嵌套）
 ///    - 例如：`GCOP__LLM__DEFAULT_PROVIDER=openai`
 ///    - 例如：`GCOP__UI__COLORED=false`
-/// 2. 配置文件（~/.config/gcop/config.toml）
+/// 2. 配置文件（平台相关路径下的 `config.toml`）
 /// 3. 默认值（来自 structs.rs 的 Default trait 和 serde(default) 属性）
 pub fn load_config() -> Result<AppConfig> {
     let mut builder = Config::builder();
@@ -123,7 +124,7 @@ fn apply_ci_mode_overrides(config: &mut AppConfig) -> Result<()> {
 
 /// 获取配置文件路径
 ///
-/// 返回 ~/.config/gcop/config.toml
+/// 返回平台相关的配置文件路径（`<config_dir>/config.toml`）
 fn get_config_path() -> Option<PathBuf> {
     ProjectDirs::from("", "", "gcop").map(|dirs| dirs.config_dir().join("config.toml"))
 }

@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 /// 应用配置
 ///
-/// gcop-rs 的顶层配置结构，从 `~/.config/gcop/config.toml` 加载。
+/// gcop-rs 的顶层配置结构，从平台相关配置目录下的 `config.toml` 加载。
 ///
 /// # 配置文件位置
 /// - Linux: `~/.config/gcop/config.toml`
@@ -152,7 +152,7 @@ pub struct ProviderConfig {
 /// # 字段
 /// - `show_diff_preview`: 生成前是否显示 diff 预览（默认 true）
 /// - `allow_edit`: 是否允许编辑生成的消息（默认 true）
-/// - `confirm_before_commit`: 提交前是否需要确认（默认 true）
+/// - `confirm_before_commit`: 提交前是否需要确认（默认 true，当前未使用，预留字段）
 /// - `custom_prompt`: 自定义 prompt 模板（可选）
 /// - `max_retries`: 最大重试次数（默认 10）
 ///
@@ -161,7 +161,7 @@ pub struct ProviderConfig {
 /// [commit]
 /// show_diff_preview = true
 /// allow_edit = true
-/// confirm_before_commit = true
+/// confirm_before_commit = true  # 预留字段（当前未生效）
 /// max_retries = 10
 /// custom_prompt = "Generate a concise commit message"
 /// ```
@@ -175,7 +175,7 @@ pub struct CommitConfig {
     #[serde(default = "default_true")]
     pub allow_edit: bool,
 
-    /// 提交前是否需要确认
+    /// 提交前是否需要确认（当前未使用，预留字段）
     #[serde(default = "default_true")]
     pub confirm_before_commit: bool,
 
@@ -194,20 +194,20 @@ pub struct CommitConfig {
 /// 控制代码审查的行为。
 ///
 /// # 字段
-/// - `show_full_diff`: 审查时是否显示完整 diff（默认 true）
+/// - `show_full_diff`: 审查时是否显示完整 diff（默认 true，当前未使用，预留字段）
 /// - `min_severity`: 最低显示的问题严重性（"info", "warning", "critical"）
 /// - `custom_prompt`: 自定义 prompt 模板（可选）
 ///
 /// # 示例
 /// ```toml
 /// [review]
-/// show_full_diff = true
+/// show_full_diff = true  # 预留字段（当前未生效）
 /// min_severity = "warning"
 /// custom_prompt = "Focus on security issues"
 /// ```
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ReviewConfig {
-    /// 审查时是否显示完整 diff
+    /// 审查时是否显示完整 diff（当前未使用，预留字段）
     #[serde(default = "default_true")]
     pub show_full_diff: bool,
 
@@ -227,7 +227,7 @@ pub struct ReviewConfig {
 ///
 /// # 字段
 /// - `colored`: 是否启用彩色输出（默认 true）
-/// - `verbose`: 是否显示详细信息（默认 false）
+/// - `verbose`: 是否显示详细信息（默认 false，当前未使用；命令行 `-v` 为主）
 /// - `streaming`: 是否启用流式输出（打字机效果，默认 true）
 /// - `language`: 界面语言（BCP 47 格式，如 "en", "zh-CN"，默认自动检测）
 ///
@@ -245,7 +245,7 @@ pub struct UIConfig {
     #[serde(default = "default_true")]
     pub colored: bool,
 
-    /// 是否显示详细信息
+    /// 是否显示详细信息（当前未使用；命令行 `-v` 为主）
     #[serde(default)]
     pub verbose: bool,
 
@@ -268,7 +268,7 @@ pub struct UIConfig {
 /// - `connect_timeout`: HTTP 连接超时时间（秒，默认 10）
 /// - `max_retries`: LLM API 请求最大重试次数（默认 3）
 /// - `retry_delay_ms`: 重试初始延迟（毫秒，默认 1000）
-/// - `max_retry_delay_ms`: 重试最大延迟（毫秒，默认 10000）
+/// - `max_retry_delay_ms`: 重试最大延迟（毫秒，默认 60000）
 ///
 /// # 示例
 /// ```toml
@@ -277,7 +277,7 @@ pub struct UIConfig {
 /// connect_timeout = 10
 /// max_retries = 3
 /// retry_delay_ms = 1000
-/// max_retry_delay_ms = 10000
+/// max_retry_delay_ms = 60000
 /// ```
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct NetworkConfig {

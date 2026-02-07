@@ -88,20 +88,21 @@ src/
 ├── lib.rs                     # 公开模块导出
 ├── cli.rs                     # Clap CLI 定义
 ├── commands/                  # 命令实现
-│   ├── commit.rs              # commit 命令主逻辑
+│   ├── commit.rs              # commit 命令主逻辑（IO 和渲染）
 │   ├── commit_state_machine.rs # commit 流程状态机（纯函数式）
 │   ├── review.rs              # review 命令
 │   ├── config.rs              # config 命令
 │   ├── init.rs                # init 命令
 │   ├── alias.rs               # alias 命令
-│   └── stats.rs               # stats 命令（仓库统计）
+│   ├── stats.rs               # stats 命令（仓库统计）
+│   ├── options.rs             # 命令选项结构体（CommitOptions, ReviewOptions, StatsOptions）
+│   ├── format.rs              # 输出格式定义（OutputFormat enum）
+│   └── json.rs                # JSON 输出工具
 ├── config/                    # 配置管理
 │   ├── mod.rs                 # 模块导出 + 公开 API
 │   ├── structs.rs             # 配置数据结构定义
-│   ├── loader.rs              # 配置加载逻辑
-│   ├── env.rs                 # 环境变量处理
-│   ├── global.rs              # 全局配置单例
-│   ├── schema.rs              # 兼容性别名（deprecated）
+│   ├── loader.rs              # 配置加载逻辑（文件 + 环境变量 + CI 覆盖）
+│   ├── global.rs              # 全局配置单例（OnceLock + ArcSwap）
 │   └── tests.rs               # 配置模块测试
 ├── git/                       # Git 操作封装
 │   ├── mod.rs                 # GitOperations trait 定义
@@ -111,12 +112,19 @@ src/
 ├── llm/                       # LLM 集成
 │   ├── mod.rs                 # LLMProvider trait + StreamChunk 定义
 │   ├── provider/
-│   │   ├── base.rs            # 基础 provider 实现
+│   │   ├── base/              # 基础 provider 实现（目录）
+│   │   │   ├── mod.rs         # 模块导出
+│   │   │   ├── config.rs      # 基础 provider 配置
+│   │   │   ├── response.rs    # 响应解析工具
+│   │   │   ├── retry.rs       # 重试逻辑
+│   │   │   └── validation.rs  # 验证工具
 │   │   ├── claude.rs          # Claude API
 │   │   ├── openai.rs          # OpenAI API（支持流式输出）
 │   │   ├── ollama.rs          # Ollama API
+│   │   ├── fallback.rs        # 多 provider 降级（FallbackProvider）
 │   │   ├── streaming.rs       # SSE 流式响应解析
-│   │   └── utils.rs           # 通用工具函数
+│   │   ├── utils.rs           # 通用工具函数
+│   │   └── test_utils.rs      # 测试用 mock 工具
 │   ├── prompt.rs              # Prompt 模板
 │   └── message.rs             # 消息格式
 ├── ui/                        # 用户界面
@@ -268,11 +276,9 @@ PROVIDER_ENDPOINT=https://custom.com
 #### 配置模块结构
 
 - `structs.rs` - 配置数据结构定义
-- `loader.rs` - 配置加载逻辑（文件 + 环境变量 + CI 覆盖）
-- `env.rs` - 环境变量增强支持（独立 API key、endpoint）
+- `loader.rs` - 配置加载逻辑（文件 + 环境变量 + CI 覆盖 + 独立 API key/endpoint 处理）
 - `global.rs` - 全局单例管理（`init_config`, `get_config`）
-- `tests.rs` - 配置模块测试（22 个测试）
-- `schema.rs` - 兼容性别名（deprecated，将在 1.0.0 移除）
+- `tests.rs` - 配置模块测试
 
 
 ## 开发注意事项
@@ -282,7 +288,7 @@ PROVIDER_ENDPOINT=https://custom.com
 1. 在 `src/llm/provider/` 创建新文件
 2. 实现 `LLMProvider` trait
 3. 在 `src/llm/provider/mod.rs` 中注册
-4. 在 `src/config/schema.rs` 添加配置结构
+4. 在 `src/config/structs.rs` 添加配置结构（如需要）
 
 ### 修改 Commit 流程
 
@@ -315,7 +321,7 @@ Commit 流程逻辑集中在两个地方：
 - `git2`: Git 操作（libgit2 bindings）
 - `tokio`: 异步运行时
 - `reqwest`: HTTP 客户端
-- `serde`/`toml`: 配置序列化
+- `serde`/`config`: 配置序列化与加载
 - `dialoguer`: 交互式 prompt
 - `indicatif`: 进度条和 spinner
 - `mockall`: Mock 测试 (dev)

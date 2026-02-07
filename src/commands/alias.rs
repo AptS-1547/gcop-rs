@@ -5,7 +5,7 @@ use crate::ui;
 use std::process::Command;
 use which::which;
 
-// 完整的 git alias 列表（13 个，基于原项目 + review）
+// 完整的 git alias 列表（14 个，基于原项目 + review）
 const GCOP_ALIASES: &[(&str, &str, &str)] = &[
     ("cop", "!gcop-rs", "alias.desc.cop"),
     ("gcommit", "!gcop-rs commit", "alias.desc.gcommit"),

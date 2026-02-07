@@ -43,7 +43,7 @@ use crate::llm::{CommitContext, LLMProvider, ReviewResult, ReviewType};
 /// # 特性
 /// - 完全本地运行（无需 API key）
 /// - 支持自定义模型
-/// - 自动重试（3 次，指数退避）
+/// - 自动重试（指数退避，默认 3 次，可通过 `network.max_retries` 配置）
 /// - 无流式支持（计划中）
 ///
 /// # 使用前提

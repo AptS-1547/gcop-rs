@@ -18,7 +18,7 @@ pub struct Cli {
     #[arg(short, long, global = true)]
     pub verbose: bool,
 
-    /// Override default LLM provider
+    /// Override default LLM provider (used by commit/review)
     #[arg(short, long, global = true)]
     pub provider: Option<String>,
 }
@@ -140,6 +140,6 @@ pub enum ConfigAction {
     /// Edit configuration file
     Edit,
 
-    /// Validate configuration and test provider connection
+    /// Validate configuration and test provider chain connection
     Validate,
 }

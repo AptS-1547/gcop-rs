@@ -89,7 +89,7 @@ impl<'a> CommitOptions<'a> {
     /// - `dry_run`: `--dry-run` flag
     /// - `format`: `--format` 参数（"text", "json"）
     /// - `json`: `--json` flag（`--format json` 的简写）
-    /// - `feedback`: `--feedback` 参数列表
+    /// - `feedback`: 位置参数 `FEEDBACK...`（用于附加生成指令）
     ///
     /// # 返回
     /// 构造好的 `CommitOptions` 实例
