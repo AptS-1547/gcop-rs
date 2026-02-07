@@ -263,7 +263,7 @@ OLLAMA_BASE_URL=http://localhost:11434
 **特殊环境变量**：
 ```bash
 # 语言设置（启动早期读取，单下划线）
-GCOP_UI_LANGUAGE=zh-CN
+GCOP__UI__LANGUAGE=zh-CN
 
 # CI 模式（完全独立的机制）
 CI=1  # 或 CI_MODE=1

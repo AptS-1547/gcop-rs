@@ -278,14 +278,14 @@ export GCOP__UI__STREAMING=false
 export GCOP__LLM__DEFAULT_PROVIDER=openai
 
 # 强制 UI 语言（特殊情况，使用单下划线）
-export GCOP_UI_LANGUAGE=zh-CN
+export GCOP__UI__LANGUAGE=zh-CN
 ```
 
 ### 语言选择优先级
 
 gcop-rs 会按以下顺序决定 UI 语言：
 
-1. 环境变量 `GCOP_UI_LANGUAGE`
+1. 环境变量 `GCOP__UI__LANGUAGE`
 2. 配置文件中的 `[ui].language`
 3. 系统语言
 4. 回退到英文（`en`）

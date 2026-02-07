@@ -278,14 +278,14 @@ export GCOP__UI__STREAMING=false
 export GCOP__LLM__DEFAULT_PROVIDER=openai
 
 # Force UI language (special case, uses single underscore)
-export GCOP_UI_LANGUAGE=zh-CN
+export GCOP__UI__LANGUAGE=zh-CN
 ```
 
 ### Locale Selection Priority
 
 gcop-rs resolves UI language in this order:
 
-1. `GCOP_UI_LANGUAGE` environment variable
+1. `GCOP__UI__LANGUAGE` environment variable
 2. `[ui].language` in config file
 3. System locale
 4. Fallback to English (`en`)
