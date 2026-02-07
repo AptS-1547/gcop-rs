@@ -11,7 +11,64 @@ use crate::config::{NetworkConfig, ProviderConfig};
 use crate::error::{GcopError, Result};
 use crate::llm::{CommitContext, LLMProvider, ReviewResult, ReviewType};
 
-/// Ollama API Provider
+/// Ollama API provider
+///
+/// 使用本地运行的 Ollama 模型生成 commit message 和代码审查。
+///
+/// # 支持的模型
+/// - `llama3.2` (推荐)
+/// - `llama3.1`
+/// - `codellama`
+/// - `qwen2.5-coder`
+/// - `deepseek-coder-v2`
+/// - 其他 Ollama 支持的模型
+///
+/// # 配置示例
+/// ```toml
+/// [llm]
+/// default_provider = "ollama"
+///
+/// [llm.providers.ollama]
+/// model = "llama3.2"
+/// base_url = "http://localhost:11434"  # 可选，默认值
+/// temperature = 0.7  # 可选
+/// ```
+///
+/// # 特性
+/// - 完全本地运行（无需 API key）
+/// - 支持自定义模型
+/// - 自动重试（3 次，指数退避）
+/// - 无流式支持（计划中）
+///
+/// # 环境变量
+/// - `OLLAMA_BASE_URL` - Ollama 服务地址（可选）
+///
+/// # 使用前提
+/// 1. 安装 Ollama：<https://ollama.ai>
+/// 2. 拉取模型：`ollama pull llama3.2`
+/// 3. 确保 Ollama 服务运行中：`ollama serve`
+///
+/// # 示例
+/// ```ignore
+/// use gcop_rs::llm::{LLMProvider, provider::ollama::OllamaProvider};
+/// use gcop_rs::config::{ProviderConfig, NetworkConfig};
+///
+/// # async fn example() -> anyhow::Result<()> {
+/// let config = ProviderConfig {
+///     model: "llama3.2".to_string(),
+///     base_url: Some("http://localhost:11434".to_string()),
+///     ..Default::default()
+/// };
+/// let network_config = NetworkConfig::default();
+/// let provider = OllamaProvider::new(&config, "ollama", &network_config, false)?;
+///
+/// // 生成 commit message
+/// let diff = "diff --git a/main.rs...";
+/// let message = provider.generate_commit_message(diff, None, None).await?;
+/// println!("Generated: {}", message);
+/// # Ok(())
+/// # }
+/// ```
 pub struct OllamaProvider {
     name: String,
     client: Client,

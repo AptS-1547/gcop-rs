@@ -1,9 +1,12 @@
 use thiserror::Error;
 
+/// Result 类型别名，使用 [`GcopError`] 作为错误类型
 pub type Result<T> = std::result::Result<T, GcopError>;
 
 /// git2::Error 的包装类型，提供更友好的错误信息
-/// 只显示错误消息，隐藏 class 和 code 等技术细节
+///
+/// 隐藏 libgit2 的技术细节（ErrorClass、ErrorCode 等），
+/// 仅显示用户友好的错误消息。
 #[derive(Debug)]
 pub struct GitErrorWrapper(pub git2::Error);
 
@@ -25,56 +28,174 @@ impl From<git2::Error> for GcopError {
     }
 }
 
+/// gcop-rs 统一错误类型
+///
+/// 包含所有可能的错误情况，支持：
+/// - 国际化错误消息（通过 [`localized_message()`]）
+/// - 用户友好的解决建议（通过 [`localized_suggestion()`]）
+/// - 从各种库错误自动转换（实现 `From<T>`）
+///
+/// # 错误类别
+/// - Git 操作错误：[`GitCommand`], [`Git`]
+/// - LLM 相关错误：[`Llm`], [`LlmApi`]
+/// - 配置错误：[`Config`], [`ConfigParse`]
+/// - 用户操作：[`UserCancelled`], [`InvalidInput`]
+/// - 其他：[`Io`], [`Network`], [`Other`]
+///
+/// # 示例
+/// ```
+/// use gcop_rs::error::{GcopError, Result};
+///
+/// fn example() -> Result<()> {
+///     let err = GcopError::NoStagedChanges;
+///     println!("Error: {}", err.localized_message());
+///     if let Some(suggestion) = err.localized_suggestion() {
+///         println!("Suggestion: {}", suggestion);
+///     }
+///     Err(err)
+/// }
+/// ```
+///
+/// [`GitCommand`]: GcopError::GitCommand
+/// [`Git`]: GcopError::Git
+/// [`Llm`]: GcopError::Llm
+/// [`LlmApi`]: GcopError::LlmApi
+/// [`Config`]: GcopError::Config
+/// [`ConfigParse`]: GcopError::ConfigParse
+/// [`UserCancelled`]: GcopError::UserCancelled
+/// [`InvalidInput`]: GcopError::InvalidInput
+/// [`Io`]: GcopError::Io
+/// [`Network`]: GcopError::Network
+/// [`Other`]: GcopError::Other
+/// [`localized_message()`]: GcopError::localized_message
+/// [`localized_suggestion()`]: GcopError::localized_suggestion
 #[derive(Error, Debug)]
 pub enum GcopError {
+    /// Git2 库错误（libgit2）
+    ///
+    /// 包含详细的 ErrorCode 和 ErrorClass。
+    ///
+    /// # 常见错误码
+    /// - `NotFound`：文件/分支不存在
+    /// - `Exists`：分支已存在
+    /// - `Uncommitted`：有未提交的变更
+    /// - `Conflict`：merge 冲突
     #[error("Git error: {0}")]
     Git(GitErrorWrapper),
 
+    /// Git 命令执行失败
+    ///
+    /// 包含 `git` 命令的 stderr 输出。
+    ///
+    /// # 常见原因
+    /// - 无 staged changes：`nothing to commit`
+    /// - pre-commit hook 失败
+    /// - merge 冲突
     #[error("Git command failed: {0}")]
     GitCommand(String),
 
+    /// 配置错误
+    ///
+    /// 包含配置文件错误、环境变量错误、API key 缺失等。
     #[error("Configuration error: {0}")]
     Config(String),
 
+    /// LLM provider 错误
+    ///
+    /// 通用 LLM 错误（非 HTTP 状态码错误）。
+    ///
+    /// # 常见原因
+    /// - 超时
+    /// - 连接失败
+    /// - 响应解析失败
     #[error("LLM provider error: {0}")]
     Llm(String),
 
+    /// LLM API HTTP 错误
+    ///
+    /// 包含 HTTP 状态码和错误消息。
+    ///
+    /// # 常见状态码
+    /// - `401` - API key 无效或过期
+    /// - `429` - 速率限制
+    /// - `500+` - 服务端错误
     #[error("LLM API error ({status}): {message}")]
-    LlmApi { status: u16, message: String },
+    LlmApi {
+        /// HTTP 状态码
+        status: u16,
+        /// 错误消息
+        message: String,
+    },
 
+    /// 网络错误
+    ///
+    /// HTTP 请求失败（超时、DNS 错误、连接拒绝等）。
     #[error("Network error: {0}")]
     Network(#[from] reqwest::Error),
 
+    /// IO 错误
+    ///
+    /// 文件读写失败。
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
+    /// 序列化错误
+    ///
+    /// JSON 序列化/反序列化失败。
     #[error("Serialization error: {0}")]
     Serde(#[from] serde_json::Error),
 
+    /// 配置文件解析错误
+    ///
+    /// TOML 文件格式错误或字段类型不匹配。
     #[error("Configuration parsing error: {0}")]
     ConfigParse(#[from] config::ConfigError),
 
+    /// UI 交互错误
+    ///
+    /// 终端交互失败（用户输入错误、终端不可用等）。
     #[error("UI error: {0}")]
     Dialoguer(#[from] dialoguer::Error),
 
+    /// 无 staged changes
+    ///
+    /// 暂存区为空，无法生成 commit message。
     #[error("No staged changes found")]
     NoStagedChanges,
 
+    /// 用户取消操作
+    ///
+    /// 用户在交互式 prompt 中选择退出。
     #[error("Operation cancelled by user")]
     UserCancelled,
 
+    /// 无效输入
+    ///
+    /// 用户提供的参数不符合预期格式。
     #[error("Invalid input: {0}")]
     InvalidInput(String),
 
+    /// 达到最大重试次数
+    ///
+    /// commit message 生成重试次数超过配置的上限。
     #[error("Max retries exceeded after {0} attempts")]
     MaxRetriesExceeded(usize),
 
-    /// 通用错误类型，用于不适合其他分类的错误
+    /// 通用错误类型
+    ///
+    /// 用于不适合其他分类的错误。
     #[error("{0}")]
     Other(String),
 }
 
-/// 将 Git ErrorCode 映射到建议key（用于去重）
+/// 将 Git ErrorCode 映射到建议 key（用于去重）
+///
+/// # 参数
+/// - `code`: libgit2 错误码
+///
+/// # 返回
+/// - `Some(key)` - 建议的 i18n key
+/// - `None` - 无特定建议（通用错误）
 fn git_error_code_to_key(code: git2::ErrorCode) -> Option<&'static str> {
     use git2::ErrorCode;
     match code {
@@ -108,6 +229,21 @@ fn git_error_code_to_key(code: git2::ErrorCode) -> Option<&'static str> {
 
 impl GcopError {
     /// 获取本地化的错误消息
+    ///
+    /// 根据当前语言环境返回翻译后的错误消息。
+    ///
+    /// # 返回
+    /// 本地化后的错误消息字符串
+    ///
+    /// # 示例
+    /// ```
+    /// use gcop_rs::error::GcopError;
+    ///
+    /// let err = GcopError::NoStagedChanges;
+    /// println!("{}", err.localized_message());
+    /// // 输出：No staged changes found（英文环境）
+    /// // 输出：未找到暂存的更改（中文环境）
+    /// ```
     pub fn localized_message(&self) -> String {
         match self {
             GcopError::Git(wrapper) => {
@@ -148,6 +284,31 @@ impl GcopError {
     }
 
     /// 获取本地化的解决建议
+    ///
+    /// 根据错误类型返回用户友好的解决建议（如果有）。
+    ///
+    /// # 返回
+    /// - `Some(suggestion)` - 解决建议字符串
+    /// - `None` - 无特定建议
+    ///
+    /// # 建议类型
+    /// - **NoStagedChanges**: 提示运行 `git add`
+    /// - **Config(API key)**: 提示设置 API key
+    /// - **LlmApi(401)**: 提示检查 API key 有效性
+    /// - **LlmApi(429)**: 提示稍后重试或升级 API 计划
+    /// - **Network**: 提示检查网络连接
+    /// - 其他错误：可能返回 `None`
+    ///
+    /// # 示例
+    /// ```
+    /// use gcop_rs::error::GcopError;
+    ///
+    /// let err = GcopError::NoStagedChanges;
+    /// if let Some(suggestion) = err.localized_suggestion() {
+    ///     println!("Try: {}", suggestion);
+    /// }
+    /// // 输出：Try: Run 'git add <files>' to stage your changes first
+    /// ```
     pub fn localized_suggestion(&self) -> Option<String> {
         match self {
             GcopError::Git(wrapper) => git_error_code_to_key(wrapper.0.code())

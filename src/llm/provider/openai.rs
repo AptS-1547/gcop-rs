@@ -13,7 +13,69 @@ use crate::config::{NetworkConfig, ProviderConfig};
 use crate::error::{GcopError, Result};
 use crate::llm::{CommitContext, LLMProvider, ReviewResult, ReviewType, StreamHandle};
 
-/// OpenAI API Provider
+/// OpenAI API provider
+///
+/// 使用 OpenAI API（或兼容的 API）生成 commit message 和代码审查。
+///
+/// # 支持的模型
+/// - **OpenAI 官方**：
+///   - `gpt-4` (推荐)
+///   - `gpt-4-turbo`
+///   - `gpt-3.5-turbo`
+/// - **兼容 API**（如 Azure OpenAI, OpenRouter 等）
+///
+/// # 配置示例
+/// ```toml
+/// [llm]
+/// default_provider = "openai"
+///
+/// [llm.providers.openai]
+/// api_key = "sk-..."
+/// model = "gpt-4"
+/// base_url = "https://api.openai.com"  # 可选
+/// max_tokens = 1000  # 可选
+/// temperature = 0.7  # 可选
+/// ```
+///
+/// # 特性
+/// - 支持流式响应（SSE）
+/// - 自动重试（3 次，指数退避）
+/// - 兼容 OpenAI API 的第三方服务
+/// - 自定义端点（支持代理或 Azure OpenAI）
+///
+/// # 环境变量
+/// - `OPENAI_API_KEY` - API key（优先级高于配置文件）
+/// - `OPENAI_BASE_URL` - 自定义端点（可选）
+///
+/// # Azure OpenAI 示例
+/// ```toml
+/// [llm.providers.openai]
+/// api_key = "your-azure-key"
+/// model = "gpt-4"
+/// base_url = "https://your-resource.openai.azure.com"
+/// ```
+///
+/// # 示例
+/// ```ignore
+/// use gcop_rs::llm::{LLMProvider, provider::openai::OpenAIProvider};
+/// use gcop_rs::config::{ProviderConfig, NetworkConfig};
+///
+/// # async fn example() -> anyhow::Result<()> {
+/// let config = ProviderConfig {
+///     api_key: Some("sk-...".to_string()),
+///     model: "gpt-4".to_string(),
+///     ..Default::default()
+/// };
+/// let network_config = NetworkConfig::default();
+/// let provider = OpenAIProvider::new(&config, "openai", &network_config, false)?;
+///
+/// // 生成 commit message
+/// let diff = "diff --git a/main.rs...";
+/// let message = provider.generate_commit_message(diff, None, None).await?;
+/// println!("Generated: {}", message);
+/// # Ok(())
+/// # }
+/// ```
 pub struct OpenAIProvider {
     name: String,
     client: Client,

@@ -14,7 +14,59 @@ use crate::error::{GcopError, Result};
 use crate::llm::message::SystemBlock;
 use crate::llm::{CommitContext, LLMProvider, ReviewResult, ReviewType, StreamHandle};
 
-/// Claude API Provider
+/// Claude API provider
+///
+/// 使用 Anthropic Claude API 生成 commit message 和代码审查。
+///
+/// # 支持的模型
+/// - `claude-sonnet-4-5-20250929` (推荐，默认)
+/// - `claude-opus-4-20241229`
+/// - `claude-haiku-4-20250110`
+///
+/// # 配置示例
+/// ```toml
+/// [llm]
+/// default_provider = "claude"
+///
+/// [llm.providers.claude]
+/// api_key = "sk-ant-..."
+/// model = "claude-sonnet-4-5-20250929"
+/// base_url = "https://api.anthropic.com"  # 可选
+/// max_tokens = 1000  # 可选
+/// temperature = 0.7  # 可选
+/// ```
+///
+/// # 特性
+/// - 支持流式响应（SSE）
+/// - 自动重试（3 次，指数退避）
+/// - 支持 prompt caching（自动优化 API 成本）
+/// - 自定义端点（支持代理或兼容 API）
+///
+/// # 环境变量
+/// - `ANTHROPIC_API_KEY` - API key（优先级高于配置文件）
+/// - `ANTHROPIC_BASE_URL` - 自定义端点（可选）
+///
+/// # 示例
+/// ```ignore
+/// use gcop_rs::llm::{LLMProvider, provider::claude::ClaudeProvider};
+/// use gcop_rs::config::{ProviderConfig, NetworkConfig};
+///
+/// # async fn example() -> anyhow::Result<()> {
+/// let config = ProviderConfig {
+///     api_key: Some("sk-ant-...".to_string()),
+///     model: "claude-sonnet-4-5-20250929".to_string(),
+///     ..Default::default()
+/// };
+/// let network_config = NetworkConfig::default();
+/// let provider = ClaudeProvider::new(&config, "claude", &network_config, false)?;
+///
+/// // 生成 commit message
+/// let diff = "diff --git a/main.rs...";
+/// let message = provider.generate_commit_message(diff, None, None).await?;
+/// println!("Generated: {}", message);
+/// # Ok(())
+/// # }
+/// ```
 pub struct ClaudeProvider {
     name: String,
     client: Client,
