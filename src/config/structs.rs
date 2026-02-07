@@ -117,7 +117,7 @@ pub struct LLMConfig {
 /// temperature = 0.7
 /// endpoint = "https://api.anthropic.com"  # 可选
 /// ```
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct ProviderConfig {
     /// API 风格: "claude" | "openai" | "ollama"
     /// 用于指定使用哪种 API 实现
@@ -129,6 +129,7 @@ pub struct ProviderConfig {
     pub endpoint: Option<String>,
 
     /// API key（当前从 provider 配置读取）
+    #[serde(skip_serializing)]
     pub api_key: Option<String>,
 
     /// 模型名称
@@ -143,6 +144,26 @@ pub struct ProviderConfig {
     /// 其他参数
     #[serde(flatten)]
     pub extra: HashMap<String, serde_json::Value>,
+}
+
+impl std::fmt::Debug for ProviderConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let masked_key = self.api_key.as_ref().map(|k| {
+            if k.len() > 8 {
+                format!("{}***", &k[..8])
+            } else {
+                "***".to_string()
+            }
+        });
+        f.debug_struct("ProviderConfig")
+            .field("api_style", &self.api_style)
+            .field("endpoint", &self.endpoint)
+            .field("api_key", &masked_key)
+            .field("model", &self.model)
+            .field("max_tokens", &self.max_tokens)
+            .field("temperature", &self.temperature)
+            .finish()
+    }
 }
 
 /// Commit 命令配置

@@ -34,13 +34,19 @@ pub fn clean_json_response(response: &str) -> &str {
         .trim()
 }
 
-/// 截断字符串用于错误预览
+/// 截断字符串用于错误预览（安全处理多字节字符）
 pub fn truncate_for_preview(s: &str) -> String {
-    if s.len() > ERROR_PREVIEW_LENGTH {
-        format!("{}...", &s[..ERROR_PREVIEW_LENGTH])
-    } else {
-        s.to_string()
+    if s.len() <= ERROR_PREVIEW_LENGTH {
+        return s.to_string();
     }
+    // 找到不超过 max_len 的最后一个 char boundary
+    let boundary = s
+        .char_indices()
+        .map(|(i, _)| i)
+        .take_while(|&i| i <= ERROR_PREVIEW_LENGTH)
+        .last()
+        .unwrap_or(0);
+    format!("{}...", &s[..boundary])
 }
 
 /// 解析 review 响应 JSON
@@ -157,6 +163,25 @@ mod tests {
         assert!(result.len() < long.len());
         assert!(result.ends_with("..."));
         assert_eq!(result.len(), ERROR_PREVIEW_LENGTH + 3); // 500 + "..."
+    }
+
+    #[test]
+    fn test_truncate_multibyte_chars() {
+        // 每个中文字符 3 字节，200 个 = 600 字节 > 500
+        let chinese = "你".repeat(200);
+        let result = truncate_for_preview(&chinese);
+        assert!(result.ends_with("..."));
+        // 确保截断在 char boundary 上，不会 panic
+        // 500 / 3 = 166 个完整字符 = 498 字节
+        assert!(result.len() <= ERROR_PREVIEW_LENGTH + 3 + 3);
+    }
+
+    #[test]
+    fn test_truncate_emoji() {
+        // emoji 4 字节，150 个 = 600 字节 > 500
+        let emoji = "🎉".repeat(150);
+        let result = truncate_for_preview(&emoji);
+        assert!(result.ends_with("..."));
     }
 
     // === parse_review_response 测试 ===

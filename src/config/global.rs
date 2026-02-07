@@ -27,14 +27,16 @@ pub fn init_config() -> Result<()> {
 
 /// 获取全局配置（返回 Arc，cheap clone）
 ///
-/// # Panics
-///
-/// 如果配置未初始化（即未调用 `init_config()`），会 panic。
-pub fn get_config() -> Arc<AppConfig> {
+/// 如果配置未初始化（即未调用 `init_config()`），返回错误。
+pub fn get_config() -> Result<Arc<AppConfig>> {
     CONFIG
         .get()
-        .expect("Config not initialized. Call init_config() first.")
-        .load_full()
+        .map(|c| c.load_full())
+        .ok_or_else(|| {
+            crate::error::GcopError::Config(
+                "Config not initialized. Call init_config() first.".to_string(),
+            )
+        })
 }
 
 #[cfg(test)]
@@ -57,8 +59,8 @@ mod tests {
         init_config().unwrap();
 
         // 获取配置
-        let config1 = get_config();
-        let config2 = get_config();
+        let config1 = get_config().unwrap();
+        let config2 = get_config().unwrap();
 
         // 验证返回的是同一个 Arc（指针相等）
         assert!(Arc::ptr_eq(&config1, &config2));
@@ -72,7 +74,7 @@ mod tests {
         init_config().unwrap();
         init_config().unwrap();
 
-        let config = get_config();
+        let config = get_config().unwrap();
         assert!(!config.llm.default_provider.is_empty());
     }
 }
