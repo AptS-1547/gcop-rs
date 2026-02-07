@@ -40,9 +40,6 @@ use crate::llm::{CommitContext, LLMProvider, ReviewResult, ReviewType};
 /// - 自动重试（3 次，指数退避）
 /// - 无流式支持（计划中）
 ///
-/// # 环境变量
-/// - `OLLAMA_BASE_URL` - Ollama 服务地址（可选）
-///
 /// # 使用前提
 /// 1. 安装 Ollama：<https://ollama.ai>
 /// 2. 拉取模型：`ollama pull llama3.2`

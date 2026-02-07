@@ -192,7 +192,7 @@ Each provider under `[llm.providers.<name>]` supports:
 ### Priority Order
 
 1. **Config file** (platform-specific location, see above)
-2. **Environment variable** (fallback)
+2. **CI mode environment variables** (`PROVIDER_*`, only when `CI=1` or `CI_MODE=1`)
 
 ### Methods
 
@@ -203,11 +203,12 @@ Each provider under `[llm.providers.<name>]` supports:
 api_key = "sk-ant-your-key"
 ```
 
-**Method 2: Environment Variable**
+**Method 2: CI Mode Environment Variables**
 
 ```bash
-export ANTHROPIC_API_KEY="sk-ant-your-key"
-export OPENAI_API_KEY="sk-your-openai-key"
+export CI=1
+export PROVIDER_TYPE=claude
+export PROVIDER_API_KEY="sk-ant-your-key"
 ```
 
 ### Security
@@ -219,9 +220,49 @@ export OPENAI_API_KEY="sk-your-openai-key"
 - Never commit config.toml to git
 - Add to .gitignore if creating project-level config
 
-## Environment Overrides (GCOP_*)
+## CI Mode
 
-In addition to provider API key env vars, gcop-rs supports overriding configuration values via environment variables with the `GCOP_` prefix.
+For CI/CD environments, gcop-rs provides a simplified configuration via environment variables. When `CI=1` or `CI_MODE=1` is set, you can configure the provider using `PROVIDER_*` variables instead of a config file.
+
+### Required Variables
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `CI` or `CI_MODE` | Enable CI mode | `1` |
+| `PROVIDER_TYPE` | Provider type | `claude`, `openai`, or `ollama` |
+| `PROVIDER_API_KEY` | API key | `sk-ant-...` |
+
+### Optional Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PROVIDER_MODEL` | Model name | `claude-sonnet-4-5-20250929` (claude)<br>`gpt-4o-mini` (openai)<br>`llama3.2` (ollama) |
+| `PROVIDER_ENDPOINT` | Custom API endpoint | Provider default |
+
+### Example
+
+```bash
+#!/bin/bash
+# CI workflow example
+
+export CI=1
+export PROVIDER_TYPE=claude
+export PROVIDER_API_KEY="$ANTHROPIC_API_KEY"  # from secrets
+export PROVIDER_MODEL="claude-sonnet-4-5-20250929"
+
+# Generate commit message
+gcop-rs commit --yes
+```
+
+**Benefits of CI Mode:**
+- No config file needed - all configuration via environment variables
+- Provider name is automatically set to "ci"
+- Simplifies GitHub Actions / GitLab CI integration
+- Secrets can be injected via CI/CD secret management
+
+## Environment Overrides (GCOP__*)
+
+In addition to CI-mode provider env vars, gcop-rs supports overriding configuration values via environment variables with the `GCOP__` prefix.
 
 - **Priority**: `GCOP__*` overrides config file and defaults.
 - **Mapping**: Nested keys are separated by **double underscores** (`__`).

@@ -35,7 +35,7 @@ use crate::config::AppConfig;
 /// - `no_edit`: 跳过编辑器交互（直接使用生成的 message）
 /// - `yes`: 自动接受生成的 message（跳过确认）
 /// - `dry_run`: 只生成 message，不执行 commit
-/// - `format`: 输出格式（Text/JSON/Markdown）
+/// - `format`: 输出格式（Text/JSON）
 /// - `feedback`: 初始反馈/指令（如 "use Chinese", "be concise"）
 /// - `verbose`: 详细模式（显示 API 请求/响应）
 /// - `provider_override`: 覆盖配置中的 provider（如 `--provider openai`）
@@ -87,7 +87,7 @@ impl<'a> CommitOptions<'a> {
     /// - `no_edit`: `--no-edit` flag
     /// - `yes`: `--yes` flag
     /// - `dry_run`: `--dry-run` flag
-    /// - `format`: `--format` 参数（"text", "json", "markdown"）
+    /// - `format`: `--format` 参数（"text", "json"）
     /// - `json`: `--json` flag（`--format json` 的简写）
     /// - `feedback`: `--feedback` 参数列表
     ///
@@ -125,7 +125,7 @@ impl<'a> CommitOptions<'a> {
     /// - `false` - 禁用颜色输出
     ///
     /// # 规则
-    /// - JSON/Markdown 格式：始终禁用颜色
+    /// - JSON 格式：始终禁用颜色
     /// - Text 格式：使用配置文件的 `ui.colored` 设置
     pub fn effective_colored(&self, config: &AppConfig) -> bool {
         self.format.effective_colored(config.ui.colored)

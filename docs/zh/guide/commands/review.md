@@ -11,7 +11,7 @@ gcop-rs review [OPTIONS] <COMMAND>
 
 | 命令 | 语法 | 说明 |
 |------|------|------|
-| 变更 | `gcop-rs review changes` | 审查工作区未暂存变更（类似 `git diff`） |
+| 变更 | `gcop-rs review changes` | 审查未暂存工作区变更（index → working tree，类似 `git diff`） |
 | 提交 | `gcop-rs review commit <HASH>` | 审查特定提交 |
 | 范围 | `gcop-rs review range <RANGE>` | 审查提交范围（如 `HEAD~3..HEAD`） |
 | 文件 | `gcop-rs review file <PATH>` | 审查单个文件（当前不支持目录） |

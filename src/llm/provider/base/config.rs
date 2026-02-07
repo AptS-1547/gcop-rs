@@ -13,31 +13,21 @@ const DEFAULT_MAX_TOKENS: u32 = 2000;
 /// 默认 temperature
 const DEFAULT_TEMPERATURE: f32 = 0.3;
 
-/// 提取 API key（配置优先，环境变量 fallback）
+/// 提取 API key（仅从配置文件读取）
 ///
 /// # Arguments
 /// * `config` - Provider 配置
-/// * `env_var` - 环境变量名
 /// * `provider_name` - Provider 名称（用于错误提示）
-pub fn extract_api_key(
-    config: &ProviderConfig,
-    env_var: &str,
-    provider_name: &str,
-) -> Result<String> {
-    config
-        .api_key
-        .clone()
-        .or_else(|| std::env::var(env_var).ok())
-        .ok_or_else(|| {
-            GcopError::Config(
-                rust_i18n::t!(
-                    "provider.api_key_not_found",
-                    provider = provider_name,
-                    env_var = env_var
-                )
-                .to_string(),
+pub fn extract_api_key(config: &ProviderConfig, provider_name: &str) -> Result<String> {
+    config.api_key.clone().ok_or_else(|| {
+        GcopError::Config(
+            rust_i18n::t!(
+                "provider.api_key_not_found_simple",
+                provider = provider_name
             )
-        })
+            .to_string(),
+        )
+    })
 }
 
 /// 构建完整 endpoint

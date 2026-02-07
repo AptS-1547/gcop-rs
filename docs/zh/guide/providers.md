@@ -141,7 +141,7 @@ default_provider = "deepseek"  # 修改这里
 
 ### 配置文件 vs 环境变量
 
-**优先级**: 配置文件 > 环境变量
+**当前行为**：provider 的 `api_key` 从配置项读取。`ANTHROPIC_API_KEY` / `OPENAI_API_KEY` 这类环境变量不会自动注入 provider 配置（CI 模式下的 `PROVIDER_API_KEY` 除外）。
 
 ```toml
 # 这个优先级更高
@@ -149,16 +149,14 @@ default_provider = "deepseek"  # 修改这里
 api_key = "from-config"
 ```
 
-```bash
-# 如果配置文件没有 api_key 则使用这个
-export ANTHROPIC_API_KEY="from-env"
-```
+### CI 模式环境变量
 
-### 标准环境变量
+在 CI 模式（`CI=1` 或 `CI_MODE=1`）下，使用：
 
-- Claude: `ANTHROPIC_API_KEY`
-- OpenAI: `OPENAI_API_KEY`
-- Ollama: 无需 API key
+- `PROVIDER_TYPE`
+- `PROVIDER_API_KEY`
+- `PROVIDER_MODEL`（可选）
+- `PROVIDER_ENDPOINT`（可选）
 
 ## 参考
 

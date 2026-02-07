@@ -141,7 +141,7 @@ default_provider = "deepseek"  # Change this
 
 ### Config File vs Environment Variable
 
-**Priority**: Config file > Environment variable
+**Current behavior**: provider `api_key` is read from config entries. Environment variables like `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` are not auto-injected into provider config (except CI mode via `PROVIDER_API_KEY`).
 
 ```toml
 # This takes precedence
@@ -149,16 +149,14 @@ default_provider = "deepseek"  # Change this
 api_key = "from-config"
 ```
 
-```bash
-# This is used if config file doesn't have api_key
-export ANTHROPIC_API_KEY="from-env"
-```
+### CI Mode Environment Variable
 
-### Standard Environment Variables
+In CI mode (`CI=1` or `CI_MODE=1`), use:
 
-- Claude: `ANTHROPIC_API_KEY`
-- OpenAI: `OPENAI_API_KEY`
-- Ollama: No API key needed
+- `PROVIDER_TYPE`
+- `PROVIDER_API_KEY`
+- `PROVIDER_MODEL` (optional)
+- `PROVIDER_ENDPOINT` (optional)
 
 ## See Also
 

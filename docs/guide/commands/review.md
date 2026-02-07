@@ -11,7 +11,7 @@ gcop-rs review [OPTIONS] <COMMAND>
 
 | Command | Syntax | Description |
 |--------|--------|-------------|
-| Changes | `gcop-rs review changes` | Review working tree changes (similar to `git diff`) |
+| Changes | `gcop-rs review changes` | Review unstaged working tree changes (index → working tree; similar to `git diff`) |
 | Commit | `gcop-rs review commit <HASH>` | Review a specific commit |
 | Range | `gcop-rs review range <RANGE>` | Review commit range (e.g., `HEAD~3..HEAD`) |
 | File | `gcop-rs review file <PATH>` | Review a single file (directories currently unsupported) |

@@ -128,9 +128,9 @@ pub enum ReviewTarget {
         range: String,
     },
 
-    /// Review a file or directory
+    /// Review a specific file
     File {
-        /// Path to file or directory
+        /// Path to file
         path: String,
     },
 }

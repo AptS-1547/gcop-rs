@@ -331,10 +331,10 @@ pub struct CommitContext {
 /// 指定要审查的代码范围。
 ///
 /// # 变体
-/// - [`UncommittedChanges`] - 未提交的所有变更（staged + unstaged）
+/// - [`UncommittedChanges`] - 未提交且未暂存的变更（index -> workdir）
 /// - [`SingleCommit`] - 单个 commit（通过 hash）
 /// - [`CommitRange`] - commit 范围（如 `HEAD~3..HEAD`）
-/// - [`FileOrDir`] - 特定文件或目录
+/// - [`FileOrDir`] - 特定文件路径（当前不支持目录）
 ///
 /// [`UncommittedChanges`]: ReviewType::UncommittedChanges
 /// [`SingleCommit`]: ReviewType::SingleCommit

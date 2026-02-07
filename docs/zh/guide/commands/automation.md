@@ -39,18 +39,37 @@ fi
 
 这些环境变量会影响 gcop-rs 行为：
 
+### CI 模式（简化配置）
+
 | 变量 | 说明 |
 |------|------|
-| `ANTHROPIC_API_KEY` | Claude API key（如果不在配置中则作为回退） |
-| `OPENAI_API_KEY` | OpenAI API key（回退） |
-| `VISUAL` / `EDITOR` | commit message 编辑与 `gcop-rs config edit` 使用的编辑器 |
-| `GCOP_UI_LANGUAGE` | 在启动早期强制指定 UI 语言（在完整加载配置前生效） |
-| `GCOP_*` | 通过环境变量覆盖配置项（如 `GCOP_UI_COLORED=false`） |
-| `NO_COLOR` | 禁用彩色输出（设置为任意值） |
+| `CI=1` 或 `CI_MODE=1` | 启用 CI 模式，使用简化的 provider 配置 |
+| `PROVIDER_TYPE` | Provider 类型：`claude`、`openai` 或 `ollama`（CI 模式必需） |
+| `PROVIDER_API_KEY` | Provider 的 API key（CI 模式必需） |
+| `PROVIDER_MODEL` | 模型名称（可选，有默认值） |
+| `PROVIDER_ENDPOINT` | 自定义 API 端点（可选） |
 
-**示例**:
+**CI 模式示例**:
 ```bash
-export ANTHROPIC_API_KEY="sk-ant-..."
+export CI=1
+export PROVIDER_TYPE=claude
+export PROVIDER_API_KEY="sk-ant-..."
+export PROVIDER_MODEL="claude-sonnet-4-5-20250929"  # 可选
+gcop-rs commit
+```
+
+### 通用配置
+
+| 变量 | 说明 |
+|------|------|
+| `GCOP__*` | 覆盖配置项（嵌套层级使用双下划线，如 `GCOP__UI__COLORED=false`） |
+| `GCOP_UI_LANGUAGE` | 在启动早期强制指定 UI 语言（单下划线 - 特殊情况） |
+| `VISUAL` / `EDITOR` | commit message 编辑与 `gcop-rs config edit` 使用的编辑器 |
+
+**配置覆盖示例**:
+```bash
+export GCOP__UI__COLORED=false
+export GCOP__LLM__DEFAULT_PROVIDER=openai
 export EDITOR="vim"
 gcop-rs commit
 ```

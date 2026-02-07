@@ -30,7 +30,7 @@ gcop-rs alias
   ✓  git r          → AI review
   ℹ  git p          → Push (already set)
 
-✓ Installed 10 aliases
+✓ Installed 14 aliases
 ℹ Skipped 1 alias (already exists or conflicts)
 ```
 

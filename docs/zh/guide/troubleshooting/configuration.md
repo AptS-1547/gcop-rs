@@ -18,7 +18,7 @@ vim ~/.config/gcop/config.toml
 
 ## 问题: "API key not found"
 
-**原因**: 配置文件和环境变量中都没有 API key
+**原因**: provider 配置中没有 API key（或 CI 模式变量未设置）
 
 **解决方案**:
 
@@ -28,9 +28,11 @@ vim ~/.config/gcop/config.toml
 api_key = "sk-ant-your-key"
 ```
 
-**选项 2**: 使用环境变量
+**选项 2**: 使用 CI 模式环境变量
 ```bash
-export ANTHROPIC_API_KEY="sk-ant-your-key"
+export CI=1
+export PROVIDER_TYPE=claude
+export PROVIDER_API_KEY="sk-ant-your-key"
 ```
 
 ## 问题: "Unsupported api_style"
@@ -41,4 +43,3 @@ export ANTHROPIC_API_KEY="sk-ant-your-key"
 - `"claude"` - 用于 Anthropic API 兼容服务
 - `"openai"` - 用于 OpenAI API 兼容服务
 - `"ollama"` - 用于本地 Ollama
-

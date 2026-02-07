@@ -39,18 +39,37 @@ fi
 
 These environment variables affect gcop-rs behavior:
 
+### CI Mode (simplified configuration)
+
 | Variable | Description |
 |----------|-------------|
-| `ANTHROPIC_API_KEY` | Claude API key (fallback if not in config) |
-| `OPENAI_API_KEY` | OpenAI API key (fallback) |
-| `VISUAL` / `EDITOR` | Editor for commit message editing and `gcop-rs config edit` |
-| `GCOP_UI_LANGUAGE` | Force UI language early in startup (before config is fully loaded) |
-| `GCOP_*` | Override config values via environment variables (e.g., `GCOP_UI_COLORED=false`) |
-| `NO_COLOR` | Disable colored output (set to any value) |
+| `CI=1` or `CI_MODE=1` | Enable CI mode with simplified provider configuration |
+| `PROVIDER_TYPE` | Provider type: `claude`, `openai`, or `ollama` (required in CI mode) |
+| `PROVIDER_API_KEY` | API key for the provider (required in CI mode) |
+| `PROVIDER_MODEL` | Model name (optional, has defaults) |
+| `PROVIDER_ENDPOINT` | Custom API endpoint (optional) |
 
-**Example**:
+**CI Mode Example**:
 ```bash
-export ANTHROPIC_API_KEY="sk-ant-..."
+export CI=1
+export PROVIDER_TYPE=claude
+export PROVIDER_API_KEY="sk-ant-..."
+export PROVIDER_MODEL="claude-sonnet-4-5-20250929"  # optional
+gcop-rs commit
+```
+
+### General Configuration
+
+| Variable | Description |
+|----------|-------------|
+| `GCOP__*` | Override config values (use double underscores for nesting, e.g., `GCOP__UI__COLORED=false`) |
+| `GCOP_UI_LANGUAGE` | Force UI language early in startup (single underscore - special case) |
+| `VISUAL` / `EDITOR` | Editor for commit message editing and `gcop-rs config edit` |
+
+**Config Override Example**:
+```bash
+export GCOP__UI__COLORED=false
+export GCOP__LLM__DEFAULT_PROVIDER=openai
 export EDITOR="vim"
 gcop-rs commit
 ```

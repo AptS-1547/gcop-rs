@@ -42,10 +42,6 @@ use crate::llm::{CommitContext, LLMProvider, ReviewResult, ReviewType, StreamHan
 /// - 支持 prompt caching（自动优化 API 成本）
 /// - 自定义端点（支持代理或兼容 API）
 ///
-/// # 环境变量
-/// - `ANTHROPIC_API_KEY` - API key（优先级高于配置文件）
-/// - `ANTHROPIC_BASE_URL` - 自定义端点（可选）
-///
 /// # 示例
 /// ```ignore
 /// use gcop_rs::llm::{LLMProvider, provider::claude::ClaudeProvider};
@@ -127,7 +123,7 @@ impl ClaudeProvider {
         network_config: &NetworkConfig,
         colored: bool,
     ) -> Result<Self> {
-        let api_key = extract_api_key(config, "ANTHROPIC_API_KEY", "Claude")?;
+        let api_key = extract_api_key(config, "Claude")?;
         let endpoint = build_endpoint(config, DEFAULT_CLAUDE_BASE, CLAUDE_API_SUFFIX);
         let model = config.model.clone();
         let max_tokens = get_max_tokens(config);

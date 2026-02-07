@@ -49,7 +49,7 @@ gcop-rs config validate
 ```
 
 **Checks**:
-- Loads and parses configuration (defaults + config file + `GCOP_*` env overrides)
+- Loads and parses configuration (defaults + config file + `GCOP__*` env overrides)
 - Lists configured providers
 - Validates provider connections through the configured provider chain (`default_provider` + `fallback_providers`)
 - Succeeds if at least one configured provider validates

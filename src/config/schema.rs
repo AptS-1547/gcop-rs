@@ -98,7 +98,7 @@ pub struct LLMConfig {
 /// # 字段
 /// - `api_style`: API 风格（"claude", "openai", "ollama"）
 /// - `endpoint`: 自定义 API 端点（可选）
-/// - `api_key`: API key（可选，优先从环境变量读取）
+/// - `api_key`: API key（可选，除 CI 模式外当前需在 provider 配置中显式提供）
 /// - `model`: 模型名称
 /// - `max_tokens`: 最大生成 token 数（可选）
 /// - `temperature`: 温度参数 0.0-1.0（可选）
@@ -124,7 +124,7 @@ pub struct ProviderConfig {
     /// API endpoint
     pub endpoint: Option<String>,
 
-    /// API key（优先从环境变量读取）
+    /// API key（当前从 provider 配置读取）
     pub api_key: Option<String>,
 
     /// 模型名称
@@ -175,8 +175,8 @@ pub struct CommitConfig {
     #[serde(default = "default_true")]
     pub confirm_before_commit: bool,
 
-    /// 自定义 commit message 生成的 prompt 模板
-    /// 可用占位符：{diff}, {files_changed}, {insertions}, {deletions}, {branch_name}
+    /// 自定义 commit message 生成的 system prompt 文本
+    /// 不做占位符替换（如 `{diff}` 会按字面量传递）
     #[serde(default)]
     pub custom_prompt: Option<String>,
 
@@ -211,8 +211,8 @@ pub struct ReviewConfig {
     #[serde(default = "default_severity")]
     pub min_severity: String,
 
-    /// 自定义 code review 的 prompt 模板
-    /// 可用占位符：{diff}
+    /// 自定义 code review 的 system prompt 文本
+    /// 不做占位符替换（如 `{diff}` 会按字面量传递）
     #[serde(default)]
     pub custom_prompt: Option<String>,
 }
@@ -260,7 +260,7 @@ pub struct UIConfig {
 /// 控制 HTTP 请求的超时和重试行为。
 ///
 /// # 字段
-/// - `request_timeout`: HTTP 请求超时时间（秒，默认 30）
+/// - `request_timeout`: HTTP 请求超时时间（秒，默认 120）
 /// - `connect_timeout`: HTTP 连接超时时间（秒，默认 10）
 /// - `max_retries`: LLM API 请求最大重试次数（默认 3）
 /// - `retry_delay_ms`: 重试初始延迟（毫秒，默认 1000）

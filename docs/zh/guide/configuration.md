@@ -192,7 +192,7 @@ max_size = 10485760      # 最大文件大小（10MB）
 ### 优先级顺序
 
 1. **配置文件**（平台特定位置，见上方）
-2. **环境变量**（fallback）
+2. **CI 模式环境变量**（`PROVIDER_*`，仅在 `CI=1` 或 `CI_MODE=1` 时）
 
 ### 配置方式
 
@@ -203,11 +203,12 @@ max_size = 10485760      # 最大文件大小（10MB）
 api_key = "sk-ant-your-key"
 ```
 
-**方式 2: 环境变量**
+**方式 2: CI 模式环境变量**
 
 ```bash
-export ANTHROPIC_API_KEY="sk-ant-your-key"
-export OPENAI_API_KEY="sk-your-openai-key"
+export CI=1
+export PROVIDER_TYPE=claude
+export PROVIDER_API_KEY="sk-ant-your-key"
 ```
 
 ### 安全建议
@@ -219,9 +220,49 @@ export OPENAI_API_KEY="sk-your-openai-key"
 - 不要将 config.toml 提交到 git
 - 如果创建项目级配置，添加到 .gitignore
 
-## 环境变量覆盖（GCOP_*）
+## CI 模式
 
-除了 provider API key 的环境变量外，gcop-rs 也支持用 `GCOP_` 前缀的环境变量覆盖配置项。
+对于 CI/CD 环境，gcop-rs 提供通过环境变量的简化配置方式。当设置 `CI=1` 或 `CI_MODE=1` 时，可以使用 `PROVIDER_*` 变量配置 provider，无需配置文件。
+
+### 必需变量
+
+| 变量 | 说明 | 示例 |
+|------|------|------|
+| `CI` 或 `CI_MODE` | 启用 CI 模式 | `1` |
+| `PROVIDER_TYPE` | Provider 类型 | `claude`、`openai` 或 `ollama` |
+| `PROVIDER_API_KEY` | API key | `sk-ant-...` |
+
+### 可选变量
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `PROVIDER_MODEL` | 模型名称 | `claude-sonnet-4-5-20250929` (claude)<br>`gpt-4o-mini` (openai)<br>`llama3.2` (ollama) |
+| `PROVIDER_ENDPOINT` | 自定义 API 端点 | Provider 默认值 |
+
+### 示例
+
+```bash
+#!/bin/bash
+# CI 工作流示例
+
+export CI=1
+export PROVIDER_TYPE=claude
+export PROVIDER_API_KEY="$ANTHROPIC_API_KEY"  # 从 secrets 注入
+export PROVIDER_MODEL="claude-sonnet-4-5-20250929"
+
+# 生成 commit message
+gcop-rs commit --yes
+```
+
+**CI 模式的优势：**
+- 无需配置文件 - 所有配置通过环境变量
+- Provider 名称自动设为 "ci"
+- 简化 GitHub Actions / GitLab CI 集成
+- Secrets 可通过 CI/CD 的 secret 管理注入
+
+## 环境变量覆盖（GCOP__*）
+
+除了 CI 模式 provider 环境变量外，gcop-rs 也支持用 `GCOP__` 前缀的环境变量覆盖配置项。
 
 - **优先级**：`GCOP__*` 的优先级高于配置文件与默认值。
 - **映射方式**：嵌套配置项使用**双下划线** (`__`) 分隔。

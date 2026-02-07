@@ -44,10 +44,6 @@ use crate::llm::{CommitContext, LLMProvider, ReviewResult, ReviewType, StreamHan
 /// - 兼容 OpenAI API 的第三方服务
 /// - 自定义端点（支持代理或 Azure OpenAI）
 ///
-/// # 环境变量
-/// - `OPENAI_API_KEY` - API key（优先级高于配置文件）
-/// - `OPENAI_BASE_URL` - 自定义端点（可选）
-///
 /// # Azure OpenAI 示例
 /// ```toml
 /// [llm.providers.openai]
@@ -139,7 +135,7 @@ impl OpenAIProvider {
         network_config: &NetworkConfig,
         colored: bool,
     ) -> Result<Self> {
-        let api_key = extract_api_key(config, "OPENAI_API_KEY", "OpenAI")?;
+        let api_key = extract_api_key(config, "OpenAI")?;
         let endpoint = build_endpoint(config, DEFAULT_OPENAI_BASE, OPENAI_API_SUFFIX);
         let model = config.model.clone();
         let max_tokens = get_max_tokens_optional(config);

@@ -63,9 +63,10 @@ pub trait GitOperations {
     /// - 权限不足
     fn get_staged_diff(&self) -> Result<String>;
 
-    /// 获取未提交变更的 diff
+    /// 获取未提交变更（未暂存部分）的 diff
     ///
-    /// 包含 staged 和 unstaged 的所有变更，等价于 `git diff HEAD`。
+    /// 仅包含 index -> workdir 的变更（unstaged），
+    /// 等价于 `git diff`（不含 `--cached`）。
     ///
     /// # 返回
     /// - `Ok(diff)` - diff 内容（可能为空字符串）
@@ -99,16 +100,16 @@ pub trait GitOperations {
     /// - `Err(_)` - range 无效或 Git 操作失败
     fn get_range_diff(&self, range: &str) -> Result<String>;
 
-    /// 获取文件或目录的完整内容
+    /// 获取文件的完整内容
     ///
     /// 读取工作区中的文件内容（不是 Git 对象）。
     ///
     /// # 参数
-    /// - `path`: 相对于仓库根目录的路径
+    /// - `path`: 相对于仓库根目录的文件路径
     ///
     /// # 返回
     /// - `Ok(content)` - 文件内容
-    /// - `Err(_)` - 文件不存在或读取失败
+    /// - `Err(_)` - 文件不存在、不是普通文件或读取失败
     fn get_file_content(&self, path: &str) -> Result<String>;
 
     /// 执行 git commit
