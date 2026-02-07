@@ -322,18 +322,11 @@ impl GcopError {
                     || msg.contains("api_key")
                     || msg.contains("API key 为空")
                     || (msg.contains("未找到")
-                        && (msg.contains("ANTHROPIC_API_KEY")
-                            || msg.contains("OPENAI_API_KEY"))) =>
+                        && (msg.contains("API key") || msg.contains("api_key"))) =>
             {
-                if msg.contains("Claude")
-                    || msg.contains("claude")
-                    || msg.contains("ANTHROPIC_API_KEY")
-                {
+                if msg.contains("Claude") || msg.contains("claude") {
                     Some(rust_i18n::t!("suggestion.claude_api_key").to_string())
-                } else if msg.contains("OpenAI")
-                    || msg.contains("openai")
-                    || msg.contains("OPENAI_API_KEY")
-                {
+                } else if msg.contains("OpenAI") || msg.contains("openai") {
                     Some(rust_i18n::t!("suggestion.openai_api_key").to_string())
                 } else {
                     Some(rust_i18n::t!("suggestion.generic_api_key").to_string())
@@ -399,7 +392,7 @@ mod tests {
     fn test_suggestion_config_claude_api_key() {
         let err = GcopError::Config("API key not found for Claude provider".to_string());
         let suggestion = err.localized_suggestion().unwrap();
-        assert!(suggestion.contains("ANTHROPIC_API_KEY"));
+        assert!(!suggestion.contains("GCOP__"));
         assert!(suggestion.contains("[llm.providers.claude]"));
     }
 
@@ -407,7 +400,7 @@ mod tests {
     fn test_suggestion_config_openai_api_key() {
         let err = GcopError::Config("API key not found for OpenAI".to_string());
         let suggestion = err.localized_suggestion().unwrap();
-        assert!(suggestion.contains("OPENAI_API_KEY"));
+        assert!(!suggestion.contains("GCOP__"));
         assert!(suggestion.contains("[llm.providers.openai]"));
     }
 
@@ -415,7 +408,7 @@ mod tests {
     fn test_suggestion_config_generic_api_key() {
         let err = GcopError::Config("API key not found for custom-provider".to_string());
         let suggestion = err.localized_suggestion().unwrap();
-        assert_eq!(suggestion, "Set api_key in ~/.config/gcop/config.toml");
+        assert_eq!(suggestion, "Set api_key in config.toml");
     }
 
     #[test]
