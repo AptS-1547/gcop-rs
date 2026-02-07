@@ -13,18 +13,18 @@ use crate::ui::colors;
 
 /// OpenAI 流式响应的 delta 结构
 #[derive(Debug, serde::Deserialize)]
-pub struct OpenAIDelta {
+struct OpenAIDelta {
     pub choices: Vec<OpenAIDeltaChoice>,
 }
 
 #[derive(Debug, serde::Deserialize)]
-pub struct OpenAIDeltaChoice {
+struct OpenAIDeltaChoice {
     pub delta: OpenAIDeltaContent,
     pub finish_reason: Option<String>,
 }
 
 #[derive(Debug, serde::Deserialize)]
-pub struct OpenAIDeltaContent {
+struct OpenAIDeltaContent {
     pub content: Option<String>,
 }
 
@@ -131,7 +131,7 @@ pub async fn process_openai_stream(
 /// Claude SSE 事件类型
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type")]
-pub enum ClaudeSSEEvent {
+enum ClaudeSSEEvent {
     #[serde(rename = "content_block_delta")]
     ContentBlockDelta { delta: ClaudeTextDelta },
     #[serde(rename = "message_stop")]
@@ -142,7 +142,7 @@ pub enum ClaudeSSEEvent {
 
 /// Claude 文本增量
 #[derive(Debug, Deserialize)]
-pub struct ClaudeTextDelta {
+struct ClaudeTextDelta {
     #[serde(rename = "type")]
     pub delta_type: String,
     #[serde(default)]

@@ -87,16 +87,16 @@ fn test_app_config_default_file() {
 #[test]
 #[serial]
 fn test_load_config_succeeds() {
-    // 验证 load_config 不会崩溃
-    let result = loader::load_config();
+    // 验证 load_config 不会崩溃（不读用户配置文件）
+    let result = loader::load_config_from_path(None);
     assert!(result.is_ok());
 }
 
 #[test]
 #[serial]
 fn test_load_config_returns_valid_config() {
-    let config = loader::load_config().unwrap();
-    // 验证配置有合理的值（不一定是默认值，可能被用户配置覆盖）
+    let config = loader::load_config_from_path(None).unwrap();
+    // 验证配置有合理的值
     assert!(!config.llm.default_provider.is_empty());
     assert!(config.commit.max_retries > 0);
     assert!(config.network.request_timeout > 0);
@@ -122,9 +122,7 @@ fn test_get_config_path_has_toml_suffix() {
     assert!(config_path.to_string_lossy().ends_with("config.toml"));
 }
 
-// === 环境变量覆盖测试（验证环境变量可以被读取）===
-// 注意：这些测试验证环境变量被正确设置，但由于用户可能有配置文件，
-// 我们只验证环境变量设置功能而不是完整的优先级覆盖
+// === 环境变量覆盖测试 ===
 
 #[test]
 #[serial]
@@ -157,11 +155,9 @@ fn test_env_var_can_be_read() {
 fn test_env_var_bool_parsing() {
     // 测试 config crate 的 bool 解析能力
     let _guard = EnvGuard::set("GCOP__UI__VERBOSE", "true");
-    let config = loader::load_config().unwrap();
-    // ui.verbose 默认是 false，如果环境变量生效应该是 true
-    // 但如果用户配置文件覆盖了，可能仍然是其他值
-    // 这里我们只验证加载成功，不验证具体值
-    let _ = config.ui.verbose;
+    let config = loader::load_config_from_path(None).unwrap();
+    // ui.verbose 默认是 false，环境变量覆盖为 true
+    assert!(config.ui.verbose);
 }
 
 #[test]
@@ -170,7 +166,7 @@ fn test_env_var_llm_default_provider() {
     // 验证 GCOP__LLM__DEFAULT_PROVIDER 环境变量是否生效
     // 注意：使用双下划线表示嵌套层级
     let _guard = EnvGuard::set("GCOP__LLM__DEFAULT_PROVIDER", "test_provider");
-    let config = loader::load_config().unwrap();
+    let config = loader::load_config_from_path(None).unwrap();
     // 环境变量优先级最高，应该覆盖配置文件
     assert_eq!(config.llm.default_provider, "test_provider");
 }
@@ -184,7 +180,7 @@ fn test_ci_mode_enabled_with_ci_env() {
     let _type = EnvGuard::set("GCOP_CI_PROVIDER", "claude");
     let _key = EnvGuard::set("GCOP_CI_API_KEY", "sk-test");
 
-    let config = loader::load_config().unwrap();
+    let config = loader::load_config_from_path(None).unwrap();
 
     // CI 模式应该设置 default_provider 为 "ci"
     assert_eq!(config.llm.default_provider, "ci");
@@ -206,7 +202,7 @@ fn test_ci_mode_with_custom_model() {
     let _key = EnvGuard::set("GCOP_CI_API_KEY", "dummy");
     let _model = EnvGuard::set("GCOP_CI_MODEL", "llama3.1");
 
-    let config = loader::load_config().unwrap();
+    let config = loader::load_config_from_path(None).unwrap();
 
     let ci_provider = &config.llm.providers["ci"];
     assert_eq!(ci_provider.api_style, Some("ollama".to_string()));
@@ -221,7 +217,7 @@ fn test_ci_mode_with_custom_endpoint() {
     let _key = EnvGuard::set("GCOP_CI_API_KEY", "sk-test");
     let _endpoint = EnvGuard::set("GCOP_CI_ENDPOINT", "https://custom-api.com");
 
-    let config = loader::load_config().unwrap();
+    let config = loader::load_config_from_path(None).unwrap();
 
     let ci_provider = &config.llm.providers["ci"];
     assert_eq!(
@@ -237,7 +233,7 @@ fn test_ci_mode_missing_provider_type() {
     let _key = EnvGuard::set("GCOP_CI_API_KEY", "sk-test");
     // 没有设置 GCOP_CI_PROVIDER
 
-    let result = loader::load_config();
+    let result = loader::load_config_from_path(None);
     assert!(result.is_err());
     assert!(
         result
@@ -254,7 +250,7 @@ fn test_ci_mode_missing_api_key() {
     let _type = EnvGuard::set("GCOP_CI_PROVIDER", "claude");
     // 没有设置 GCOP_CI_API_KEY
 
-    let result = loader::load_config();
+    let result = loader::load_config_from_path(None);
     assert!(result.is_err());
     assert!(
         result
@@ -271,7 +267,7 @@ fn test_ci_mode_invalid_provider_type() {
     let _type = EnvGuard::set("GCOP_CI_PROVIDER", "invalid");
     let _key = EnvGuard::set("GCOP_CI_API_KEY", "sk-test");
 
-    let result = loader::load_config();
+    let result = loader::load_config_from_path(None);
     assert!(result.is_err());
     assert!(
         result
@@ -284,15 +280,10 @@ fn test_ci_mode_invalid_provider_type() {
 #[test]
 #[serial]
 fn test_ci_mode_disabled_by_default() {
-    // 没有设置 CI=1
-    let config = loader::load_config().unwrap();
-
-    // 不应该自动创建 "ci" provider
-    // （除非用户在配置文件中定义了）
-    // 这里我们假设用户配置文件中没有 "ci" provider
-    // 实际测试中，由于用户可能有配置文件，这个断言可能失败
-    // 所以我们只验证配置能正常加载
-    assert!(!config.llm.default_provider.is_empty());
+    // 没有设置 CI=1，不应该创建 "ci" provider
+    let config = loader::load_config_from_path(None).unwrap();
+    assert!(!config.llm.providers.contains_key("ci"));
+    assert_eq!(config.llm.default_provider, "claude"); // 默认值
 }
 
 // === 默认值一致性测试 ===
@@ -309,6 +300,10 @@ fn test_serde_empty_config_matches_default() {
     assert_eq!(
         deserialized.llm.default_provider,
         default_config.llm.default_provider
+    );
+    assert_eq!(
+        deserialized.llm.max_diff_size,
+        default_config.llm.max_diff_size
     );
 
     // Commit

@@ -66,12 +66,14 @@ pub struct AppConfig {
 /// - `default_provider`: 默认 provider（"claude", "openai", "ollama"）
 /// - `fallback_providers`: 备用 provider 列表（按顺序尝试）
 /// - `providers`: 各 provider 的详细配置
+/// - `max_diff_size`: 发送给 LLM 的最大 diff 大小（字节，默认 100KB）
 ///
 /// # 示例
 /// ```toml
 /// [llm]
 /// default_provider = "claude"
 /// fallback_providers = ["openai", "ollama"]
+/// max_diff_size = 102400
 ///
 /// [llm.providers.claude]
 /// api_key = "sk-ant-..."
@@ -93,6 +95,10 @@ pub struct LLMConfig {
     /// 各 provider 的配置
     #[serde(default)]
     pub providers: HashMap<String, ProviderConfig>,
+
+    /// 发送给 LLM 的最大 diff 大小（字节），超出部分会被截断
+    #[serde(default = "default_max_diff_size")]
+    pub max_diff_size: usize,
 }
 
 /// Provider 配置
@@ -378,12 +384,17 @@ fn default_max_file_size() -> u64 {
     10 * 1024 * 1024 // 10MB
 }
 
+fn default_max_diff_size() -> usize {
+    100 * 1024 // 100KB
+}
+
 impl Default for LLMConfig {
     fn default() -> Self {
         Self {
             default_provider: "claude".to_string(),
             fallback_providers: Vec::new(),
             providers: HashMap::new(),
+            max_diff_size: default_max_diff_size(),
         }
     }
 }

@@ -1,4 +1,5 @@
 use super::options::ReviewOptions;
+use super::truncate_diff;
 use crate::cli::ReviewTarget;
 use crate::commands::json::JsonOutput;
 use crate::config::AppConfig;
@@ -95,7 +96,11 @@ pub async fn run_internal(
         }
     };
 
-    // 调用 LLM 进行审查
+    // 调用 LLM 进行审查（截断过大的 diff）
+    let (diff, truncated) = truncate_diff(&diff, config.llm.max_diff_size);
+    if truncated && !is_json {
+        ui::warning(&rust_i18n::t!("diff.truncated"), colored);
+    }
     let review_type = match options.target {
         ReviewTarget::Changes => ReviewType::UncommittedChanges,
         ReviewTarget::Commit { hash } => ReviewType::SingleCommit(hash.clone()),

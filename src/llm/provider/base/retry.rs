@@ -9,7 +9,7 @@ use std::time::{Duration, SystemTime};
 
 use crate::error::{GcopError, Result};
 
-/// 判断错误是否应该重试（仅用于网络层错误）
+/// 判断错误是否应该重试（当前仅对连接失败重试）
 fn is_retryable_error(error: &GcopError) -> bool {
     match error {
         // 连接失败 -> 重试（大小写不敏感）

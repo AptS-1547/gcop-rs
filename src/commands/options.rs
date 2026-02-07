@@ -137,7 +137,7 @@ impl<'a> CommitOptions<'a> {
 /// 从 CLI 参数构造后传递给 `commands::review::run()`。
 ///
 /// # 字段说明
-/// - `target`: 审查目标（未提交变更/单个 commit/范围/文件）
+/// - `target`: 审查目标（未暂存变更/单个 commit/范围/文件）
 /// - `format`: 输出格式
 /// - `verbose`: 详细模式（当前未使用，预留）
 /// - `provider_override`: 覆盖配置中的 provider

@@ -19,10 +19,17 @@ use crate::error::Result;
 /// 2. 配置文件（平台相关路径下的 `config.toml`）
 /// 3. 默认值（来自 structs.rs 的 Default trait 和 serde(default) 属性）
 pub fn load_config() -> Result<AppConfig> {
+    load_config_from_path(get_config_path())
+}
+
+/// 从指定路径加载配置（可测试版本）
+///
+/// 传入 `None` 跳过配置文件加载，仅使用环境变量和默认值。
+pub(crate) fn load_config_from_path(config_path: Option<PathBuf>) -> Result<AppConfig> {
     let mut builder = Config::builder();
 
     // 1. 加载配置文件（如果存在）
-    if let Some(config_path) = get_config_path()
+    if let Some(config_path) = config_path
         && config_path.exists()
     {
         builder = builder.add_source(File::from(config_path));

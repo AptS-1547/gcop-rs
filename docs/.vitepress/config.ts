@@ -313,7 +313,7 @@ export default defineConfig({
     },
 
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/Undertone0809/gcop-rs' },
+      { icon: 'github', link: 'https://github.com/AptS-1547/gcop-rs' },
     ],
 
     search: {

@@ -113,7 +113,7 @@ pub enum Commands {
 
 #[derive(Subcommand, Debug)]
 pub enum ReviewTarget {
-    /// Review uncommitted changes
+    /// Review unstaged working tree changes (index -> workdir)
     Changes,
 
     /// Review a specific commit

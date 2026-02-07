@@ -133,10 +133,9 @@ pub trait LLMProvider: Send + Sync {
     ///
     /// # 错误处理
     /// 实现者需要处理：
-    /// - 网络错误（按 `network.max_retries` 配置重试，默认 3 次）
-    /// - 401/403（API key 无效）
-    /// - 429（速率限制）
-    /// - 500+（服务端错误）
+    /// - 网络连接错误（按 `network.max_retries` 配置重试，默认 3 次）
+    /// - 429（速率限制，可结合 Retry-After）
+    /// - 超时与其他 HTTP 错误（通常不自动重试）
     ///
     /// # 示例
     /// ```ignore
@@ -166,7 +165,7 @@ pub trait LLMProvider: Send + Sync {
     ///
     /// # 参数
     /// - `diff`: 要审查的 diff 内容
-    /// - `review_type`: 审查类型（未提交变更、单个 commit、范围等）
+    /// - `review_type`: 审查类型（未暂存工作区变更、单个 commit、范围等）
     /// - `custom_prompt`: 用户自定义 prompt（追加到系统 prompt）
     /// - `spinner`: 可选的 spinner
     ///

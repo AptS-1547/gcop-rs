@@ -4,6 +4,7 @@ use colored::Colorize;
 use serde::Serialize;
 
 use super::options::CommitOptions;
+use super::truncate_diff;
 use crate::commands::commit_state_machine::{CommitState, GenerationResult, UserAction};
 use crate::commands::json::{self, JsonOutput};
 use crate::config::AppConfig;
@@ -84,6 +85,12 @@ async fn run_with_deps(
     let diff = repo.get_staged_diff()?;
     let stats = repo.get_diff_stats(&diff)?;
 
+    // 截断过大的 diff，防止 token 超限
+    let (diff, truncated) = truncate_diff(&diff, config.llm.max_diff_size);
+    if truncated {
+        ui::warning(&rust_i18n::t!("diff.truncated"), colored);
+    }
+
     ui::step(
         &rust_i18n::t!("commit.step1"),
         &rust_i18n::t!(
@@ -100,15 +107,18 @@ async fn run_with_deps(
 
     // dry_run 模式：只生成不提交
     if options.dry_run {
+        let branch_name = repo.get_current_branch()?;
+        let custom_prompt = config.commit.custom_prompt.clone();
         let (message, already_displayed) = generate_message(
             provider,
-            repo,
             &diff,
             &stats,
             config,
             &initial_feedbacks,
             0,
             options.verbose,
+            &branch_name,
+            &custom_prompt,
         )
         .await?;
         if !already_displayed {
@@ -120,6 +130,10 @@ async fn run_with_deps(
     // 交互模式：状态机主循环
     let should_edit = config.commit.allow_edit && !options.no_edit;
     let max_retries = config.commit.max_retries;
+
+    // 提取循环中不变的上下文（branch_name、custom_prompt 不会随 retry 变化）
+    let branch_name = repo.get_current_branch()?;
+    let custom_prompt = config.commit.custom_prompt.clone();
 
     let mut state = CommitState::Generating {
         attempt: 0,
@@ -136,10 +150,11 @@ async fn run_with_deps(
                     colored,
                     options,
                     config,
-                    repo,
                     provider,
                     &diff,
                     &stats,
+                    &branch_name,
+                    &custom_prompt,
                 )
                 .await?
             }
@@ -188,15 +203,18 @@ async fn handle_json_mode(
 
     let diff = repo.get_staged_diff()?;
     let stats = repo.get_diff_stats(&diff)?;
+    let (diff, _truncated) = truncate_diff(&diff, config.llm.max_diff_size);
+    let branch_name = repo.get_current_branch()?;
+    let custom_prompt = config.commit.custom_prompt.clone();
 
     match generate_message_no_streaming(
         provider,
-        repo,
         &diff,
         &stats,
-        config,
         initial_feedbacks,
         options.verbose,
+        &branch_name,
+        &custom_prompt,
     )
     .await
     {
@@ -217,10 +235,11 @@ async fn handle_generating(
     colored: bool,
     options: &CommitOptions<'_>,
     config: &AppConfig,
-    repo: &dyn GitOperations,
     provider: &Arc<dyn LLMProvider>,
     diff: &str,
     stats: &DiffStats,
+    branch_name: &Option<String>,
+    custom_prompt: &Option<String>,
 ) -> Result<CommitState> {
     // 检查重试上限
     let gen_state = CommitState::Generating {
@@ -233,20 +252,20 @@ async fn handle_generating(
             &rust_i18n::t!("commit.max_retries", count = max_retries),
             colored,
         );
-        gen_state.handle_generation(GenerationResult::MaxRetriesExceeded, options.yes)?;
-        unreachable!("MaxRetriesExceeded should return error");
+        return gen_state.handle_generation(GenerationResult::MaxRetriesExceeded, options.yes);
     }
 
     // 生成 message
     let (message, already_displayed) = generate_message(
         provider,
-        repo,
         diff,
         stats,
         config,
         &feedbacks,
         attempt,
         options.verbose,
+        branch_name,
+        custom_prompt,
     )
     .await?;
 
@@ -332,20 +351,21 @@ fn handle_waiting_for_action(
 #[allow(clippy::too_many_arguments)] // 参数较多但合理
 async fn generate_message(
     provider: &Arc<dyn LLMProvider>,
-    repo: &dyn GitOperations,
     diff: &str,
     stats: &DiffStats,
     config: &AppConfig,
     feedbacks: &[String],
     attempt: usize,
     verbose: bool,
+    branch_name: &Option<String>,
+    custom_prompt: &Option<String>,
 ) -> Result<(String, bool)> {
     let context = CommitContext {
         files_changed: stats.files_changed.clone(),
         insertions: stats.insertions,
         deletions: stats.deletions,
-        branch_name: repo.get_current_branch()?,
-        custom_prompt: config.commit.custom_prompt.clone(),
+        branch_name: branch_name.clone(),
+        custom_prompt: custom_prompt.clone(),
         user_feedback: feedbacks.to_vec(),
     };
 
@@ -452,19 +472,19 @@ fn display_edited_message(message: &str, colored: bool) {
 /// 生成 commit message（非流式版本，用于 JSON 输出模式）
 async fn generate_message_no_streaming(
     provider: &Arc<dyn LLMProvider>,
-    repo: &dyn GitOperations,
     diff: &str,
     stats: &DiffStats,
-    config: &AppConfig,
     feedbacks: &[String],
     verbose: bool,
+    branch_name: &Option<String>,
+    custom_prompt: &Option<String>,
 ) -> Result<String> {
     let context = CommitContext {
         files_changed: stats.files_changed.clone(),
         insertions: stats.insertions,
         deletions: stats.deletions,
-        branch_name: repo.get_current_branch()?,
-        custom_prompt: config.commit.custom_prompt.clone(),
+        branch_name: branch_name.clone(),
+        custom_prompt: custom_prompt.clone(),
         user_feedback: feedbacks.to_vec(),
     };
 
