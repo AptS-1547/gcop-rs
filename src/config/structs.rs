@@ -12,7 +12,7 @@ use std::collections::HashMap;
 /// # 配置文件位置
 /// - Linux: `~/.config/gcop/config.toml`
 /// - macOS: `~/Library/Application Support/gcop/config.toml`
-/// - Windows: `%APPDATA%\gcop\config.toml`
+/// - Windows: `%APPDATA%\gcop\config\config.toml`
 ///
 /// # 配置示例
 /// ```toml

@@ -31,8 +31,8 @@ api_key = "sk-ant-your-key"
 **选项 2**: 使用 CI 模式环境变量
 ```bash
 export CI=1
-export PROVIDER_TYPE=claude
-export PROVIDER_API_KEY="sk-ant-your-key"
+export GCOP_CI_PROVIDER=claude
+export GCOP_CI_API_KEY="sk-ant-your-key"
 ```
 
 ## 问题: "Unsupported api_style"

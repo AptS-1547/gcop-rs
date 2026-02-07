@@ -192,7 +192,7 @@ Each provider under `[llm.providers.<name>]` supports:
 ### Priority Order
 
 1. **Config file** (platform-specific location, see above)
-2. **CI mode environment variables** (`PROVIDER_*`, only when `CI=1` or `CI_MODE=1`)
+2. **CI mode environment variables** (`GCOP_CI_*`, only when `CI=1`)
 
 ### Methods
 
@@ -207,8 +207,8 @@ api_key = "sk-ant-your-key"
 
 ```bash
 export CI=1
-export PROVIDER_TYPE=claude
-export PROVIDER_API_KEY="sk-ant-your-key"
+export GCOP_CI_PROVIDER=claude
+export GCOP_CI_API_KEY="sk-ant-your-key"
 ```
 
 ### Security

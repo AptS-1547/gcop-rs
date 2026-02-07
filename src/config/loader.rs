@@ -16,35 +16,18 @@ use crate::error::Result;
 ///    - 例如：`GCOP__LLM__DEFAULT_PROVIDER=openai`
 ///    - 例如：`GCOP__UI__COLORED=false`
 /// 2. 配置文件（~/.config/gcop/config.toml）
-/// 3. 默认值
+/// 3. 默认值（来自 structs.rs 的 Default trait 和 serde(default) 属性）
 pub fn load_config() -> Result<AppConfig> {
     let mut builder = Config::builder();
 
-    // 1. 设置默认值
-    builder = builder
-        .set_default("llm.default_provider", "claude")?
-        .set_default("commit.show_diff_preview", true)?
-        .set_default("commit.allow_edit", true)?
-        .set_default("commit.confirm_before_commit", true)?
-        .set_default("commit.max_retries", 10)?
-        .set_default("review.show_full_diff", true)?
-        .set_default("review.min_severity", "info")?
-        .set_default("ui.colored", true)?
-        .set_default("ui.verbose", false)?
-        .set_default("network.request_timeout", 120)?
-        .set_default("network.connect_timeout", 10)?
-        .set_default("network.max_retries", 3)?
-        .set_default("network.retry_delay_ms", 1000)?
-        .set_default("file.max_size", 10 * 1024 * 1024)?;
-
-    // 2. 加载配置文件（如果存在）
+    // 1. 加载配置文件（如果存在）
     if let Some(config_path) = get_config_path()
         && config_path.exists()
     {
         builder = builder.add_source(File::from(config_path));
     }
 
-    // 3. 加载环境变量（GCOP__*，优先级最高）
+    // 2. 加载环境变量（GCOP__*，优先级最高）
     // 使用双下划线作为嵌套层级分隔符，避免与字段名中的单下划线冲突
     // 例如：GCOP__LLM__DEFAULT_PROVIDER -> llm.default_provider
     builder = builder.add_source(
@@ -57,8 +40,8 @@ pub fn load_config() -> Result<AppConfig> {
     let config = builder.build()?;
     let mut app_config: AppConfig = config.try_deserialize()?;
 
-    // 4. CI 模式覆盖（优先级最高）
-    // 当 CI=1 或 CI_MODE=1 时，使用 PROVIDER_* 环境变量构建临时 provider 配置
+    // 3. CI 模式覆盖（优先级最高）
+    // 当 CI=1 时，使用 GCOP_CI_* 环境变量构建临时 provider 配置
     apply_ci_mode_overrides(&mut app_config)?;
 
     Ok(app_config)
@@ -133,7 +116,7 @@ fn apply_ci_mode_overrides(config: &mut AppConfig) -> Result<()> {
         .insert("ci".to_string(), provider_config);
     config.llm.default_provider = "ci".to_string();
 
-    tracing::info!("CI mode enabled, using PROVIDER_TYPE={}", provider_type);
+    tracing::info!("CI mode enabled, using GCOP_CI_PROVIDER={}", provider_type);
 
     Ok(())
 }

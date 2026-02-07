@@ -5,20 +5,10 @@ use serde::Serialize;
 
 use super::format::OutputFormat;
 use super::options::StatsOptions;
-use crate::commands::json::ErrorJson;
+use crate::commands::json::JsonOutput;
 use crate::error::Result;
 use crate::git::{CommitInfo, GitOperations, repository::GitRepository};
 use crate::ui;
-
-/// JSON 输出格式（统一结构）
-#[derive(Debug, Serialize)]
-pub struct StatsJsonOutput {
-    pub success: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub data: Option<RepoStats>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<ErrorJson>,
-}
 
 /// 作者统计
 #[derive(Debug, Clone, Serialize)]
@@ -338,7 +328,7 @@ fn output_markdown(stats: &RepoStats, _colored: bool) {
 
 /// JSON 格式输出
 fn output_json(stats: &RepoStats) -> Result<()> {
-    let output = StatsJsonOutput {
+    let output = JsonOutput {
         success: true,
         data: Some(stats.clone()),
         error: None,

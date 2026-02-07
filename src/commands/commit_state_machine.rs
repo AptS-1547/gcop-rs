@@ -399,9 +399,11 @@ mod tests {
         };
         let result = state.handle_generation(GenerationResult::MaxRetriesExceeded, false);
 
-        assert!(result.is_err());
-        if let Err(GcopError::Other(msg)) = result {
-            assert!(msg.contains("Too many retries"));
+        match result {
+            Err(GcopError::MaxRetriesExceeded(attempt)) => {
+                assert_eq!(attempt, 10);
+            }
+            other => panic!("Expected MaxRetriesExceeded, got {:?}", other),
         }
     }
 

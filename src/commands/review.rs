@@ -1,23 +1,11 @@
-use serde::Serialize;
-
 use super::options::ReviewOptions;
 use crate::cli::ReviewTarget;
-use crate::commands::json::ErrorJson;
+use crate::commands::json::JsonOutput;
 use crate::config::AppConfig;
 use crate::error::{GcopError, Result};
 use crate::git::{GitOperations, repository::GitRepository};
 use crate::llm::{IssueSeverity, LLMProvider, ReviewResult, ReviewType, provider::create_provider};
 use crate::ui;
-
-/// JSON 输出格式（统一结构）
-#[derive(Debug, Serialize)]
-pub struct ReviewJsonOutput {
-    pub success: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub data: Option<ReviewResult>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<ErrorJson>,
-}
 
 /// 执行 review 命令（公开接口）
 pub async fn run(options: &ReviewOptions<'_>, config: &AppConfig) -> Result<()> {
@@ -280,7 +268,7 @@ fn print_text(result: &ReviewResult, description: &str, config: &AppConfig) {
 
 /// 以 JSON 格式输出审查结果
 fn print_json(result: &ReviewResult) -> Result<()> {
-    let output = ReviewJsonOutput {
+    let output = JsonOutput {
         success: true,
         data: Some(result.clone()),
         error: None,

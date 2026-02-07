@@ -12,7 +12,7 @@ use super::utils::{CLAUDE_API_SUFFIX, DEFAULT_CLAUDE_BASE};
 use crate::config::{NetworkConfig, ProviderConfig};
 use crate::error::{GcopError, Result};
 use crate::llm::message::SystemBlock;
-use crate::llm::{CommitContext, LLMProvider, ReviewResult, ReviewType, StreamHandle};
+use crate::llm::{CommitContext, LLMProvider, ReviewResult, ReviewType, StreamChunk, StreamHandle};
 
 /// Claude API provider
 ///
@@ -250,11 +250,13 @@ impl ClaudeProvider {
         // 在后台任务中处理流
         let colored = self.colored;
         tokio::spawn(async move {
+            let error_tx = tx.clone();
             if let Err(e) = process_claude_stream(response, tx, colored).await {
                 crate::ui::colors::error(
                     &rust_i18n::t!("provider.stream_processing_error", error = e.to_string()),
                     colored,
                 );
+                let _ = error_tx.send(StreamChunk::Error(e.to_string())).await;
             }
         });
 

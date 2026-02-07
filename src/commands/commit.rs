@@ -5,22 +5,12 @@ use serde::Serialize;
 
 use super::options::CommitOptions;
 use crate::commands::commit_state_machine::{CommitState, GenerationResult, UserAction};
-use crate::commands::json::{self, ErrorJson};
+use crate::commands::json::{self, JsonOutput};
 use crate::config::AppConfig;
 use crate::error::{GcopError, Result};
 use crate::git::{DiffStats, GitOperations, repository::GitRepository};
 use crate::llm::{CommitContext, LLMProvider, provider::create_provider};
 use crate::ui;
-
-/// JSON 输出格式（统一结构）
-#[derive(Debug, Serialize)]
-pub struct CommitJsonOutput {
-    pub success: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub data: Option<CommitData>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<ErrorJson>,
-}
 
 /// Commit 命令的数据部分
 #[derive(Debug, Serialize)]
@@ -501,7 +491,7 @@ async fn generate_message_no_streaming(
 
 /// JSON 格式成功输出
 fn output_json_success(message: &str, stats: &DiffStats, committed: bool) -> Result<()> {
-    let output = CommitJsonOutput {
+    let output = JsonOutput {
         success: true,
         data: Some(CommitData {
             message: message.to_string(),

@@ -206,7 +206,7 @@ pub trait LLMProvider: Send + Sync {
 
     /// 验证配置
     ///
-    /// 发送测试请求验证 API key、base_url 等配置是否正确。
+    /// 发送测试请求验证 API key、endpoint 等配置是否正确。
     ///
     /// # 返回
     /// - `Ok(())` - 配置有效

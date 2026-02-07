@@ -59,7 +59,7 @@ use crate::llm::{CommitContext, LLMProvider, ReviewResult, ReviewType};
 /// # async fn example() -> anyhow::Result<()> {
 /// let config = ProviderConfig {
 ///     model: "llama3.2".to_string(),
-///     base_url: Some("http://localhost:11434".to_string()),
+///     endpoint: Some("http://localhost:11434".to_string()),
 ///     ..Default::default()
 /// };
 /// let network_config = NetworkConfig::default();

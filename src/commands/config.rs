@@ -63,8 +63,16 @@ fn edit(colored: bool) -> Result<()> {
             .edit(&content)?
             .unwrap_or_else(|| content.clone()); // 用户取消则保持原内容
 
-        // 校验配置（直接在内存校验）
-        match toml::from_str::<config::AppConfig>(&edited) {
+        // 校验配置（通过 config crate 反序列化，与 load_config 一致的路径）
+        let validation: std::result::Result<crate::config::AppConfig, _> =
+            ::config::Config::builder()
+                .add_source(::config::File::from_str(
+                    &edited,
+                    ::config::FileFormat::Toml,
+                ))
+                .build()
+                .and_then(|c| c.try_deserialize());
+        match validation {
             Ok(_) => {
                 // 校验成功，写入文件
                 std::fs::write(&config_file, &edited)?;

@@ -12,7 +12,7 @@ use super::streaming::process_openai_stream;
 use super::utils::{DEFAULT_OPENAI_BASE, OPENAI_API_SUFFIX};
 use crate::config::{NetworkConfig, ProviderConfig};
 use crate::error::{GcopError, Result};
-use crate::llm::{CommitContext, LLMProvider, ReviewResult, ReviewType, StreamHandle};
+use crate::llm::{CommitContext, LLMProvider, ReviewResult, ReviewType, StreamChunk, StreamHandle};
 
 /// OpenAI API provider
 ///
@@ -54,7 +54,7 @@ use crate::llm::{CommitContext, LLMProvider, ReviewResult, ReviewType, StreamHan
 /// [llm.providers.openai]
 /// api_key = "your-azure-key"
 /// model = "gpt-4"
-/// base_url = "https://your-resource.openai.azure.com"
+/// endpoint = "https://your-resource.openai.azure.com/v1/chat/completions"
 /// ```
 ///
 /// # 示例
@@ -269,13 +269,14 @@ impl OpenAIProvider {
         // tx 会在任务结束时自动 drop，从而关闭 channel
         let colored = self.colored;
         tokio::spawn(async move {
+            let error_tx = tx.clone();
             if let Err(e) = process_openai_stream(response, tx, colored).await {
                 crate::ui::colors::error(
                     &rust_i18n::t!("provider.stream_processing_error", error = e.to_string()),
                     colored,
                 );
+                let _ = error_tx.send(StreamChunk::Error(e.to_string())).await;
             }
-            // tx 在这里被 drop，channel 关闭
         });
 
         Ok(StreamHandle { receiver: rx })

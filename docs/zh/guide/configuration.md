@@ -192,7 +192,7 @@ max_size = 10485760      # 最大文件大小（10MB）
 ### 优先级顺序
 
 1. **配置文件**（平台特定位置，见上方）
-2. **CI 模式环境变量**（`PROVIDER_*`，仅在 `CI=1` 或 `CI_MODE=1` 时）
+2. **CI 模式环境变量**（`GCOP_CI_*`，仅在 `CI=1` 时）
 
 ### 配置方式
 
@@ -207,8 +207,8 @@ api_key = "sk-ant-your-key"
 
 ```bash
 export CI=1
-export PROVIDER_TYPE=claude
-export PROVIDER_API_KEY="sk-ant-your-key"
+export GCOP_CI_PROVIDER=claude
+export GCOP_CI_API_KEY="sk-ant-your-key"
 ```
 
 ### 安全建议

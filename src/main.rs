@@ -14,10 +14,14 @@ use tokio::runtime::Runtime;
 i18n!("locales", fallback = "en");
 
 fn main() -> Result<()> {
-    // 在解析 CLI 之前初始化语言（支持多语言 help text）
-    init_locale_early();
+    // 1. 加载配置（早期加载，用于语言检测和后续所有命令）
+    //    配置损坏时 fallback 到默认值，确保 locale 初始化不会失败
+    let early_config = config::load_config().unwrap_or_default();
 
-    // 解析 CLI 参数并注入国际化 help text
+    // 2. 初始化语言（需要在 CLI 解析前完成，支持多语言 help text）
+    init_locale(&early_config);
+
+    // 3. 解析 CLI 参数并注入国际化 help text
     let cli = parse_cli_localized()?;
 
     // 根据 verbose 标志设置日志级别
@@ -34,18 +38,16 @@ fn main() -> Result<()> {
         )
         .init();
 
-    // 判断是否需要加载配置
-    // config/init/alias 命令不需要完整配置，可以在配置损坏时运行
-    let needs_config = matches!(
+    // 4. 判断是否需要严格配置校验
+    //    commit/review 命令需要完整配置（provider 等），配置损坏时报错
+    //    其他命令使用已加载的 early_config 即可
+    let config = if matches!(
         &cli.command,
         Commands::Commit { .. } | Commands::Review { .. }
-    );
-
-    // 加载配置（管理命令使用默认配置，允许在配置损坏时运行）
-    let config = if needs_config {
+    ) {
         config::load_config()?
     } else {
-        config::load_config().unwrap_or_default()
+        early_config
     };
 
     // 创建 tokio 运行时
@@ -302,52 +304,21 @@ fn parse_cli_localized() -> Result<Cli> {
         .map_err(|e| anyhow::anyhow!("Failed to parse CLI arguments: {}", e))
 }
 
-/// Initialize locale early in the startup process
+/// Initialize locale from loaded config
 ///
 /// Priority order:
-/// 1. Environment variable GCOP_UI_LANGUAGE (highest priority)
-/// 2. Configuration file ui.language
-/// 3. System locale detection
-/// 4. Fallback to English
-fn init_locale_early() {
-    let locale = std::env::var("GCOP_UI_LANGUAGE")
-        .ok()
-        .or_else(|| get_language_from_config().ok())
+/// 1. config.ui.language（已包含环境变量 GCOP__UI__LANGUAGE 覆盖）
+/// 2. System locale detection
+/// 3. Fallback to English
+fn init_locale(config: &config::AppConfig) {
+    let locale = config
+        .ui
+        .language
+        .clone()
         .or_else(detect_system_locale)
         .unwrap_or_else(|| "en".to_string());
 
     rust_i18n::set_locale(&locale);
-}
-
-/// Attempt to read language setting from config file
-///
-/// This is a lightweight read that only parses the ui.language field
-/// without loading the entire configuration or validating providers.
-fn get_language_from_config() -> Result<String> {
-    use directories::ProjectDirs;
-
-    // Get config path (same logic as config::get_config_path)
-    let config_path = ProjectDirs::from("", "", "gcop")
-        .map(|dirs| dirs.config_dir().join("config.toml"))
-        .ok_or_else(|| anyhow::anyhow!("Could not determine config directory"))?;
-
-    if !config_path.exists() {
-        return Err(anyhow::anyhow!("Config file not found"));
-    }
-
-    let content = std::fs::read_to_string(&config_path)?;
-    let config: toml::Value = toml::from_str(&content)?;
-
-    // Extract ui.language if present
-    if let Some(language) = config
-        .get("ui")
-        .and_then(|ui| ui.get("language"))
-        .and_then(|lang| lang.as_str())
-    {
-        Ok(language.to_string())
-    } else {
-        Err(anyhow::anyhow!("ui.language not found in config"))
-    }
 }
 
 /// Detect system locale using sys-locale crate

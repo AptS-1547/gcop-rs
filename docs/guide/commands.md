@@ -8,7 +8,7 @@ These options can be used with any command:
 
 | Option | Description |
 |--------|-------------|
-| `--provider <NAME>`, `-p` | Override default LLM provider (claude, openai, ollama, or custom) |
+| `--provider <NAME>`, `-p` | Override default LLM provider for LLM commands (`commit` / `review`) |
 | `--verbose`, `-v` | Enable verbose logging (shows API requests and responses) |
 | `--help`, `-h` | Show help information |
 | `--version`, `-V` | Show version information |

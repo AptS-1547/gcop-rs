@@ -58,6 +58,7 @@ fn test_app_config_default_network() {
     assert_eq!(config.network.connect_timeout, 10);
     assert_eq!(config.network.max_retries, 3);
     assert_eq!(config.network.retry_delay_ms, 1000);
+    assert_eq!(config.network.max_retry_delay_ms, 60_000);
 }
 
 #[test]
@@ -65,6 +66,7 @@ fn test_app_config_default_ui() {
     let config = AppConfig::default();
     assert!(config.ui.colored);
     assert!(!config.ui.verbose);
+    assert!(config.ui.streaming);
 }
 
 #[test]
@@ -291,4 +293,79 @@ fn test_ci_mode_disabled_by_default() {
     // 实际测试中，由于用户可能有配置文件，这个断言可能失败
     // 所以我们只验证配置能正常加载
     assert!(!config.llm.default_provider.is_empty());
+}
+
+// === 默认值一致性测试 ===
+
+#[test]
+fn test_serde_empty_config_matches_default() {
+    // 通过 config crate 的空 builder 反序列化，验证与 AppConfig::default() 一致
+    // 这是 load_config() 的真实路径：无配置文件、无环境变量时走 config crate -> serde(default)
+    let config = config::Config::builder().build().unwrap();
+    let deserialized: AppConfig = config.try_deserialize().unwrap();
+    let default_config = AppConfig::default();
+
+    // LLM
+    assert_eq!(
+        deserialized.llm.default_provider,
+        default_config.llm.default_provider
+    );
+
+    // Commit
+    assert_eq!(
+        deserialized.commit.show_diff_preview,
+        default_config.commit.show_diff_preview
+    );
+    assert_eq!(
+        deserialized.commit.allow_edit,
+        default_config.commit.allow_edit
+    );
+    assert_eq!(
+        deserialized.commit.confirm_before_commit,
+        default_config.commit.confirm_before_commit
+    );
+    assert_eq!(
+        deserialized.commit.max_retries,
+        default_config.commit.max_retries
+    );
+
+    // Review
+    assert_eq!(
+        deserialized.review.show_full_diff,
+        default_config.review.show_full_diff
+    );
+    assert_eq!(
+        deserialized.review.min_severity,
+        default_config.review.min_severity
+    );
+
+    // UI
+    assert_eq!(deserialized.ui.colored, default_config.ui.colored);
+    assert_eq!(deserialized.ui.verbose, default_config.ui.verbose);
+    assert_eq!(deserialized.ui.streaming, default_config.ui.streaming);
+
+    // Network
+    assert_eq!(
+        deserialized.network.request_timeout,
+        default_config.network.request_timeout
+    );
+    assert_eq!(
+        deserialized.network.connect_timeout,
+        default_config.network.connect_timeout
+    );
+    assert_eq!(
+        deserialized.network.max_retries,
+        default_config.network.max_retries
+    );
+    assert_eq!(
+        deserialized.network.retry_delay_ms,
+        default_config.network.retry_delay_ms
+    );
+    assert_eq!(
+        deserialized.network.max_retry_delay_ms,
+        default_config.network.max_retry_delay_ms
+    );
+
+    // File
+    assert_eq!(deserialized.file.max_size, default_config.file.max_size);
 }
