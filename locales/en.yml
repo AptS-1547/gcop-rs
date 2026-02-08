@@ -390,6 +390,8 @@ provider.stream.claude_parse_errors: "Claude stream completed with %{count} pars
 provider.stream.claude_ended_with_errors: "Claude stream ended without message_stop, %{count} parse error(s)"
 provider.stream.claude_ended_without_stop: "Claude stream ended without message_stop event"
 provider.stream.gemini_parse_errors: "Gemini stream completed with %{count} parse error(s)"
+provider.stream.gemini_finish_reason_warning: "Gemini stream ended with reason: %{reason} (output may be incomplete)"
+provider.gemini_content_blocked: "Gemini content blocked (reason: %{reason}). The model refused to generate a response."
 
 # Alias descriptions
 alias.desc.cop: "Main entry point for gcop-rs"

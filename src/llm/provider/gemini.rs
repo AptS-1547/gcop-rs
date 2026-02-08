@@ -87,8 +87,10 @@ struct GeminiResponse {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct GeminiCandidate {
-    content: GeminiResponseContent,
+    content: Option<GeminiResponseContent>,
+    finish_reason: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -213,10 +215,27 @@ impl ApiBackend for GeminiProvider {
         )
         .await?;
 
-        response
+        let candidate = response
             .candidates
             .and_then(|c| c.into_iter().next())
-            .and_then(|c| c.content.parts.into_iter().next())
+            .ok_or_else(|| {
+                GcopError::Llm(rust_i18n::t!("provider.gemini_no_candidates").to_string())
+            })?;
+
+        // 检查非正常结束原因（SAFETY、MAX_TOKENS 等）
+        if let Some(reason) = &candidate.finish_reason
+            && reason != "STOP"
+        {
+            tracing::warn!("Gemini response finished with reason: {}", reason);
+            return Err(GcopError::Llm(
+                rust_i18n::t!("provider.gemini_content_blocked", reason = reason.as_str())
+                    .to_string(),
+            ));
+        }
+
+        candidate
+            .content
+            .and_then(|c| c.parts.into_iter().next())
             .map(|p| p.text)
             .ok_or_else(|| {
                 GcopError::Llm(rust_i18n::t!("provider.gemini_no_candidates").to_string())
@@ -279,7 +298,19 @@ impl ApiBackend for GeminiProvider {
     async fn validate(&self) -> Result<()> {
         validate_api_key(&self.api_key)?;
 
-        let test_request = self.build_request("test", "test");
+        let test_request = GeminiRequest {
+            system_instruction: None,
+            contents: vec![GeminiContent {
+                role: Some("user".to_string()),
+                parts: vec![GeminiPart {
+                    text: "test".to_string(),
+                }],
+            }],
+            generation_config: GenerationConfig {
+                temperature: 1.0,
+                max_output_tokens: Some(1), // Minimize API cost
+            },
+        };
         let endpoint = self.generate_content_url();
 
         validate_http_endpoint(
@@ -340,7 +371,10 @@ mod tests {
         ensure_crypto_provider();
         let mut server = Server::new_async().await;
         let mock = server
-            .mock("POST", "/v1beta/models/gemini-3-flash-preview:generateContent")
+            .mock(
+                "POST",
+                "/v1beta/models/gemini-3-flash-preview:generateContent",
+            )
             .with_status(401)
             .with_body("Unauthorized")
             .create_async()
@@ -368,7 +402,10 @@ mod tests {
         ensure_crypto_provider();
         let mut server = Server::new_async().await;
         let mock = server
-            .mock("POST", "/v1beta/models/gemini-3-flash-preview:generateContent")
+            .mock(
+                "POST",
+                "/v1beta/models/gemini-3-flash-preview:generateContent",
+            )
             .with_status(429)
             .with_body("Too Many Requests")
             .create_async()
@@ -388,6 +425,75 @@ mod tests {
 
         let err = provider.call_api("system", "hi", None).await.unwrap_err();
         assert!(matches!(err, GcopError::LlmApi { status: 429, .. }));
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn test_gemini_safety_blocked_response() {
+        ensure_crypto_provider();
+        let mut server = Server::new_async().await;
+        let mock = server
+            .mock(
+                "POST",
+                "/v1beta/models/gemini-3-flash-preview:generateContent",
+            )
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"candidates":[{"finishReason":"SAFETY"}]}"#)
+            .create_async()
+            .await;
+
+        let provider = GeminiProvider::new(
+            &test_provider_config(
+                server.url(),
+                Some("AIza-test".to_string()),
+                "gemini-3-flash-preview".to_string(),
+            ),
+            "gemini",
+            &test_network_config_no_retry(),
+            false,
+        )
+        .unwrap();
+
+        let err = provider.call_api("system", "hi", None).await.unwrap_err();
+        match &err {
+            GcopError::Llm(msg) => {
+                assert!(msg.contains("SAFETY"), "Expected SAFETY in error: {}", msg)
+            }
+            _ => panic!("Expected GcopError::Llm, got: {:?}", err),
+        }
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn test_gemini_no_content_response() {
+        ensure_crypto_provider();
+        let mut server = Server::new_async().await;
+        let mock = server
+            .mock(
+                "POST",
+                "/v1beta/models/gemini-3-flash-preview:generateContent",
+            )
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"candidates":[{"content":{"parts":[]},"finishReason":"STOP"}]}"#)
+            .create_async()
+            .await;
+
+        let provider = GeminiProvider::new(
+            &test_provider_config(
+                server.url(),
+                Some("AIza-test".to_string()),
+                "gemini-3-flash-preview".to_string(),
+            ),
+            "gemini",
+            &test_network_config_no_retry(),
+            false,
+        )
+        .unwrap();
+
+        let err = provider.call_api("system", "hi", None).await.unwrap_err();
+        assert!(matches!(err, GcopError::Llm(_)));
         mock.assert_async().await;
     }
 }

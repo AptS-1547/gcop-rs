@@ -314,8 +314,21 @@ pub async fn process_gemini_stream(
                                 }
                             }
 
-                            // 检查是否结束
-                            if candidate.finish_reason.as_deref() == Some("STOP") {
+                            // 检查是否结束（任意 finishReason 都表示流结束）
+                            if let Some(reason) = &candidate.finish_reason {
+                                if reason != "STOP" {
+                                    tracing::warn!(
+                                        "Gemini stream ended with non-STOP reason: {}",
+                                        reason
+                                    );
+                                    colors::warning(
+                                        &rust_i18n::t!(
+                                            "provider.stream.gemini_finish_reason_warning",
+                                            reason = reason.as_str()
+                                        ),
+                                        colored,
+                                    );
+                                }
                                 if parse_errors > 0 {
                                     colors::warning(
                                         &rust_i18n::t!(
@@ -417,5 +430,32 @@ mod tests {
         let chunk: GeminiStreamChunk = serde_json::from_str(json).unwrap();
         let candidates = chunk.candidates.unwrap();
         assert_eq!(candidates[0].finish_reason.as_deref(), Some("STOP"));
+    }
+
+    #[test]
+    fn test_gemini_stream_chunk_with_safety_finish_reason() {
+        let json = r#"{"candidates":[{"finishReason":"SAFETY"}]}"#;
+        let chunk: GeminiStreamChunk = serde_json::from_str(json).unwrap();
+        let candidates = chunk.candidates.unwrap();
+        assert_eq!(candidates[0].finish_reason.as_deref(), Some("SAFETY"));
+        assert!(candidates[0].content.is_none());
+    }
+
+    #[test]
+    fn test_gemini_stream_chunk_with_max_tokens_finish_reason() {
+        let json = r#"{"candidates":[{"content":{"parts":[{"text":"partial"}],"role":"model"},"finishReason":"MAX_TOKENS"}]}"#;
+        let chunk: GeminiStreamChunk = serde_json::from_str(json).unwrap();
+        let candidates = chunk.candidates.unwrap();
+        assert_eq!(candidates[0].finish_reason.as_deref(), Some("MAX_TOKENS"));
+        let text = candidates[0]
+            .content
+            .as_ref()
+            .unwrap()
+            .parts
+            .as_ref()
+            .unwrap()[0]
+            .text
+            .as_deref();
+        assert_eq!(text, Some("partial"));
     }
 }

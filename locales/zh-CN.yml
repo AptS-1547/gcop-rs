@@ -390,6 +390,8 @@ provider.stream.claude_parse_errors: "Claude 流已结束，出现 %{count} 次�
 provider.stream.claude_ended_with_errors: "Claude 流在无 message_stop 的情况下结束，出现 %{count} 次解析错误"
 provider.stream.claude_ended_without_stop: "Claude 流在无 message_stop 事件的情况下结束"
 provider.stream.gemini_parse_errors: "Gemini 流已结束，出现 %{count} 次解析错误"
+provider.stream.gemini_finish_reason_warning: "Gemini 流以非正常原因结束：%{reason}（输出可能不完整）"
+provider.gemini_content_blocked: "Gemini 内容被阻止（原因：%{reason}）。模型拒绝生成响应。"
 
 # Alias 描述
 alias.desc.cop: "gcop-rs 主入口"
