@@ -4,9 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "vitepress dev",
-    "build": "vitepress build",
-    "preview": "vitepress preview"
+    "docs:dev": "vitepress dev",
+    "docs:build": "vitepress build",
+    "docs:preview": "vitepress preview"
   },
   "keywords": [],
   "author": "",
@@ -14,5 +14,6 @@
   "type": "commonjs",
   "devDependencies": {
     "vitepress": "2.0.0-alpha.15"
-  }
+  },
+  "packageManager": "yarn@1.22.22"
 }

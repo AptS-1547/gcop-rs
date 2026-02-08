@@ -1,8 +1,12 @@
 # 配置指南
 
-## 配置文件位置
+## 配置文件层级
 
-gcop-rs 使用 TOML 配置文件，位置因平台而异：
+gcop-rs 支持两级 TOML 配置来源：
+
+### 用户级配置
+
+这是你的个人配置（通常包含 API key）：
 
 | 平台 | 位置 |
 |------|------|
@@ -10,7 +14,25 @@ gcop-rs 使用 TOML 配置文件，位置因平台而异：
 | macOS | `~/Library/Application Support/gcop/config.toml` |
 | Windows | `%APPDATA%\gcop\config\config.toml` |
 
-配置文件是**可选的**。如果不存在，将使用默认值。
+### 项目级配置（可选）
+
+仓库内团队共享配置：
+
+| 范围 | 位置 |
+|------|------|
+| 项目 | `<repo>/.gcop/config.toml` |
+
+`gcop-rs` 会从当前目录向上查找，遇到最近的 `.git` 边界即停止。
+
+### 生效优先级（高 → 低）
+
+1. CI 覆盖（`CI=1` + `GCOP_CI_*`）
+2. 环境变量覆盖（`GCOP__*`）
+3. 项目级配置（`.gcop/config.toml`）
+4. 用户级配置（上表平台路径）
+5. 内置默认值
+
+所有配置文件都**可选**，缺失项会回退到更低优先级来源或默认值。
 
 ## 快速设置
 
@@ -18,9 +40,11 @@ gcop-rs 使用 TOML 配置文件，位置因平台而异：
 
 ```bash
 gcop-rs init
+gcop-rs init --project   # 可选：为团队共享设置创建 .gcop/config.toml
 ```
 
-这将在正确的平台特定位置创建配置文件。
+`gcop-rs init` 会在平台对应位置创建用户级配置。
+`gcop-rs init --project` 会在当前仓库创建 `.gcop/config.toml`。
 
 **手动设置：**
 
@@ -194,7 +218,8 @@ max_size = 10485760      # `review file <PATH>` 可读取的最大文件大小�
 
 ### 配置来源
 
-- **配置文件**（平台特定位置，见上方）
+- **用户级配置文件**（平台特定位置，见上方）
+- **项目级配置文件**（`.gcop/config.toml`，可选，用于团队共享且不含敏感信息）
 - **CI 模式环境变量**（`GCOP_CI_*`，仅在 `CI=1` 时）
 
 当设置 `CI=1` 时，CI 模式 provider 配置会在文件/环境变量加载后生效，并成为最终默认 provider（`ci`）。
@@ -222,8 +247,9 @@ export GCOP_CI_API_KEY="sk-ant-your-key"
 - 设置文件权限: `chmod 600 <配置文件路径>`
 
 **所有平台:**
-- 不要将 config.toml 提交到 git
-- 如果创建项目级配置，添加到 .gitignore
+- 不要将**用户级**配置文件提交到 Git（可能包含 API key）
+- `.gcop/config.toml` 用于团队共享非敏感配置，可提交到仓库
+- 项目级配置不要写入 `api_key`，请使用用户级配置或环境变量
 
 ## CI 模式
 

@@ -20,7 +20,7 @@ Open configuration file in your default editor with validation.
 gcop-rs config edit
 ```
 
-**Opens**: Config file (platform-specific location) in `$VISUAL` / `$EDITOR` (platform default if not set)
+**Opens**: User-level config file (platform-specific location) in `$VISUAL` / `$EDITOR` (platform default if not set)
 
 **Validation**: After saving, the configuration is automatically validated (like `visudo`). If validation fails, you'll see a menu:
 
@@ -49,7 +49,7 @@ gcop-rs config validate
 ```
 
 **Checks**:
-- Loads and parses configuration (defaults + config file + `GCOP__*` env overrides)
+- Loads and parses effective configuration (defaults + user config + optional project config + `GCOP__*` overrides + optional CI overrides)
 - Lists configured providers (as loaded from config)
 - Builds provider chain from `default_provider` + `fallback_providers` (providers that fail to instantiate are skipped)
 - Validates provider connections through the instantiated provider chain

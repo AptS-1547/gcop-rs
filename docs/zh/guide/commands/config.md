@@ -20,7 +20,7 @@ gcop-rs config [子命令]
 gcop-rs config edit
 ```
 
-**打开**: 使用 `$VISUAL` / `$EDITOR` 打开配置文件（未设置时使用系统默认编辑器）
+**打开**: 使用 `$VISUAL` / `$EDITOR` 打开**用户级**配置文件（未设置时使用系统默认编辑器）
 
 **校验**: 保存后会自动校验配置（类似 `visudo`）。如果校验失败，会显示一个菜单：
 
@@ -49,7 +49,7 @@ gcop-rs config validate
 ```
 
 **检查**:
-- 加载并解析配置（默认值 + 配置文件 + `GCOP__*` 环境变量覆盖）
+- 加载并解析最终生效配置（默认值 + 用户级配置 + 可选项目级配置 + `GCOP__*` 覆盖 + 可选 CI 覆盖）
 - 列出配置中声明的 providers
 - 依据 `default_provider` + `fallback_providers` 构建 provider 链（创建失败的 provider 会被跳过）
 - 按成功构建的 provider 链验证 provider 连通性

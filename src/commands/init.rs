@@ -112,6 +112,8 @@ fn find_git_root() -> Option<PathBuf> {
 }
 
 /// 初始化项目级配置文件 (.gcop/config.toml)
+///
+/// 若当前目录不在 Git 仓库中，则回退到当前工作目录创建 `.gcop/config.toml` 并给出提示。
 fn run_project_init(force: bool, colored: bool) -> Result<()> {
     // 1. 查找 git repo 根目录
     let repo_root = match find_git_root() {

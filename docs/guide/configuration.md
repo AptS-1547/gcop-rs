@@ -1,8 +1,12 @@
 # Configuration Guide
 
-## Configuration File Location
+## Configuration Files
 
-gcop-rs uses a TOML configuration file. The location is platform-specific:
+gcop-rs reads TOML configuration from two levels:
+
+### User-Level Config
+
+This is your personal config (usually contains API keys):
 
 | Platform | Location |
 |----------|----------|
@@ -10,17 +14,37 @@ gcop-rs uses a TOML configuration file. The location is platform-specific:
 | macOS | `~/Library/Application Support/gcop/config.toml` |
 | Windows | `%APPDATA%\gcop\config\config.toml` |
 
-The configuration file is **optional**. If not present, default values are used.
+### Project-Level Config (Optional)
+
+Team-shared config in your repository:
+
+| Scope | Location |
+|-------|----------|
+| Project | `<repo>/.gcop/config.toml` |
+
+`gcop-rs` searches upward from the current working directory and stops at the nearest `.git` boundary.
+
+### Effective Priority (High → Low)
+
+1. CI overrides (`CI=1` + `GCOP_CI_*`)
+2. Environment overrides (`GCOP__*`)
+3. Project-level config (`.gcop/config.toml`)
+4. User-level config (platform-specific path above)
+5. Built-in defaults
+
+All config files are **optional**. Missing values fall back to lower-priority sources/defaults.
 
 ## Quick Setup
 
-**Recommended: Use the init command**
+**Recommended: Use init commands**
 
 ```bash
 gcop-rs init
+gcop-rs init --project   # optional: create .gcop/config.toml for team-shared settings
 ```
 
-This will create the config file at the correct platform-specific location.
+`gcop-rs init` creates your user-level config at the correct platform-specific location.
+`gcop-rs init --project` creates `.gcop/config.toml` in the current repository.
 
 **Manual setup:**
 
@@ -194,7 +218,8 @@ Each provider under `[llm.providers.<name>]` supports:
 
 ### Sources
 
-- **Config file** (platform-specific location, see above)
+- **User-level config file** (platform-specific location, see above)
+- **Project-level config file** (`.gcop/config.toml`, optional, for non-secret team settings)
 - **CI mode environment variables** (`GCOP_CI_*`, only when `CI=1`)
 
 When `CI=1`, CI-mode provider settings are applied after file/env loading, and become the effective default provider (`ci`).
@@ -222,8 +247,9 @@ export GCOP_CI_API_KEY="sk-ant-your-key"
 - Set file permissions: `chmod 600 <config-file-path>`
 
 **All platforms:**
-- Never commit config.toml to git
-- Add to .gitignore if creating project-level config
+- Never commit your **user-level** config file (it may contain API keys)
+- `.gcop/config.toml` is intended for team-shared non-secret settings and can be committed
+- Do not put `api_key` in project-level config; use user-level config or environment variables instead
 
 ## CI Mode
 
