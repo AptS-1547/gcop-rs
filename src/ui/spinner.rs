@@ -115,6 +115,12 @@ impl Spinner {
     }
 }
 
+impl crate::llm::ProgressReporter for Spinner {
+    fn append_suffix(&self, suffix: &str) {
+        Spinner::append_suffix(self, suffix);
+    }
+}
+
 impl Drop for Spinner {
     fn drop(&mut self) {
         self.stop_time_display();

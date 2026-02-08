@@ -23,7 +23,9 @@ pub use validation::*;
 use async_trait::async_trait;
 
 use crate::error::{GcopError, Result};
-use crate::llm::{CommitContext, LLMProvider, ReviewResult, ReviewType, StreamHandle};
+use crate::llm::{
+    CommitContext, LLMProvider, ProgressReporter, ReviewResult, ReviewType, StreamHandle,
+};
 
 /// 内部 trait：每个 provider 只需实现自己独有的部分
 ///
@@ -39,7 +41,7 @@ pub(crate) trait ApiBackend: Send + Sync {
         &self,
         system: &str,
         user_message: &str,
-        spinner: Option<&crate::ui::Spinner>,
+        progress: Option<&dyn ProgressReporter>,
     ) -> Result<String>;
 
     /// 是否支持流式响应
@@ -62,7 +64,7 @@ impl<T: ApiBackend> LLMProvider for T {
         &self,
         diff: &str,
         context: Option<CommitContext>,
-        spinner: Option<&crate::ui::Spinner>,
+        progress: Option<&dyn ProgressReporter>,
     ) -> Result<String> {
         let ctx = context.unwrap_or_default();
         let (system, user) =
@@ -72,7 +74,7 @@ impl<T: ApiBackend> LLMProvider for T {
             system.len(),
             user.len()
         );
-        let response = self.call_api(&system, &user, spinner).await?;
+        let response = self.call_api(&system, &user, progress).await?;
         Ok(process_commit_response(response))
     }
 
@@ -81,7 +83,7 @@ impl<T: ApiBackend> LLMProvider for T {
         diff: &str,
         review_type: ReviewType,
         custom_prompt: Option<&str>,
-        spinner: Option<&crate::ui::Spinner>,
+        progress: Option<&dyn ProgressReporter>,
     ) -> Result<ReviewResult> {
         let (system, user) =
             crate::llm::prompt::build_review_prompt_split(diff, &review_type, custom_prompt);
@@ -90,7 +92,7 @@ impl<T: ApiBackend> LLMProvider for T {
             system.len(),
             user.len()
         );
-        let response = self.call_api(&system, &user, spinner).await?;
+        let response = self.call_api(&system, &user, progress).await?;
         process_review_response(&response)
     }
 

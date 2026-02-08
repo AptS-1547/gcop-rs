@@ -162,7 +162,7 @@ impl ApiBackend for OpenAIProvider {
         &self,
         system: &str,
         user_message: &str,
-        spinner: Option<&crate::ui::Spinner>,
+        progress: Option<&dyn crate::llm::ProgressReporter>,
     ) -> Result<String> {
         let request = OpenAIRequest {
             model: self.model.clone(),
@@ -197,7 +197,7 @@ impl ApiBackend for OpenAIProvider {
             &[("Authorization", auth_header.as_str())],
             &request,
             "OpenAI",
-            spinner,
+            progress,
             self.max_retries,
             self.retry_delay_ms,
             self.max_retry_delay_ms,

@@ -6,8 +6,11 @@ use tracing::debug;
 
 use crate::config::AppConfig;
 use crate::error::{GcopError, Result};
-use crate::llm::{CommitContext, LLMProvider, ReviewResult, ReviewType, StreamChunk, StreamHandle};
-use crate::ui::{Spinner, colors};
+use crate::llm::{
+    CommitContext, LLMProvider, ProgressReporter, ReviewResult, ReviewType, StreamChunk,
+    StreamHandle,
+};
+use crate::ui::colors;
 
 use super::create_single_provider;
 
@@ -132,23 +135,23 @@ impl LLMProvider for FallbackProvider {
         &self,
         diff: &str,
         context: Option<CommitContext>,
-        spinner: Option<&Spinner>,
+        progress: Option<&dyn ProgressReporter>,
     ) -> Result<String> {
         let mut last_error = None;
 
         for (i, provider) in self.providers.iter().enumerate() {
             // 如果是 fallback（非第一个 provider），更新 spinner 显示
             if i > 0
-                && let Some(s) = spinner
+                && let Some(p) = progress
             {
-                s.append_suffix(&rust_i18n::t!(
+                p.append_suffix(&rust_i18n::t!(
                     "provider.fallback_suffix",
                     provider = provider.name()
                 ));
             }
 
             match provider
-                .generate_commit_message(diff, context.clone(), spinner)
+                .generate_commit_message(diff, context.clone(), progress)
                 .await
             {
                 Ok(msg) => return Ok(msg),
@@ -179,23 +182,23 @@ impl LLMProvider for FallbackProvider {
         diff: &str,
         review_type: ReviewType,
         custom_prompt: Option<&str>,
-        spinner: Option<&Spinner>,
+        progress: Option<&dyn ProgressReporter>,
     ) -> Result<ReviewResult> {
         let mut last_error = None;
 
         for (i, provider) in self.providers.iter().enumerate() {
             // 如果是 fallback（非第一个 provider），更新 spinner 显示
             if i > 0
-                && let Some(s) = spinner
+                && let Some(p) = progress
             {
-                s.append_suffix(&rust_i18n::t!(
+                p.append_suffix(&rust_i18n::t!(
                     "provider.fallback_suffix",
                     provider = provider.name()
                 ));
             }
 
             match provider
-                .review_code(diff, review_type.clone(), custom_prompt, spinner)
+                .review_code(diff, review_type.clone(), custom_prompt, progress)
                 .await
             {
                 Ok(result) => return Ok(result),
@@ -336,7 +339,7 @@ mod tests {
             &self,
             _diff: &str,
             _context: Option<CommitContext>,
-            _spinner: Option<&Spinner>,
+            _progress: Option<&dyn ProgressReporter>,
         ) -> Result<String> {
             if self.should_fail {
                 Err(GcopError::Llm(format!("{} failed", self.name)))
@@ -350,7 +353,7 @@ mod tests {
             _diff: &str,
             _review_type: ReviewType,
             _custom_prompt: Option<&str>,
-            _spinner: Option<&Spinner>,
+            _progress: Option<&dyn ProgressReporter>,
         ) -> Result<ReviewResult> {
             if self.should_fail {
                 Err(GcopError::Llm(format!("{} failed", self.name)))

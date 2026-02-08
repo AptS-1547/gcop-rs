@@ -8,6 +8,14 @@ use tokio::sync::mpsc;
 
 use crate::error::Result;
 
+/// LLM 操作的进度报告接口
+///
+/// LLM 层通过此 trait 向调用方报告状态变化（重试、fallback 切换等），
+/// 而不直接依赖具体的 UI 实现。
+pub trait ProgressReporter: Send + Sync {
+    fn append_suffix(&self, suffix: &str);
+}
+
 /// 流式响应的数据块
 ///
 /// 用于 LLM 流式生成 commit message 的增量数据传输。
@@ -90,7 +98,7 @@ pub struct StreamHandle {
 ///         &self,
 ///         diff: &str,
 ///         context: Option<CommitContext>,
-///         spinner: Option<&gcop_rs::ui::Spinner>,
+///         progress: Option<&dyn gcop_rs::llm::ProgressReporter>,
 ///     ) -> Result<String> {
 ///         // 调用自定义 API...
 ///         todo!()
@@ -101,7 +109,7 @@ pub struct StreamHandle {
 ///         diff: &str,
 ///         review_type: ReviewType,
 ///         custom_prompt: Option<&str>,
-///         spinner: Option<&gcop_rs::ui::Spinner>,
+///         progress: Option<&dyn gcop_rs::llm::ProgressReporter>,
 ///     ) -> Result<ReviewResult> {
 ///         todo!()
 ///     }
@@ -125,7 +133,7 @@ pub trait LLMProvider: Send + Sync {
     /// # 参数
     /// - `diff`: Git diff 内容（通过 `git diff --staged` 获取）
     /// - `context`: 可选的上下文信息（分支名、文件列表、用户反馈等）
-    /// - `spinner`: 可选的 spinner（用于取消检测）
+    /// - `spinner`: 可选的进度报告器（用于显示重试进度）
     ///
     /// # 返回
     /// - `Ok(message)` - 生成的 commit message
@@ -156,7 +164,7 @@ pub trait LLMProvider: Send + Sync {
         &self,
         diff: &str,
         context: Option<CommitContext>,
-        spinner: Option<&crate::ui::Spinner>,
+        progress: Option<&dyn ProgressReporter>,
     ) -> Result<String>;
 
     /// 代码审查
@@ -167,7 +175,7 @@ pub trait LLMProvider: Send + Sync {
     /// - `diff`: 要审查的 diff 内容
     /// - `review_type`: 审查类型（未暂存工作区变更、单个 commit、范围等）
     /// - `custom_prompt`: 用户自定义 prompt（追加到系统 prompt）
-    /// - `spinner`: 可选的 spinner
+    /// - `spinner`: 可选的进度报告器
     ///
     /// # 返回
     /// - `Ok(result)` - 审查结果（总结、问题列表、建议）
@@ -183,7 +191,7 @@ pub trait LLMProvider: Send + Sync {
         diff: &str,
         review_type: ReviewType,
         custom_prompt: Option<&str>,
-        spinner: Option<&crate::ui::Spinner>,
+        progress: Option<&dyn ProgressReporter>,
     ) -> Result<ReviewResult>;
 
     /// Provider 名称

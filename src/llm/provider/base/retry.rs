@@ -119,7 +119,7 @@ async fn try_send_request<Req: Serialize>(
 /// * `headers` - 额外的请求头
 /// * `request_body` - 请求体
 /// * `provider_name` - Provider 名称（用于日志和错误信息）
-/// * `spinner` - 可选的进度 spinner（用于显示重试进度）
+/// * `spinner` - 可选的进度报告器（用于显示重试进度）
 /// * `max_retries` - 最大重试次数
 /// * `retry_delay_ms` - 初始重试延迟（毫秒）
 /// * `max_retry_delay_ms` - 最大重试延迟（毫秒）
@@ -130,7 +130,7 @@ pub async fn send_llm_request<Req, Resp>(
     headers: &[(&str, &str)],
     request_body: &Req,
     provider_name: &str,
-    spinner: Option<&crate::ui::Spinner>,
+    progress: Option<&dyn crate::llm::ProgressReporter>,
     max_retries: usize,
     retry_delay_ms: u64,
     max_retry_delay_ms: u64,
@@ -155,8 +155,8 @@ where
                     }
 
                     // 更新 spinner 显示重试进度
-                    if let Some(s) = spinner {
-                        s.append_suffix(&rust_i18n::t!(
+                    if let Some(p) = progress {
+                        p.append_suffix(&rust_i18n::t!(
                             "provider.retrying_suffix",
                             attempt = attempt,
                             max = max_retries
@@ -224,8 +224,8 @@ where
             }
 
             // 更新 spinner 显示重试进度
-            if let Some(s) = spinner {
-                s.append_suffix(&rust_i18n::t!(
+            if let Some(p) = progress {
+                p.append_suffix(&rust_i18n::t!(
                     "provider.retrying_suffix",
                     attempt = attempt,
                     max = max_retries

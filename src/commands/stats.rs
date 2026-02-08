@@ -5,7 +5,7 @@ use serde::Serialize;
 
 use super::format::OutputFormat;
 use super::options::StatsOptions;
-use crate::commands::json::JsonOutput;
+use crate::commands::json::{self, JsonOutput};
 use crate::error::Result;
 use crate::git::{CommitInfo, GitOperations, repository::GitRepository};
 use crate::ui;
@@ -127,6 +127,16 @@ fn render_bar(count: usize, max_count: usize, max_width: usize) -> String {
 
 /// 运行 stats 命令
 pub fn run(options: &StatsOptions<'_>, colored: bool) -> Result<()> {
+    let result = run_internal(options, colored);
+    if let Err(ref e) = result
+        && options.format.is_json()
+    {
+        let _ = json::output_json_error::<RepoStats>(e);
+    }
+    result
+}
+
+fn run_internal(options: &StatsOptions<'_>, colored: bool) -> Result<()> {
     let repo = GitRepository::open(None)?;
     let skip_ui = options.format.is_machine_readable();
     let effective_colored = options.effective_colored(colored);

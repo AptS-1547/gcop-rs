@@ -141,7 +141,7 @@ impl LLMProvider for MockLLM {
         &self,
         _diff: &str,
         _context: Option<CommitContext>,
-        _spinner: Option<&gcop_rs::ui::Spinner>,
+        _progress: Option<&dyn gcop_rs::llm::ProgressReporter>,
     ) -> Result<String> {
         if self.should_fail {
             Err(GcopError::Llm("LLM API error".to_string()))
@@ -169,7 +169,7 @@ impl LLMProvider for MockLLM {
         _diff: &str,
         _review_type: ReviewType,
         _custom_prompt: Option<&str>,
-        _spinner: Option<&gcop_rs::ui::Spinner>,
+        _progress: Option<&dyn gcop_rs::llm::ProgressReporter>,
     ) -> Result<ReviewResult> {
         Ok(ReviewResult {
             summary: "OK".to_string(),

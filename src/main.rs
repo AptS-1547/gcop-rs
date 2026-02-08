@@ -94,10 +94,10 @@ fn main() -> Result<()> {
                 json,
             } => {
                 let options = commands::ReviewOptions::from_cli(&cli, target, format, json);
-                let is_json = options.format.is_json();
                 if let Err(e) = commands::review::run(&options, &config).await {
-                    if is_json {
-                        handle_json_error::<llm::ReviewResult>(&e);
+                    if options.format.is_json() {
+                        // JSON 错误已在 review 命令内部输出
+                        std::process::exit(1);
                     }
                     if matches!(e, error::GcopError::UserCancelled) {
                         std::process::exit(0);
@@ -134,10 +134,10 @@ fn main() -> Result<()> {
                 ref author,
             } => {
                 let options = commands::StatsOptions::from_cli(format, json, author.as_deref());
-                let is_json = options.format.is_json();
                 if let Err(e) = commands::stats::run(&options, config.ui.colored) {
-                    if is_json {
-                        handle_json_error::<commands::stats::RepoStats>(&e);
+                    if options.format.is_json() {
+                        // JSON 错误已在 stats 命令内部输出
+                        std::process::exit(1);
                     }
                     handle_command_error(&e, config.ui.colored);
                 }
@@ -291,14 +291,6 @@ fn handle_command_error(e: &error::GcopError, colored: bool) -> ! {
     if let Some(suggestion) = e.localized_suggestion() {
         println!();
         println!("{}", ui::info(&suggestion, colored));
-    }
-    std::process::exit(1);
-}
-
-/// JSON 模式错误输出，然后退出
-fn handle_json_error<T: serde::Serialize>(e: &error::GcopError) -> ! {
-    if let Err(je) = commands::json::output_json_error::<T>(e) {
-        eprintln!("Failed to output JSON error: {}", je);
     }
     std::process::exit(1);
 }

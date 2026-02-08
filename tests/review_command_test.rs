@@ -44,7 +44,7 @@ impl LLMProvider for MockReviewLLM {
         _diff: &str,
         review_type: ReviewType,
         _custom_prompt: Option<&str>,
-        _spinner: Option<&gcop_rs::ui::Spinner>,
+        _progress: Option<&dyn gcop_rs::llm::ProgressReporter>,
     ) -> Result<ReviewResult> {
         if self.should_fail {
             return Err(GcopError::LlmApi {
@@ -83,7 +83,7 @@ impl LLMProvider for MockReviewLLM {
         &self,
         _diff: &str,
         _context: Option<CommitContext>,
-        _spinner: Option<&gcop_rs::ui::Spinner>,
+        _progress: Option<&dyn gcop_rs::llm::ProgressReporter>,
     ) -> Result<String> {
         unimplemented!("Not used in review tests")
     }

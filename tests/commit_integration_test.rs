@@ -24,7 +24,7 @@ impl LLMProvider for MockLLMProvider {
         &self,
         _diff: &str,
         _context: Option<CommitContext>,
-        _spinner: Option<&gcop_rs::ui::Spinner>,
+        _progress: Option<&dyn gcop_rs::llm::ProgressReporter>,
     ) -> Result<String> {
         Ok(self.message.clone())
     }
@@ -34,7 +34,7 @@ impl LLMProvider for MockLLMProvider {
         _diff: &str,
         _review_type: ReviewType,
         _custom_prompt: Option<&str>,
-        _spinner: Option<&gcop_rs::ui::Spinner>,
+        _progress: Option<&dyn gcop_rs::llm::ProgressReporter>,
     ) -> Result<ReviewResult> {
         unimplemented!("review not used in commit tests")
     }

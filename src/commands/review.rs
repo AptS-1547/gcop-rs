@@ -1,18 +1,27 @@
 use super::options::ReviewOptions;
 use super::truncate_diff;
 use crate::cli::ReviewTarget;
-use crate::commands::json::JsonOutput;
+use crate::commands::json::{self, JsonOutput};
 use crate::config::AppConfig;
 use crate::error::{GcopError, Result};
 use crate::git::{GitOperations, repository::GitRepository};
-use crate::llm::{IssueSeverity, LLMProvider, ReviewResult, ReviewType, provider::create_provider};
+use crate::llm::{
+    IssueSeverity, LLMProvider, ProgressReporter, ReviewResult, ReviewType,
+    provider::create_provider,
+};
 use crate::ui;
 
 /// 执行 review 命令（公开接口）
 pub async fn run(options: &ReviewOptions<'_>, config: &AppConfig) -> Result<()> {
     let repo = GitRepository::open(Some(&config.file))?;
     let provider = create_provider(config, options.provider_override)?;
-    run_internal(options, config, &repo, provider.as_ref()).await
+    let result = run_internal(options, config, &repo, provider.as_ref()).await;
+    if let Err(ref e) = result
+        && options.format.is_json()
+    {
+        let _ = json::output_json_error::<ReviewResult>(e);
+    }
+    result
 }
 
 /// 内部实现，接受依赖注入（用于测试）
@@ -123,7 +132,7 @@ pub async fn run_internal(
             &diff,
             review_type,
             config.review.custom_prompt.as_deref(),
-            spinner.as_ref(),
+            spinner.as_ref().map(|s| s as &dyn ProgressReporter),
         )
         .await?;
 

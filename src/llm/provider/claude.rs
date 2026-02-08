@@ -151,7 +151,7 @@ impl ApiBackend for ClaudeProvider {
         &self,
         system: &str,
         user_message: &str,
-        spinner: Option<&crate::ui::Spinner>,
+        progress: Option<&dyn crate::llm::ProgressReporter>,
     ) -> Result<String> {
         let request = ClaudeRequest {
             model: self.model.clone(),
@@ -183,7 +183,7 @@ impl ApiBackend for ClaudeProvider {
             ],
             &request,
             "Claude",
-            spinner,
+            progress,
             self.max_retries,
             self.retry_delay_ms,
             self.max_retry_delay_ms,
