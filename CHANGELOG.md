@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-02-08
+
+### Added
+
+- **`ProgressReporter` Trait**: Decouples LLM layer from UI layer (`ui::Spinner` → `dyn ProgressReporter`)
+- **`ApiStyle` Enum**: Type-safe API style (`Claude`, `OpenAI`, `Ollama`) with compile-time exhaustive matching and `default_model()` method
+- **Configuration Reference Validation**: Validates `default_provider` and `fallback_providers` exist in `[llm.providers]` at startup
+- **Machine-Readable Markdown**: `OutputFormat::is_machine_readable()` unifies JSON/Markdown behavior, skipping UI elements
+
+### Changed
+
+- **Error Handling Shifted**: `review`/`stats` commands handle JSON error output internally; `main.rs` simplified
+- **CI Mode**: Uses `ApiStyle` enum instead of string matching for provider validation and default models
+- **Config Examples Simplified**: Reduced from 144 to 39 lines with documentation link
+- **LLM Provider Interface**: `spinner: Option<&Spinner>` → `progress: Option<&dyn ProgressReporter>`
+
 ## [0.9.0] - 2026-02-08
 
 ### Added
@@ -497,7 +513,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Edit action properly returns to menu without triggering regeneration
 - Commit message display no longer duplicates after editing
 
-[Unreleased]: https://github.com/AptS-1547/gcop-rs/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/AptS-1547/gcop-rs/compare/v0.9.1...HEAD
+[0.9.1]: https://github.com/AptS-1547/gcop-rs/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.9.0
 [0.8.0]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.8.0
 [0.7.3]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.7.3
