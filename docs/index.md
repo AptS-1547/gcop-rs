@@ -15,11 +15,11 @@ hero:
 
 features:
   - title: AI-Powered
-    details: Leverage Claude, OpenAI, or Ollama to generate contextual commit messages based on your changes.
+    details: Leverage Claude, OpenAI, Ollama, or Gemini to generate contextual commit messages based on your changes.
   - title: Fast & Lightweight
     details: Written in Rust for blazing fast performance with minimal resource usage.
   - title: Multi-Provider Support
-    details: Works with Claude, OpenAI, Ollama, and any OpenAI-compatible API.
+    details: Works with Claude, OpenAI, Ollama, Gemini, and custom OpenAI/Claude/Gemini-compatible APIs.
   - title: Code Review
     details: Get AI-powered code review suggestions before committing your changes.
 ---

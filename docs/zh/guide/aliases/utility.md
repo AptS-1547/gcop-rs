@@ -114,7 +114,7 @@ git pf
 git gconfig
 ```
 
-**打开**: 在你的 `$EDITOR` 中打开 `~/.config/gcop/config.toml`
+**打开**: 在你的 `$EDITOR` 中打开平台对应的 `gcop` 配置文件
 
 **何时使用**: 快速访问编辑 gcop-rs 设置（API keys、模型、prompts 等）。
 

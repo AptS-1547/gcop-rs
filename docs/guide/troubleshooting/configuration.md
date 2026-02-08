@@ -2,18 +2,15 @@
 
 ## Issue: "Provider 'xxx' not found in config"
 
-**Cause**: Provider not configured in `~/.config/gcop/config.toml`
+**Cause**: Provider not configured in your platform-specific `config.toml`
 
 **Solution**:
 ```bash
-# Check your config file
-cat ~/.config/gcop/config.toml
+# Open and edit config safely (recommended)
+gcop-rs config edit
 
-# Copy example config
-cp examples/config.toml.example ~/.config/gcop/config.toml
-
-# Edit and add your provider
-vim ~/.config/gcop/config.toml
+# Or manually edit your config file path
+# See: /guide/configuration#configuration-file-location
 ```
 
 ## Issue: "API key not found"
@@ -43,3 +40,4 @@ export GCOP_CI_API_KEY="sk-ant-your-key"
 - `"claude"` - For Anthropic API compatible services
 - `"openai"` - For OpenAI API compatible services
 - `"ollama"` - For local Ollama
+- `"gemini"` - For Google Gemini GenerateContent API compatible services

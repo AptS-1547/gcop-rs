@@ -125,7 +125,7 @@ DEBUG OpenAI API network error (attempt 2/4): ... Retrying in 2.0s...
 DEBUG OpenAI API request succeeded after 3 attempts
 ```
 
-## Issue: "Failed to parse Claude/OpenAI response"
+## Issue: "Failed to parse Claude/OpenAI/Gemini response"
 
 **Cause**: Unexpected API response format
 
@@ -135,5 +135,5 @@ DEBUG OpenAI API request succeeded after 3 attempts
 gcop-rs -v commit
 
 # Check the response in debug output
-# Look for "Claude API response body:" or "OpenAI API response body:"
+# Look for "Claude API response body:", "OpenAI API response body:", or "Gemini API response body:"
 ```

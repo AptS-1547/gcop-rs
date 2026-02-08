@@ -26,9 +26,9 @@ gcop-rs config validate
 
 ## 不同 Provider 的验证方式
 
-### Claude / OpenAI 风格 Provider
+### Claude / OpenAI / Gemini 风格 Provider
 
-对 Claude 与 OpenAI 风格 provider，gcop-rs 会发送最小化测试请求：
+对 Claude、OpenAI 与 Gemini 风格 provider，gcop-rs 会发送最小化测试请求：
 
 - 最小 prompt（`"test"`）
 - `max_tokens = 1`（尽量降低 token 开销）
@@ -83,7 +83,12 @@ gcop-rs config validate
 ```toml
 [llm]
 default_provider = "claude"
-fallback_providers = ["openai", "ollama"]
+fallback_providers = ["openai", "gemini", "ollama"]
+
+[llm.providers.gemini]
+api_style = "gemini"
+api_key = "AIza..."
+model = "gemini-3-flash-preview"
 
 [llm.providers.claude]
 api_style = "claude"

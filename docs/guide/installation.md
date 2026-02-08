@@ -240,10 +240,16 @@ Remove-Item "$env:USERPROFILE\.local\bin\gcop-rs.exe"
 
 **Remove config (optional):**
 
-Linux/macOS:
+Linux:
 
 ```bash
 rm -rf ~/.config/gcop
+```
+
+macOS:
+
+```bash
+rm -rf ~/Library/Application\ Support/gcop
 ```
 
 Windows (PowerShell):

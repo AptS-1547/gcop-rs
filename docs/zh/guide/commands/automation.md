@@ -44,7 +44,7 @@ fi
 | 变量 | 说明 |
 |------|------|
 | `CI=1` | 启用 CI 模式，使用简化的 provider 配置 |
-| `GCOP_CI_PROVIDER` | Provider 类型：`claude`、`openai` 或 `ollama`（CI 模式必需） |
+| `GCOP_CI_PROVIDER` | Provider 类型：`claude`、`openai`、`ollama` 或 `gemini`（CI 模式必需） |
 | `GCOP_CI_API_KEY` | Provider 的 API key（CI 模式必需） |
 | `GCOP_CI_MODEL` | 模型名称（可选，有默认值） |
 | `GCOP_CI_ENDPOINT` | 自定义 API 端点（可选） |

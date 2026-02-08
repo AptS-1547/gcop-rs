@@ -44,7 +44,7 @@ These environment variables affect gcop-rs behavior:
 | Variable | Description |
 |----------|-------------|
 | `CI=1` | Enable CI mode with simplified provider configuration |
-| `GCOP_CI_PROVIDER` | Provider type: `claude`, `openai`, or `ollama` (required in CI mode) |
+| `GCOP_CI_PROVIDER` | Provider type: `claude`, `openai`, `ollama`, or `gemini` (required in CI mode) |
 | `GCOP_CI_API_KEY` | API key for the provider (required in CI mode) |
 | `GCOP_CI_MODEL` | Model name (optional, has defaults) |
 | `GCOP_CI_ENDPOINT` | Custom API endpoint (optional) |

@@ -1,12 +1,12 @@
 # gcop-rs Configuration File
-# Location: ~/.config/gcop/config.toml (Linux/macOS) | %APPDATA%\gcop\config.toml (Windows)
+# Location: ~/.config/gcop/config.toml (Linux) | ~/Library/Application Support/gcop/config.toml (macOS) | %APPDATA%\gcop\config.toml (Windows)
 # Permissions: chmod 600 recommended (contains API keys, DO NOT commit to git)
 #
 # Full documentation: https://gcop.docs.esap.cc/guide/configuration.html
 
 # --- LLM ---
 [llm]
-# Options: "claude" | "openai" | "ollama"
+# Options: "claude" | "openai" | "ollama" | "gemini"
 default_provider = "claude"
 
 # Claude
@@ -23,6 +23,11 @@ model = "claude-sonnet-4-5-20250929"
 # [llm.providers.ollama]
 # endpoint = "http://localhost:11434/api/generate"
 # model = "codellama:13b"
+
+# Gemini
+# [llm.providers.gemini]
+# api_key = "AIza-your-gemini-key"
+# model = "gemini-3-flash-preview"
 
 # --- Commit ---
 [commit]

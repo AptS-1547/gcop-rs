@@ -15,11 +15,11 @@ hero:
 
 features:
   - title: AI 驱动
-    details: 使用 Claude、OpenAI 或 Ollama 根据代码变更生成上下文相关的 commit message。
+    details: 使用 Claude、OpenAI、Ollama 或 Gemini 根据代码变更生成上下文相关的 commit message。
   - title: 快速轻量
     details: Rust 编写，启动快、占用资源少。
   - title: 多 Provider 支持
-    details: 支持 Claude、OpenAI、Ollama 以及任何 OpenAI 兼容 API。
+    details: 支持 Claude、OpenAI、Ollama、Gemini 以及自定义 OpenAI / Claude / Gemini 兼容 API。
   - title: 代码审查
     details: 提交前获取 AI 代码审查建议。
 ---

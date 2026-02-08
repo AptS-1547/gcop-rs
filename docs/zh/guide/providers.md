@@ -59,9 +59,25 @@ ollama serve
 
 **可用模型**: Ollama 中的任意模型（codellama、llama2、mistral 等）
 
+### Gemini（Google）
+
+```toml
+[llm.providers.gemini]
+api_key = "AIza-your-gemini-key"
+model = "gemini-3-flash-preview"
+temperature = 0.3
+```
+
+**获取 API Key**: https://ai.google.dev/
+
+**可用模型**：
+- `gemini-3-flash-preview`（推荐默认）
+- `gemini-2.5-flash`
+- `gemini-2.5-pro`
+
 ## 自定义 Providers
 
-你可以使用 `api_style` 参数添加任意 OpenAI 或 Claude 兼容的 API。
+你可以使用 `api_style` 参数添加 OpenAI、Claude 或 Gemini 兼容的 API。
 
 ### DeepSeek
 
@@ -115,6 +131,7 @@ model = "custom-model"
 | `"openai"` | OpenAI Chat Completions API | OpenAI、DeepSeek、通义千问、大多数自定义服务 |
 | `"claude"` | Anthropic Messages API | Claude、Claude 代理/镜像 |
 | `"ollama"` | Ollama Generate API | 仅本地 Ollama |
+| `"gemini"` | Google Gemini GenerateContent API | Gemini 以及兼容 Gemini 的端点 |
 
 如果未指定 `api_style`，默认使用 provider 名称（用于向后兼容内置 providers）。
 
@@ -130,7 +147,7 @@ gcop-rs --provider deepseek review changes
 
 ### 修改默认值
 
-编辑 `~/.config/gcop/config.toml`：
+编辑平台对应的配置文件（见[配置指南](configuration.md#配置文件位置)）：
 
 ```toml
 [llm]
@@ -152,7 +169,7 @@ api_key = "sk-ant-..."
 
 在 CI 模式（`CI=1`）下，使用环境变量代替配置文件：
 
-- `GCOP_CI_PROVIDER` - Provider 类型：`claude`、`openai` 或 `ollama`
+- `GCOP_CI_PROVIDER` - Provider 类型：`claude`、`openai`、`ollama` 或 `gemini`
 - `GCOP_CI_API_KEY` - API key
 - `GCOP_CI_MODEL`（可选，有默认值）
 - `GCOP_CI_ENDPOINT`（可选）

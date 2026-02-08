@@ -59,9 +59,25 @@ ollama serve
 
 **Available Models**: Any model available in Ollama (codellama, llama2, mistral, etc.)
 
+### Gemini (Google)
+
+```toml
+[llm.providers.gemini]
+api_key = "AIza-your-gemini-key"
+model = "gemini-3-flash-preview"
+temperature = 0.3
+```
+
+**Get API Key**: https://ai.google.dev/
+
+**Available Models**:
+- `gemini-3-flash-preview` (recommended default)
+- `gemini-2.5-flash`
+- `gemini-2.5-pro`
+
 ## Custom Providers
 
-You can add any OpenAI or Claude compatible API using the `api_style` parameter.
+You can add OpenAI-, Claude-, or Gemini-compatible APIs using the `api_style` parameter.
 
 ### DeepSeek
 
@@ -115,6 +131,7 @@ The `api_style` parameter determines which API implementation to use:
 | `"openai"` | OpenAI Chat Completions API | OpenAI, DeepSeek, Qwen, most custom services |
 | `"claude"` | Anthropic Messages API | Claude, Claude proxies/mirrors |
 | `"ollama"` | Ollama Generate API | Local Ollama only |
+| `"gemini"` | Google Gemini GenerateContent API | Gemini and Gemini-compatible endpoints |
 
 If `api_style` is not specified, it defaults to the provider name (for backward compatibility with built-in providers).
 
@@ -130,7 +147,7 @@ gcop-rs --provider deepseek review changes
 
 ### Changing Default
 
-Edit `~/.config/gcop/config.toml`:
+Edit your platform-specific config file (see [Configuration Guide](configuration.md#configuration-file-location)):
 
 ```toml
 [llm]
@@ -152,7 +169,7 @@ api_key = "sk-ant-..."
 
 In CI mode (`CI=1`), use environment variables instead of config file:
 
-- `GCOP_CI_PROVIDER` - Provider type: `claude`, `openai`, or `ollama`
+- `GCOP_CI_PROVIDER` - Provider type: `claude`, `openai`, `ollama`, or `gemini`
 - `GCOP_CI_API_KEY` - API key
 - `GCOP_CI_MODEL` (optional, has defaults)
 - `GCOP_CI_ENDPOINT` (optional)

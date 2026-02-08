@@ -44,7 +44,7 @@ pub fn test_network_config_no_retry() -> NetworkConfig {
 /// ```
 /// use gcop_rs::llm::provider::test_utils::test_provider_config;
 ///
-/// // For OpenAI/Claude
+/// // For OpenAI/Claude/Gemini
 /// let config = test_provider_config(
 ///     "http://localhost:8080".to_string(),
 ///     Some("sk-test".to_string()),

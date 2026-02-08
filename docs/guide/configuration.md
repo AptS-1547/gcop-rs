@@ -63,7 +63,7 @@ model = "claude-sonnet-4-5-20250929"
 # LLM Configuration
 [llm]
 default_provider = "claude"
-# fallback_providers = ["openai", "ollama"]  # Auto-fallback when main provider fails
+# fallback_providers = ["openai", "gemini", "ollama"]  # Auto-fallback when main provider fails
 max_diff_size = 102400  # Max diff bytes sent to LLM before truncation
 
 # Claude Provider
@@ -86,6 +86,11 @@ temperature = 0.3
 endpoint = "http://localhost:11434/api/generate"
 model = "codellama:13b"
 
+# Gemini Provider
+[llm.providers.gemini]
+api_key = "AIza-your-gemini-key"
+model = "gemini-3-flash-preview"
+
 # Commit Behavior
 [commit]
 show_diff_preview = true
@@ -102,7 +107,7 @@ colored = true
 streaming = true  # Enable streaming output (real-time typing effect)
 language = "en"  # Optional: force UI language (e.g., "en", "zh-CN")
 
-# Note: Streaming is supported by OpenAI- and Claude-style APIs.
+# Note: Streaming is supported by OpenAI-, Claude-, and Gemini-style APIs.
 # For Ollama providers, it automatically falls back to spinner mode.
 
 # Network Settings
@@ -134,11 +139,11 @@ Each provider under `[llm.providers.<name>]` supports:
 
 | Option | Type | Required | Description |
 |--------|------|----------|-------------|
-| `api_style` | String | No | API style: `"claude"`, `"openai"`, or `"ollama"` (defaults to provider name if not set) |
+| `api_style` | String | No | API style: `"claude"`, `"openai"`, `"ollama"`, or `"gemini"` (defaults to provider name if not set) |
 | `api_key` | String | Yes* | API key (*not required for Ollama) |
 | `endpoint` | String | No | API endpoint (uses default if not set) |
 | `model` | String | Yes | Model name |
-| `temperature` | Float | No | Temperature (0.0-2.0). Claude/OpenAI-style defaults to 0.3; Ollama uses provider default when omitted |
+| `temperature` | Float | No | Temperature (0.0-2.0). Claude/OpenAI/Gemini-style defaults to 0.3; Ollama uses provider default when omitted |
 | `max_tokens` | Integer | No | Max response tokens. Claude-style defaults to 2000; OpenAI-style sends only if set; Ollama currently ignores this field |
 
 ### Commit Settings
@@ -167,7 +172,7 @@ Each provider under `[llm.providers.<name>]` supports:
 
 > **Legacy Keys:** Older config files may still contain keys such as `commit.confirm_before_commit`, `review.show_full_diff`, or `ui.verbose`. These keys are currently ignored.
 
-> **Note on Streaming:** Currently only OpenAI or Claude style APIs support streaming. When using Ollama providers, the system automatically falls back to spinner mode (waiting for complete response).
+> **Note on Streaming:** OpenAI, Claude, and Gemini style APIs support streaming. When using Ollama providers, the system automatically falls back to spinner mode (waiting for complete response).
 
 ### Network Settings
 
@@ -229,14 +234,14 @@ For CI/CD environments, gcop-rs provides a simplified configuration via environm
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `CI` | Enable CI mode | `1` |
-| `GCOP_CI_PROVIDER` | Provider type | `claude`, `openai`, or `ollama` |
+| `GCOP_CI_PROVIDER` | Provider type | `claude`, `openai`, `ollama`, or `gemini` |
 | `GCOP_CI_API_KEY` | API key | `sk-ant-...` |
 
 ### Optional Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `GCOP_CI_MODEL` | Model name | `claude-sonnet-4-5-20250929` (claude)<br>`gpt-4o-mini` (openai)<br>`llama3.2` (ollama) |
+| `GCOP_CI_MODEL` | Model name | `claude-sonnet-4-5-20250929` (claude)<br>`gpt-4o-mini` (openai)<br>`llama3.2` (ollama)<br>`gemini-3-flash-preview` (gemini) |
 | `GCOP_CI_ENDPOINT` | Custom API endpoint | Provider default |
 
 ### Example

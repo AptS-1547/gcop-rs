@@ -63,7 +63,7 @@ model = "claude-sonnet-4-5-20250929"
 # LLM 配置
 [llm]
 default_provider = "claude"
-# fallback_providers = ["openai", "ollama"]  # 主 provider 失败时自动切换
+# fallback_providers = ["openai", "gemini", "ollama"]  # 主 provider 失败时自动切换
 max_diff_size = 102400  # 发送给 LLM 前的最大 diff 字节数，超出会截断
 
 # Claude Provider
@@ -86,6 +86,11 @@ temperature = 0.3
 endpoint = "http://localhost:11434/api/generate"
 model = "codellama:13b"
 
+# Gemini Provider
+[llm.providers.gemini]
+api_key = "AIza-your-gemini-key"
+model = "gemini-3-flash-preview"
+
 # Commit 行为
 [commit]
 show_diff_preview = true
@@ -102,7 +107,7 @@ colored = true
 streaming = true  # 启用流式输出（实时打字效果）
 language = "en"  # 可选：强制 UI 语言（如 "en"、"zh-CN"）
 
-# 注意：流式输出支持 OpenAI 与 Claude 风格的 API。
+# 注意：流式输出支持 OpenAI、Claude 与 Gemini 风格的 API。
 # Ollama 会自动回退到转圈圈模式。
 
 # 网络设置
@@ -134,11 +139,11 @@ max_size = 10485760      # `review file <PATH>` 可读取的最大文件大小�
 
 | 选项 | 类型 | 必需 | 说明 |
 |------|------|------|------|
-| `api_style` | String | 否 | API 风格：`"claude"`、`"openai"` 或 `"ollama"`（未设置时默认使用 provider 名称） |
+| `api_style` | String | 否 | API 风格：`"claude"`、`"openai"`、`"ollama"` 或 `"gemini"`（未设置时默认使用 provider 名称） |
 | `api_key` | String | 是* | API key（*Ollama 不需要） |
 | `endpoint` | String | 否 | API 端点（未设置时使用默认值） |
 | `model` | String | 是 | 模型名称 |
-| `temperature` | Float | 否 | 温度参数（0.0-2.0）。Claude/OpenAI 风格默认 0.3；Ollama 未设置时使用模型默认值 |
+| `temperature` | Float | 否 | 温度参数（0.0-2.0）。Claude/OpenAI/Gemini 风格默认 0.3；Ollama 未设置时使用模型默认值 |
 | `max_tokens` | Integer | 否 | 最大响应 token 数。Claude 风格默认 2000；OpenAI 风格仅在设置时发送；Ollama 当前会忽略该字段 |
 
 ### Commit 设置
@@ -167,7 +172,7 @@ max_size = 10485760      # `review file <PATH>` 可读取的最大文件大小�
 
 > **兼容旧字段：** 旧版配置里可能还包含 `commit.confirm_before_commit`、`review.show_full_diff`、`ui.verbose` 等字段。当前版本会忽略这些字段。
 
-> **关于流式输出：** 目前仅 OpenAI 和 Claude 风格的 API 支持流式输出。使用 Ollama 时，系统会自动回退到转圈圈模式（等待完整响应）。
+> **关于流式输出：** OpenAI、Claude 和 Gemini 风格的 API 支持流式输出。使用 Ollama 时，系统会自动回退到转圈圈模式（等待完整响应）。
 
 ### 网络设置
 
@@ -229,14 +234,14 @@ export GCOP_CI_API_KEY="sk-ant-your-key"
 | 变量 | 说明 | 示例 |
 |------|------|------|
 | `CI` | 启用 CI 模式 | `1` |
-| `GCOP_CI_PROVIDER` | Provider 类型 | `claude`、`openai` 或 `ollama` |
+| `GCOP_CI_PROVIDER` | Provider 类型 | `claude`、`openai`、`ollama` 或 `gemini` |
 | `GCOP_CI_API_KEY` | API key | `sk-ant-...` |
 
 ### 可选变量
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
-| `GCOP_CI_MODEL` | 模型名称 | `claude-sonnet-4-5-20250929` (claude)<br>`gpt-4o-mini` (openai)<br>`llama3.2` (ollama) |
+| `GCOP_CI_MODEL` | 模型名称 | `claude-sonnet-4-5-20250929` (claude)<br>`gpt-4o-mini` (openai)<br>`llama3.2` (ollama)<br>`gemini-3-flash-preview` (gemini) |
 | `GCOP_CI_ENDPOINT` | 自定义 API 端点 | Provider 默认值 |
 
 ### 示例

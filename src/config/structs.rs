@@ -65,7 +65,7 @@ pub struct AppConfig {
 /// 管理 LLM provider 的选择和配置。
 ///
 /// # 字段
-/// - `default_provider`: 默认 provider（"claude", "openai", "ollama"）
+/// - `default_provider`: 默认 provider（"claude", "openai", "ollama", "gemini"）
 /// - `fallback_providers`: 备用 provider 列表（按顺序尝试）
 /// - `providers`: 各 provider 的详细配置
 /// - `max_diff_size`: 发送给 LLM 的最大 diff 大小（字节，默认 100KB）
@@ -74,7 +74,7 @@ pub struct AppConfig {
 /// ```toml
 /// [llm]
 /// default_provider = "claude"
-/// fallback_providers = ["openai", "ollama"]
+/// fallback_providers = ["openai", "gemini", "ollama"]
 /// max_diff_size = 102400
 ///
 /// [llm.providers.claude]
@@ -87,7 +87,7 @@ pub struct AppConfig {
 /// ```
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct LLMConfig {
-    /// 默认使用的 provider: "claude" | "openai" | "ollama"
+    /// 默认使用的 provider: "claude" | "openai" | "ollama" | "gemini"
     pub default_provider: String,
 
     /// 备用 provider 列表，当主 provider 失败时按顺序尝试

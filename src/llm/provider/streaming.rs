@@ -1,6 +1,6 @@
 //! SSE (Server-Sent Events) 解析模块
 //!
-//! 用于解析 OpenAI/Claude 等 API 的流式响应
+//! 用于解析 OpenAI/Claude/Gemini 等 API 的流式响应
 
 use futures_util::StreamExt;
 use reqwest::Response;

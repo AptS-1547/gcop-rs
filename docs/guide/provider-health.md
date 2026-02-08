@@ -26,9 +26,9 @@ If a configured provider cannot be instantiated (for example, missing/invalid co
 
 ## Provider-Specific Validation Behavior
 
-### Claude / OpenAI Style Providers
+### Claude / OpenAI / Gemini Style Providers
 
-For Claude and OpenAI style providers, gcop-rs sends a minimal test request:
+For Claude, OpenAI, and Gemini style providers, gcop-rs sends a minimal test request:
 
 - A small prompt (`"test"`)
 - `max_tokens = 1` (minimal token cost)
@@ -83,7 +83,12 @@ Checks:
 ```toml
 [llm]
 default_provider = "claude"
-fallback_providers = ["openai", "ollama"]
+fallback_providers = ["openai", "gemini", "ollama"]
+
+[llm.providers.gemini]
+api_style = "gemini"
+api_key = "AIza..."
+model = "gemini-3-flash-preview"
 
 [llm.providers.claude]
 api_style = "claude"

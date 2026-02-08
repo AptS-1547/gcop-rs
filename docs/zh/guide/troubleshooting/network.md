@@ -125,7 +125,7 @@ DEBUG OpenAI API network error (attempt 2/4): ... Retrying in 2.0s...
 DEBUG OpenAI API request succeeded after 3 attempts
 ```
 
-## 问题: "Failed to parse Claude/OpenAI response"
+## 问题: "Failed to parse Claude/OpenAI/Gemini response"
 
 **原因**: API 响应格式异常
 
@@ -135,5 +135,5 @@ DEBUG OpenAI API request succeeded after 3 attempts
 gcop-rs -v commit
 
 # 在调试输出中查找
-# 查找 "Claude API response body:" 或 "OpenAI API response body:"
+# 查找 "Claude API response body:"、"OpenAI API response body:" 或 "Gemini API response body:"
 ```

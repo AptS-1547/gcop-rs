@@ -114,7 +114,7 @@ Open gcop-rs configuration in your default editor.
 git gconfig
 ```
 
-**Opens**: `~/.config/gcop/config.toml` in your `$EDITOR`
+**Opens**: your platform-specific `gcop` config file in `$EDITOR`
 
 **When to use**: Quick access to edit your gcop-rs settings (API keys, models, prompts, etc.).
 
