@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-02-08
+
+### Added
+
+- **Project-Level Configuration**: Team-shared `.gcop/config.toml` with upward search bounded by `.git`, security warnings for API keys, and `gcop-rs init --project` scaffolding command
+- **Commit Convention Definitions**: New `[commit.convention]` config section supporting `conventional`, `gitmoji`, and `custom` styles with optional type restrictions and custom templates
+- **Smart Diff Truncation**: File-level intelligent truncation replacing byte-level approach, auto-detecting generated files (`.lock`, `.min.js`, etc.) and downgrading to summary-only
+
+### Changed
+
+- **Configuration Load Priority**: New 5-level priority chain (Defaults → User config → Project config → Env vars → CI mode)
+- **Diff Truncation Message**: Updated to "some files shown as summary only" (was "truncated")
+
 ## [0.10.0] - 2026-02-08
 
 ### Added
@@ -533,7 +546,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Edit action properly returns to menu without triggering regeneration
 - Commit message display no longer duplicates after editing
 
-[Unreleased]: https://github.com/AptS-1547/gcop-rs/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/AptS-1547/gcop-rs/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/AptS-1547/gcop-rs/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/AptS-1547/gcop-rs/compare/v0.9.1...v0.10.0
 [0.9.1]: https://github.com/AptS-1547/gcop-rs/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.9.0

@@ -3,8 +3,8 @@
 //! 测试 .gcop/config.toml 项目配置的完整流程
 
 use gcop_rs::config::{AppConfig, CommitConvention, ConventionStyle};
-use gcop_rs::llm::prompt::build_commit_prompt_split;
 use gcop_rs::llm::CommitContext;
+use gcop_rs::llm::prompt::build_commit_prompt_split;
 
 // === Convention 从配置到 Prompt 的端到端测试 ===
 
@@ -36,7 +36,8 @@ fn test_convention_conventional_e2e() {
 
     let diff = "diff --git a/src/lib.rs b/src/lib.rs\n+pub fn authenticate() {}";
 
-    let (system, user) = build_commit_prompt_split(diff, &context, None, context.convention.as_ref());
+    let (system, user) =
+        build_commit_prompt_split(diff, &context, None, context.convention.as_ref());
 
     // system prompt 应包含默认规则 + convention 约束
     assert!(system.contains("git commit message generator"));
@@ -71,7 +72,8 @@ fn test_convention_gitmoji_e2e() {
         convention: Some(convention),
     };
 
-    let (system, _) = build_commit_prompt_split("diff", &context, None, context.convention.as_ref());
+    let (system, _) =
+        build_commit_prompt_split("diff", &context, None, context.convention.as_ref());
 
     assert!(system.contains("gitmoji"));
     assert!(!system.contains("Allowed types"));
@@ -97,7 +99,8 @@ fn test_convention_custom_with_template_e2e() {
         convention: Some(convention),
     };
 
-    let (system, _) = build_commit_prompt_split("diff", &context, None, context.convention.as_ref());
+    let (system, _) =
+        build_commit_prompt_split("diff", &context, None, context.convention.as_ref());
 
     // Custom 风格不注入 "Follow conventional commits format" 或 "gitmoji" 到 Convention 段
     let convention_section = system.split("## Convention:").nth(1).unwrap();
@@ -161,7 +164,8 @@ fn test_convention_with_feedback_e2e() {
         convention: Some(convention),
     };
 
-    let (system, user) = build_commit_prompt_split("diff", &context, None, context.convention.as_ref());
+    let (system, user) =
+        build_commit_prompt_split("diff", &context, None, context.convention.as_ref());
 
     // convention 在 system prompt
     assert!(system.contains("## Convention:"));
