@@ -238,6 +238,118 @@ pub async fn process_claude_stream(
     Ok(())
 }
 
+// ============================================================================
+// Gemini SSE 解析
+// ============================================================================
+
+/// Gemini 流式响应块
+#[derive(Debug, Deserialize)]
+struct GeminiStreamChunk {
+    pub candidates: Option<Vec<GeminiStreamCandidate>>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GeminiStreamCandidate {
+    pub content: Option<GeminiStreamContent>,
+    pub finish_reason: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GeminiStreamContent {
+    pub parts: Option<Vec<GeminiStreamPart>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GeminiStreamPart {
+    pub text: Option<String>,
+}
+
+/// 处理 Gemini 流式响应
+///
+/// Gemini SSE 格式 (使用 `?alt=sse`):
+/// ```text
+/// data: {"candidates":[{"content":{"parts":[{"text":"Hello"}],"role":"model"}}]}
+///
+/// data: {"candidates":[{"content":{"parts":[{"text":" world"}],"role":"model"},"finishReason":"STOP"}]}
+/// ```
+pub async fn process_gemini_stream(
+    response: Response,
+    tx: mpsc::Sender<StreamChunk>,
+    colored: bool,
+) -> Result<()> {
+    let mut stream = response.bytes_stream();
+    let mut buffer = String::new();
+    let mut parse_errors = 0usize;
+
+    while let Some(chunk_result) = stream.next().await {
+        let chunk = chunk_result.map_err(GcopError::Network)?;
+        buffer.push_str(&String::from_utf8_lossy(&chunk));
+
+        // 按行处理
+        while let Some(pos) = buffer.find('\n') {
+            let line = buffer[..pos].trim().to_string();
+            buffer = buffer[pos + 1..].to_string();
+
+            if line.is_empty() {
+                continue;
+            }
+
+            if let Some(data) = parse_sse_line(&line) {
+                match serde_json::from_str::<GeminiStreamChunk>(data) {
+                    Ok(chunk) => {
+                        if let Some(candidates) = &chunk.candidates
+                            && let Some(candidate) = candidates.first()
+                        {
+                            // 提取文本
+                            if let Some(content) = &candidate.content
+                                && let Some(parts) = &content.parts
+                            {
+                                for part in parts {
+                                    if let Some(text) = &part.text
+                                        && !text.is_empty()
+                                    {
+                                        let _ = tx.send(StreamChunk::Delta(text.clone())).await;
+                                    }
+                                }
+                            }
+
+                            // 检查是否结束
+                            if candidate.finish_reason.as_deref() == Some("STOP") {
+                                if parse_errors > 0 {
+                                    colors::warning(
+                                        &rust_i18n::t!(
+                                            "provider.stream.gemini_parse_errors",
+                                            count = parse_errors
+                                        ),
+                                        colored,
+                                    );
+                                }
+                                let _ = tx.send(StreamChunk::Done).await;
+                                return Ok(());
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        parse_errors += 1;
+                        tracing::warn!("Failed to parse Gemini SSE data: {}, line: {}", e, data);
+                    }
+                }
+            }
+        }
+    }
+
+    // 流结束但没有收到 finishReason: STOP
+    if parse_errors > 0 {
+        colors::warning(
+            &rust_i18n::t!("provider.stream.gemini_parse_errors", count = parse_errors),
+            colored,
+        );
+    }
+    let _ = tx.send(StreamChunk::Done).await;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -278,5 +390,32 @@ mod tests {
         let stop_json = r#"{"type":"message_stop"}"#;
         let event: ClaudeSSEEvent = serde_json::from_str(stop_json).unwrap();
         assert!(matches!(event, ClaudeSSEEvent::MessageStop));
+    }
+
+    #[test]
+    fn test_gemini_stream_chunk_parse() {
+        let json = r#"{"candidates":[{"content":{"parts":[{"text":"Hello"}],"role":"model"}}]}"#;
+        let chunk: GeminiStreamChunk = serde_json::from_str(json).unwrap();
+        let candidates = chunk.candidates.unwrap();
+        assert_eq!(candidates.len(), 1);
+        let text = candidates[0]
+            .content
+            .as_ref()
+            .unwrap()
+            .parts
+            .as_ref()
+            .unwrap()[0]
+            .text
+            .as_deref();
+        assert_eq!(text, Some("Hello"));
+        assert_eq!(candidates[0].finish_reason, None);
+    }
+
+    #[test]
+    fn test_gemini_stream_chunk_with_finish_reason() {
+        let json = r#"{"candidates":[{"content":{"parts":[{"text":"!"}],"role":"model"},"finishReason":"STOP"}]}"#;
+        let chunk: GeminiStreamChunk = serde_json::from_str(json).unwrap();
+        let candidates = chunk.candidates.unwrap();
+        assert_eq!(candidates[0].finish_reason.as_deref(), Some("STOP"));
     }
 }

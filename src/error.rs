@@ -328,6 +328,8 @@ impl GcopError {
                     Some(rust_i18n::t!("suggestion.claude_api_key").to_string())
                 } else if msg.contains("OpenAI") || msg.contains("openai") {
                     Some(rust_i18n::t!("suggestion.openai_api_key").to_string())
+                } else if msg.contains("Gemini") || msg.contains("gemini") {
+                    Some(rust_i18n::t!("suggestion.gemini_api_key").to_string())
                 } else {
                     Some(rust_i18n::t!("suggestion.generic_api_key").to_string())
                 }

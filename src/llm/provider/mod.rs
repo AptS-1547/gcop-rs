@@ -1,6 +1,7 @@
 pub mod base;
 pub mod claude;
 pub mod fallback;
+pub mod gemini;
 pub mod ollama;
 pub mod openai;
 pub mod streaming;
@@ -134,6 +135,11 @@ fn create_provider_from_config(
         ApiStyle::Ollama => {
             let provider =
                 ollama::OllamaProvider::new(provider_config, name, network_config, colored)?;
+            Ok(Arc::new(provider))
+        }
+        ApiStyle::Gemini => {
+            let provider =
+                gemini::GeminiProvider::new(provider_config, name, network_config, colored)?;
             Ok(Arc::new(provider))
         }
     }

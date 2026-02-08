@@ -117,6 +117,8 @@ pub enum ApiStyle {
     OpenAI,
     /// Ollama 本地模型 API
     Ollama,
+    /// Google Gemini API
+    Gemini,
 }
 
 impl std::fmt::Display for ApiStyle {
@@ -125,6 +127,7 @@ impl std::fmt::Display for ApiStyle {
             ApiStyle::Claude => write!(f, "claude"),
             ApiStyle::OpenAI => write!(f, "openai"),
             ApiStyle::Ollama => write!(f, "ollama"),
+            ApiStyle::Gemini => write!(f, "gemini"),
         }
     }
 }
@@ -137,6 +140,7 @@ impl std::str::FromStr for ApiStyle {
             "claude" => Ok(ApiStyle::Claude),
             "openai" => Ok(ApiStyle::OpenAI),
             "ollama" => Ok(ApiStyle::Ollama),
+            "gemini" => Ok(ApiStyle::Gemini),
             _ => Err(format!("Unknown API style: '{}'", s)),
         }
     }
@@ -149,6 +153,7 @@ impl ApiStyle {
             ApiStyle::Claude => "claude-sonnet-4-5-20250929",
             ApiStyle::OpenAI => "gpt-4o-mini",
             ApiStyle::Ollama => "llama3.2",
+            ApiStyle::Gemini => "gemini-3-flash-preview",
         }
     }
 }

@@ -20,6 +20,9 @@ pub const DEFAULT_OPENAI_BASE: &str = "https://api.openai.com";
 /// Ollama 默认 base URL
 pub const DEFAULT_OLLAMA_BASE: &str = "http://localhost:11434";
 
+/// Gemini 默认 base URL
+pub const DEFAULT_GEMINI_BASE: &str = "https://generativelanguage.googleapis.com";
+
 /// 智能补全 API endpoint
 ///
 /// # 行为
