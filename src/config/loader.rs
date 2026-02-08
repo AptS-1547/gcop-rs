@@ -85,15 +85,15 @@ fn apply_ci_mode_overrides(config: &mut AppConfig) -> Result<()> {
     })?;
 
     // 验证 provider_type
-    if !crate::llm::provider::SUPPORTED_API_STYLES.contains(&provider_type.as_str()) {
-        return Err(crate::error::GcopError::Config(
+    let api_style: super::structs::ApiStyle = provider_type.parse().map_err(|_| {
+        crate::error::GcopError::Config(
             rust_i18n::t!(
                 "config.ci_provider_invalid",
                 provider = provider_type.as_str()
             )
             .to_string(),
-        ));
-    }
+        )
+    })?;
 
     // 读取 GCOP_CI_API_KEY（必需）
     let api_key = env::var("GCOP_CI_API_KEY").map_err(|_| {
@@ -101,19 +101,14 @@ fn apply_ci_mode_overrides(config: &mut AppConfig) -> Result<()> {
     })?;
 
     // 读取 GCOP_CI_MODEL（可选，有默认值）
-    let model = env::var("GCOP_CI_MODEL").unwrap_or_else(|_| match provider_type.as_str() {
-        "claude" => "claude-sonnet-4-5-20250929".to_string(),
-        "openai" => "gpt-4o-mini".to_string(),
-        "ollama" => "llama3.2".to_string(),
-        _ => unreachable!(), // 已验证
-    });
+    let model = env::var("GCOP_CI_MODEL").unwrap_or_else(|_| api_style.default_model().to_string());
 
     // 读取 GCOP_CI_ENDPOINT（可选）
     let endpoint = env::var("GCOP_CI_ENDPOINT").ok();
 
     // 构建 ProviderConfig
     let provider_config = ProviderConfig {
-        api_style: Some(provider_type.clone()),
+        api_style: Some(api_style),
         endpoint,
         api_key: Some(api_key),
         model,
@@ -129,7 +124,7 @@ fn apply_ci_mode_overrides(config: &mut AppConfig) -> Result<()> {
         .insert("ci".to_string(), provider_config);
     config.llm.default_provider = "ci".to_string();
 
-    tracing::info!("CI mode enabled, using GCOP_CI_PROVIDER={}", provider_type);
+    tracing::info!("CI mode enabled, using GCOP_CI_PROVIDER={}", api_style);
 
     Ok(())
 }

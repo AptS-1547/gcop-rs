@@ -128,22 +128,22 @@ fn render_bar(count: usize, max_count: usize, max_width: usize) -> String {
 /// 运行 stats 命令
 pub fn run(options: &StatsOptions<'_>, colored: bool) -> Result<()> {
     let repo = GitRepository::open(None)?;
-    let is_json = options.format.is_json();
+    let skip_ui = options.format.is_machine_readable();
     let effective_colored = options.effective_colored(colored);
 
-    if !is_json {
+    if !skip_ui {
         ui::step("1/2", &rust_i18n::t!("stats.analyzing"), effective_colored);
     }
     let commits = repo.get_commit_history()?;
 
     if commits.is_empty() {
-        if !is_json {
+        if !skip_ui {
             ui::warning(&rust_i18n::t!("stats.no_commits"), effective_colored);
         }
         return Ok(());
     }
 
-    if !is_json {
+    if !skip_ui {
         ui::step(
             "2/2",
             &rust_i18n::t!("stats.calculating"),

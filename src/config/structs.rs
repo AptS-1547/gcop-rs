@@ -103,12 +103,62 @@ pub struct LLMConfig {
     pub max_diff_size: usize,
 }
 
+/// API 风格枚举
+///
+/// 决定使用哪种 LLM API 实现。
+/// 如果 `ProviderConfig::api_style` 为 `None`，将根据 provider 名称推断。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ApiStyle {
+    /// Anthropic Claude API
+    Claude,
+    /// OpenAI API（及兼容 API）
+    #[serde(rename = "openai")]
+    OpenAI,
+    /// Ollama 本地模型 API
+    Ollama,
+}
+
+impl std::fmt::Display for ApiStyle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ApiStyle::Claude => write!(f, "claude"),
+            ApiStyle::OpenAI => write!(f, "openai"),
+            ApiStyle::Ollama => write!(f, "ollama"),
+        }
+    }
+}
+
+impl std::str::FromStr for ApiStyle {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "claude" => Ok(ApiStyle::Claude),
+            "openai" => Ok(ApiStyle::OpenAI),
+            "ollama" => Ok(ApiStyle::Ollama),
+            _ => Err(format!("Unknown API style: '{}'", s)),
+        }
+    }
+}
+
+impl ApiStyle {
+    /// 返回该 API 风格的默认模型名称
+    pub fn default_model(&self) -> &'static str {
+        match self {
+            ApiStyle::Claude => "claude-sonnet-4-5-20250929",
+            ApiStyle::OpenAI => "gpt-4o-mini",
+            ApiStyle::Ollama => "llama3.2",
+        }
+    }
+}
+
 /// Provider 配置
 ///
 /// 单个 LLM provider 的配置。
 ///
 /// # 字段
-/// - `api_style`: API 风格（"claude", "openai", "ollama"）
+/// - `api_style`: API 风格（见 [`ApiStyle`]）
 /// - `endpoint`: 自定义 API 端点（可选）
 /// - `api_key`: API key（可选；Claude/OpenAI 风格通常需要，Ollama 不需要）
 /// - `model`: 模型名称
@@ -127,11 +177,10 @@ pub struct LLMConfig {
 /// ```
 #[derive(Clone, Deserialize, Serialize)]
 pub struct ProviderConfig {
-    /// API 风格: "claude" | "openai" | "ollama"
-    /// 用于指定使用哪种 API 实现
-    /// 如果未指定，将使用 provider 名称作为 api_style
+    /// API 风格，决定使用哪种 API 实现
+    /// 如果未指定，将使用 provider 名称推断
     #[serde(default)]
-    pub api_style: Option<String>,
+    pub api_style: Option<ApiStyle>,
 
     /// API endpoint
     pub endpoint: Option<String>,

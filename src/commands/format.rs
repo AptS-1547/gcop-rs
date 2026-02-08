@@ -40,16 +40,16 @@ impl OutputFormat {
         matches!(self, Self::Json)
     }
 
-    /// 是否为 Markdown 格式
-    // TODO: 目前未使用，部分文件可能在用自己的方式判断 markdown，未来需要统一重构
-    #[allow(dead_code)]
-    pub fn is_markdown(&self) -> bool {
-        matches!(self, Self::Markdown)
+    /// 是否为机器可读格式（JSON / Markdown）
+    ///
+    /// 用于决定是否跳过交互式 UI 元素（spinner、step 提示等）。
+    pub fn is_machine_readable(&self) -> bool {
+        matches!(self, Self::Json | Self::Markdown)
     }
 
-    /// 获取有效的 colored 设置（JSON 模式禁用颜色）
+    /// 获取有效的 colored 设置（机器可读格式禁用颜色）
     pub fn effective_colored(&self, config_colored: bool) -> bool {
-        if self.is_json() {
+        if self.is_machine_readable() {
             false
         } else {
             config_colored
@@ -82,7 +82,15 @@ mod tests {
     #[test]
     fn test_effective_colored() {
         assert!(!OutputFormat::Json.effective_colored(true));
+        assert!(!OutputFormat::Markdown.effective_colored(true));
         assert!(OutputFormat::Text.effective_colored(true));
         assert!(!OutputFormat::Text.effective_colored(false));
+    }
+
+    #[test]
+    fn test_is_machine_readable() {
+        assert!(OutputFormat::Json.is_machine_readable());
+        assert!(OutputFormat::Markdown.is_machine_readable());
+        assert!(!OutputFormat::Text.is_machine_readable());
     }
 }

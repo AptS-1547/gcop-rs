@@ -14,15 +14,9 @@ use std::time::Duration;
 
 use reqwest::Client;
 
-use crate::config::{AppConfig, NetworkConfig, ProviderConfig};
+use crate::config::{ApiStyle, AppConfig, NetworkConfig, ProviderConfig};
 use crate::error::{GcopError, Result};
 use crate::llm::LLMProvider;
-
-/// 支持的 API 风格列表
-///
-/// CI 模式验证和 provider dispatch 共用此常量，
-/// 新增 provider 时只需在此处和下方 match 分支同步添加。
-pub const SUPPORTED_API_STYLES: &[&str] = &["claude", "openai", "ollama"];
 
 /// 全局 HTTP 客户端（共享连接池）
 static HTTP_CLIENT: OnceLock<Client> = OnceLock::new();
@@ -110,33 +104,37 @@ fn create_provider_from_config(
     colored: bool,
 ) -> Result<Arc<dyn LLMProvider>> {
     // 决定使用哪种 API 风格
-    // 优先使用 api_style 字段，否则使用 provider 名称（向后兼容）
-    let api_style = provider_config.api_style.as_deref().unwrap_or(name);
+    // 优先使用 api_style 字段，否则从 provider 名称推断（向后兼容）
+    let api_style = match provider_config.api_style {
+        Some(style) => style,
+        None => name.parse::<ApiStyle>().map_err(|_| {
+            GcopError::Config(
+                rust_i18n::t!(
+                    "provider.unsupported_api_style",
+                    style = name,
+                    provider = name
+                )
+                .to_string(),
+            )
+        })?,
+    };
 
-    // 根据 API 风格创建对应的 Provider 实现
+    // 根据 API 风格创建对应的 Provider 实现（穷尽匹配）
     match api_style {
-        "claude" => {
+        ApiStyle::Claude => {
             let provider =
                 claude::ClaudeProvider::new(provider_config, name, network_config, colored)?;
             Ok(Arc::new(provider))
         }
-        "openai" => {
+        ApiStyle::OpenAI => {
             let provider =
                 openai::OpenAIProvider::new(provider_config, name, network_config, colored)?;
             Ok(Arc::new(provider))
         }
-        "ollama" => {
+        ApiStyle::Ollama => {
             let provider =
                 ollama::OllamaProvider::new(provider_config, name, network_config, colored)?;
             Ok(Arc::new(provider))
         }
-        _ => Err(GcopError::Config(
-            rust_i18n::t!(
-                "provider.unsupported_api_style",
-                style = api_style,
-                provider = name
-            )
-            .to_string(),
-        )),
     }
 }

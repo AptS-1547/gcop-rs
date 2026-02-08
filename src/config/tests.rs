@@ -177,7 +177,7 @@ fn test_ci_mode_enabled_with_ci_env() {
     assert!(config.llm.providers.contains_key("ci"));
 
     let ci_provider = &config.llm.providers["ci"];
-    assert_eq!(ci_provider.api_style, Some("claude".to_string()));
+    assert_eq!(ci_provider.api_style, Some(structs::ApiStyle::Claude));
     assert_eq!(ci_provider.api_key, Some("sk-test".to_string()));
     assert_eq!(ci_provider.model, "claude-sonnet-4-5-20250929"); // 默认值
 }
@@ -193,7 +193,7 @@ fn test_ci_mode_with_custom_model() {
     let config = loader::load_config_from_path(None).unwrap();
 
     let ci_provider = &config.llm.providers["ci"];
-    assert_eq!(ci_provider.api_style, Some("ollama".to_string()));
+    assert_eq!(ci_provider.api_style, Some(structs::ApiStyle::Ollama));
     assert_eq!(ci_provider.model, "llama3.1"); // 自定义值
 }
 

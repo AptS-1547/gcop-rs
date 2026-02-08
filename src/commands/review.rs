@@ -23,13 +23,13 @@ pub async fn run_internal(
     git: &dyn GitOperations,
     llm: &dyn LLMProvider,
 ) -> Result<()> {
-    let is_json = options.format.is_json();
+    let skip_ui = options.format.is_machine_readable();
     let colored = options.effective_colored(config);
 
     // 根据目标类型路由
     let (diff, description) = match options.target {
         ReviewTarget::Changes => {
-            if !is_json {
+            if !skip_ui {
                 ui::step(
                     &rust_i18n::t!("review.step1"),
                     &rust_i18n::t!("review.analyzing_changes"),
@@ -38,7 +38,7 @@ pub async fn run_internal(
             }
             let diff = git.get_uncommitted_diff()?;
             if diff.trim().is_empty() {
-                if !is_json {
+                if !skip_ui {
                     ui::error(&rust_i18n::t!("review.no_changes"), colored);
                 }
                 return Err(GcopError::InvalidInput(
@@ -51,7 +51,7 @@ pub async fn run_internal(
             )
         }
         ReviewTarget::Commit { hash } => {
-            if !is_json {
+            if !skip_ui {
                 ui::step(
                     &rust_i18n::t!("review.step1"),
                     &rust_i18n::t!("review.analyzing_commit", hash = hash),
@@ -65,7 +65,7 @@ pub async fn run_internal(
             )
         }
         ReviewTarget::Range { range } => {
-            if !is_json {
+            if !skip_ui {
                 ui::step(
                     &rust_i18n::t!("review.step1"),
                     &rust_i18n::t!("review.analyzing_range", range = range),
@@ -79,7 +79,7 @@ pub async fn run_internal(
             )
         }
         ReviewTarget::File { path } => {
-            if !is_json {
+            if !skip_ui {
                 ui::step(
                     &rust_i18n::t!("review.step1"),
                     &rust_i18n::t!("review.analyzing_file", path = path),
@@ -98,7 +98,7 @@ pub async fn run_internal(
 
     // 调用 LLM 进行审查（截断过大的 diff）
     let (diff, truncated) = truncate_diff(&diff, config.llm.max_diff_size);
-    if truncated && !is_json {
+    if truncated && !skip_ui {
         ui::warning(&rust_i18n::t!("diff.truncated"), colored);
     }
     let review_type = match options.target {
@@ -108,8 +108,8 @@ pub async fn run_internal(
         ReviewTarget::File { path } => ReviewType::FileOrDir(path.clone()),
     };
 
-    // JSON 模式不显示 spinner
-    let spinner = if is_json {
+    // 机器可读格式不显示 spinner
+    let spinner = if skip_ui {
         None
     } else {
         Some(ui::Spinner::new(
@@ -132,7 +132,7 @@ pub async fn run_internal(
     }
 
     // 格式化输出
-    if !is_json {
+    if !skip_ui {
         ui::step(
             &rust_i18n::t!("review.step3"),
             &rust_i18n::t!("review.formatting"),
