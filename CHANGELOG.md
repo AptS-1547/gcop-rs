@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-02-08
+
+### Added
+
+- **Google Gemini Provider**: Full Gemini API support with streaming (SSE), safety content filtering, and API validation
+  - `generateContent` and `streamGenerateContent` endpoints
+  - `x-goog-api-key` header authentication
+  - Default model: `gemini-3-flash-preview`
+  - Handles `finishReason` variants (STOP, MAX_TOKENS, SAFETY, RECITATION)
+  - 5 unit tests covering success, error, safety blocking, and empty response cases
+  - 4 streaming parser tests
+- **CI Mode Gemini Support**: `GCOP_CI_PROVIDER=gemini` now supported
+- **Gemini Error Suggestions**: Provider-specific API key suggestions in error messages
+
+### Changed
+
+- **`ApiStyle` Enum**: New `Gemini` variant with `Display`, `FromStr`, serde, and `default_model()` support
+- **i18n**: Added Gemini-specific messages in English and Chinese locales
+- **CI/Provider Messages**: Updated to include "gemini" in provider lists
+
 ## [0.9.1] - 2026-02-08
 
 ### Added
@@ -513,7 +533,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Edit action properly returns to menu without triggering regeneration
 - Commit message display no longer duplicates after editing
 
-[Unreleased]: https://github.com/AptS-1547/gcop-rs/compare/v0.9.1...HEAD
+[Unreleased]: https://github.com/AptS-1547/gcop-rs/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/AptS-1547/gcop-rs/compare/v0.9.1...v0.10.0
 [0.9.1]: https://github.com/AptS-1547/gcop-rs/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.9.0
 [0.8.0]: https://github.com/AptS-1547/gcop-rs/releases/tag/v0.8.0
