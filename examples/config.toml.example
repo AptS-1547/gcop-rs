@@ -1,144 +1,39 @@
 # gcop-rs Configuration File
-# Location: ~/.config/gcop/config.toml
+# Location: ~/.config/gcop/config.toml (Linux/macOS) | %APPDATA%\gcop\config.toml (Windows)
+# Permissions: chmod 600 recommended (contains API keys, DO NOT commit to git)
 #
-# ⚠️  Contains sensitive API keys - DO NOT commit to git!
-# Recommended permissions: chmod 600 ~/.config/gcop/config.toml
+# Full documentation: https://gcop.docs.esap.cc/guide/configuration.html
 
-# ============================================
-# LLM Configuration
-# ============================================
+# --- LLM ---
 [llm]
-# Default provider: "claude" | "openai" | "ollama"
+# Options: "claude" | "openai" | "ollama"
 default_provider = "claude"
 
-# Fallback providers: automatically try next provider when main provider fails
-# fallback_providers = ["openai", "ollama"]
-
-# Maximum diff size sent to LLM in bytes (default: 102400 = 100KB)
-# Diffs exceeding this limit will be truncated
-# max_diff_size = 102400
-
-# Claude Provider
+# Claude
 [llm.providers.claude]
-# API key
 api_key = "sk-ant-api03-your-key-here"
-
-# Model selection:
-# - claude-sonnet-4-5-20250929 (recommended, balanced performance and cost)
-# - claude-opus-4-5-20251101 (most powerful, for complex reviews)
 model = "claude-sonnet-4-5-20250929"
 
-# Optional: max tokens for response (default: 2000)
-# max_tokens = 2000
+# OpenAI
+# [llm.providers.openai]
+# api_key = "sk-your-openai-key-here"
+# model = "gpt-4-turbo"
 
-# Optional: temperature for generation (default: 0.3)
-# temperature = 0.3
+# Ollama (local, requires `ollama serve` running)
+# [llm.providers.ollama]
+# endpoint = "http://localhost:11434/api/generate"
+# model = "codellama:13b"
 
-# OpenAI Provider
-[llm.providers.openai]
-# API key
-api_key = "sk-your-openai-key-here"
-# Recommended models: gpt-4-turbo | gpt-4 | gpt-3.5-turbo
-model = "gpt-4-turbo"
-
-# Optional: max tokens (omit to use model default)
-# max_tokens = 4096
-
-# Optional: temperature (default: 0.3)
-# temperature = 0.3
-
-# Ollama Provider (local deployment)
-[llm.providers.ollama]
-# Endpoint (ensure ollama serve is running)
-endpoint = "http://localhost:11434/api/generate"
-# Recommended models: codellama:13b | llama2:7b | mistral:7b
-# Pull model first: ollama pull codellama:13b
-model = "codellama:13b"
-
-# Optional: temperature
-# temperature = 0.3
-
-# ============================================
-# Custom Provider Example
-# ============================================
-# DeepSeek (OpenAI compatible)
-# [llm.providers.deepseek]
-# api_style = "openai"
-# endpoint = "https://api.deepseek.com/v1/chat/completions"
-# model = "deepseek-chat"
-# api_key = "your-deepseek-api-key-here"
-# max_tokens = 4096
-# temperature = 0.3
-#
-# Claude Code Hub (Claude compatible)
-# [llm.providers.cch]
-# api_style = "claude"
-# endpoint = "https://claude-code-hub.com"
-# model = "claude-sonnet-4-5-20250929"
-# api_key = "your-claude-code-hub-api-key-here"
-# max_tokens = 2000
-# temperature = 0.3
-
-# ============================================
-# Commit Configuration
-# ============================================
+# --- Commit ---
 [commit]
-# Enable diff preview and edit functionality
 show_diff_preview = true
 allow_edit = true
 
-# Maximum generation attempts, including the first generation (default: 10)
-# max_retries = 10
-
-# Custom prompt (optional)
-# custom_prompt = """
-# You are a professional engineer generating conventional commits.
-# Format: type(scope): brief description
-# """
-
-# ============================================
-# Review Configuration
-# ============================================
-[review]
-# Minimum issue severity shown in text output: "critical" | "warning" | "info"
-min_severity = "info"
-
-# ============================================
-# UI Configuration
-# ============================================
+# --- UI ---
 [ui]
-# Enable colored output
 colored = true
-# Enable streaming output (real-time typing effect, like ChatGPT)
-# Works with Claude/OpenAI-style APIs; Ollama-style providers fallback to spinner
 streaming = true
-# Language setting (optional). If unset, gcop-rs auto-detects system locale.
-# Examples: en | zh-CN
 # language = "en"
 
-# ============================================
-# Network Configuration
-# ============================================
-[network]
-# HTTP request timeout in seconds (default: 120)
-request_timeout = 120
-
-# HTTP connection timeout in seconds (default: 10)
-connect_timeout = 10
-
-# Maximum retry attempts for failed API requests (default: 3)
-max_retries = 3
-
-# Initial retry delay in milliseconds (exponential backoff) (default: 1000)
-retry_delay_ms = 1000
-
-# Maximum retry delay in milliseconds (default: 60000 = 60s)
-# Prevents excessive wait times; also used as limit for Retry-After header
-max_retry_delay_ms = 60000
-
-# ============================================
-# File Configuration
-# ============================================
-[file]
-# Maximum file size for `review file <PATH>` in bytes (default: 10MB)
-max_size = 10485760
+# For advanced options (custom providers, fallback, network, review, etc.):
+# https://gcop.docs.esap.cc/guide/configuration.html
