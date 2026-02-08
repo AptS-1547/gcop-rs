@@ -71,35 +71,19 @@ fn main() -> Result<()> {
                 json,
                 ref feedback,
             } => {
-                // 使用 CommitOptions 聚合参数
                 let options = commands::CommitOptions::from_cli(
                     &cli, no_edit, yes, dry_run, format, json, feedback,
                 );
                 let is_json = options.format.is_json();
-                // 执行 commit 命令
                 if let Err(e) = commands::commit::run(&options, &config).await {
-                    // JSON 模式下，错误已经输出过 JSON 了，直接退出
                     if is_json {
+                        // JSON 错误已在 commit 命令内部输出
                         std::process::exit(1);
                     }
-                    // 错误处理
                     match e {
-                        error::GcopError::UserCancelled => {
-                            // 用户取消不算错误，正常退出
-                            std::process::exit(0);
-                        }
-                        error::GcopError::NoStagedChanges => {
-                            // NoStagedChanges 错误已经在 commit.rs 中输出过了
-                            std::process::exit(1);
-                        }
-                        _ => {
-                            ui::error(&e.localized_message(), config.ui.colored);
-                            if let Some(suggestion) = e.localized_suggestion() {
-                                println!();
-                                println!("{}", ui::info(&suggestion, config.ui.colored));
-                            }
-                            std::process::exit(1);
-                        }
+                        error::GcopError::UserCancelled => std::process::exit(0),
+                        error::GcopError::NoStagedChanges => std::process::exit(1),
+                        _ => handle_command_error(&e, config.ui.colored),
                     }
                 }
                 Ok(())
@@ -109,55 +93,28 @@ fn main() -> Result<()> {
                 ref format,
                 json,
             } => {
-                // 使用 ReviewOptions 聚合参数
                 let options = commands::ReviewOptions::from_cli(&cli, target, format, json);
                 let is_json = options.format.is_json();
-                // 执行 review 命令
                 if let Err(e) = commands::review::run(&options, &config).await {
-                    // JSON 模式下输出 JSON 错误
                     if is_json {
-                        if let Err(je) = commands::json::output_json_error::<llm::ReviewResult>(&e)
-                        {
-                            eprintln!("Failed to output JSON error: {}", je);
-                        }
-                        std::process::exit(1);
+                        handle_json_error::<llm::ReviewResult>(&e);
                     }
-                    // 错误处理
-                    match e {
-                        error::GcopError::UserCancelled => {
-                            std::process::exit(0);
-                        }
-                        _ => {
-                            ui::error(&e.localized_message(), config.ui.colored);
-                            if let Some(suggestion) = e.localized_suggestion() {
-                                println!();
-                                println!("{}", ui::info(&suggestion, config.ui.colored));
-                            }
-                            std::process::exit(1);
-                        }
+                    if matches!(e, error::GcopError::UserCancelled) {
+                        std::process::exit(0);
                     }
+                    handle_command_error(&e, config.ui.colored);
                 }
                 Ok(())
             }
             Commands::Init { force } => {
                 if let Err(e) = commands::init::run(force, config.ui.colored) {
-                    ui::error(&e.localized_message(), config.ui.colored);
-                    if let Some(suggestion) = e.localized_suggestion() {
-                        println!();
-                        println!("{}", ui::info(&suggestion, config.ui.colored));
-                    }
-                    std::process::exit(1);
+                    handle_command_error(&e, config.ui.colored);
                 }
                 Ok(())
             }
             Commands::Config { action } => {
                 if let Err(e) = commands::config::run(action, config.ui.colored).await {
-                    ui::error(&e.localized_message(), config.ui.colored);
-                    if let Some(suggestion) = e.localized_suggestion() {
-                        println!();
-                        println!("{}", ui::info(&suggestion, config.ui.colored));
-                    }
-                    std::process::exit(1);
+                    handle_command_error(&e, config.ui.colored);
                 }
                 Ok(())
             }
@@ -167,12 +124,7 @@ fn main() -> Result<()> {
                 remove,
             } => {
                 if let Err(e) = commands::alias::run(force, list, remove, config.ui.colored) {
-                    ui::error(&e.localized_message(), config.ui.colored);
-                    if let Some(suggestion) = e.localized_suggestion() {
-                        println!();
-                        println!("{}", ui::info(&suggestion, config.ui.colored));
-                    }
-                    std::process::exit(1);
+                    handle_command_error(&e, config.ui.colored);
                 }
                 Ok(())
             }
@@ -181,25 +133,13 @@ fn main() -> Result<()> {
                 json,
                 ref author,
             } => {
-                // 使用 StatsOptions 聚合参数
                 let options = commands::StatsOptions::from_cli(format, json, author.as_deref());
                 let is_json = options.format.is_json();
                 if let Err(e) = commands::stats::run(&options, config.ui.colored) {
-                    // JSON 模式下输出 JSON 错误
                     if is_json {
-                        if let Err(je) =
-                            commands::json::output_json_error::<commands::stats::RepoStats>(&e)
-                        {
-                            eprintln!("Failed to output JSON error: {}", je);
-                        }
-                        std::process::exit(1);
+                        handle_json_error::<commands::stats::RepoStats>(&e);
                     }
-                    ui::error(&e.localized_message(), config.ui.colored);
-                    if let Some(suggestion) = e.localized_suggestion() {
-                        println!();
-                        println!("{}", ui::info(&suggestion, config.ui.colored));
-                    }
-                    std::process::exit(1);
+                    handle_command_error(&e, config.ui.colored);
                 }
                 Ok(())
             }
@@ -343,4 +283,22 @@ fn detect_system_locale() -> Option<String> {
         // Normalize locale format: "zh_CN" -> "zh-CN"
         locale.replace('_', "-")
     })
+}
+
+/// 显示错误信息 + 建议，然后退出
+fn handle_command_error(e: &error::GcopError, colored: bool) -> ! {
+    ui::error(&e.localized_message(), colored);
+    if let Some(suggestion) = e.localized_suggestion() {
+        println!();
+        println!("{}", ui::info(&suggestion, colored));
+    }
+    std::process::exit(1);
+}
+
+/// JSON 模式错误输出，然后退出
+fn handle_json_error<T: serde::Serialize>(e: &error::GcopError) -> ! {
+    if let Err(je) = commands::json::output_json_error::<T>(e) {
+        eprintln!("Failed to output JSON error: {}", je);
+    }
+    std::process::exit(1);
 }

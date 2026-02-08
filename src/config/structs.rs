@@ -446,6 +446,26 @@ impl Default for FileConfig {
 impl AppConfig {
     /// 验证配置的合法性
     pub fn validate(&self) -> Result<()> {
+        // 验证 default_provider 引用的 provider 存在
+        if !self.llm.providers.is_empty()
+            && !self.llm.providers.contains_key(&self.llm.default_provider)
+        {
+            return Err(GcopError::Config(format!(
+                "default_provider '{}' not found in [llm.providers]",
+                self.llm.default_provider
+            )));
+        }
+
+        // 验证 fallback_providers 引用的 provider 都存在
+        for name in &self.llm.fallback_providers {
+            if !self.llm.providers.contains_key(name) {
+                return Err(GcopError::Config(format!(
+                    "fallback_providers: '{}' not found in [llm.providers]",
+                    name
+                )));
+            }
+        }
+
         for (name, provider) in &self.llm.providers {
             provider.validate(name)?;
         }

@@ -12,12 +12,15 @@ use crate::error::Result;
 /// 加载应用配置
 ///
 /// 配置加载优先级（从高到低）：
-/// 0. CI 模式覆盖（`CI=1` 时使用 `GCOP_CI_*`）
-/// 1. 环境变量（GCOP__* 前缀，双下划线表示嵌套）
+/// 1. CI 模式覆盖（`CI=1` 时使用 `GCOP_CI_*`，直接修改反序列化后的结构体）
+/// 2. 环境变量（`GCOP__*` 前缀，双下划线表示嵌套）
 ///    - 例如：`GCOP__LLM__DEFAULT_PROVIDER=openai`
 ///    - 例如：`GCOP__UI__COLORED=false`
-/// 2. 配置文件（平台相关路径下的 `config.toml`）
-/// 3. 默认值（来自 structs.rs 的 Default trait 和 serde(default) 属性）
+/// 3. 配置文件（平台相关路径下的 `config.toml`）
+/// 4. 默认值（来自 structs.rs 的 Default trait 和 serde(default) 属性）
+///
+/// 代码执行顺序：先加载低优先级源（文件→环境变量），config-rs 后加的覆盖先加的；
+/// 再在反序列化后应用 CI 覆盖。
 pub fn load_config() -> Result<AppConfig> {
     load_config_from_path(get_config_path())
 }
@@ -28,14 +31,14 @@ pub fn load_config() -> Result<AppConfig> {
 pub(crate) fn load_config_from_path(config_path: Option<PathBuf>) -> Result<AppConfig> {
     let mut builder = Config::builder();
 
-    // 1. 加载配置文件（如果存在）
+    // 配置文件（优先级低，先加载；config-rs 后加的源覆盖先加的）
     if let Some(config_path) = config_path
         && config_path.exists()
     {
         builder = builder.add_source(File::from(config_path));
     }
 
-    // 2. 加载环境变量（GCOP__*，优先级最高）
+    // 环境变量（优先级高于配置文件，后加载以实现覆盖）
     // 使用双下划线作为嵌套层级分隔符，避免与字段名中的单下划线冲突
     // 例如：GCOP__LLM__DEFAULT_PROVIDER -> llm.default_provider
     builder = builder.add_source(
@@ -48,11 +51,10 @@ pub(crate) fn load_config_from_path(config_path: Option<PathBuf>) -> Result<AppC
     let config = builder.build()?;
     let mut app_config: AppConfig = config.try_deserialize()?;
 
-    // 3. CI 模式覆盖（优先级最高）
-    // 当 CI=1 时，使用 GCOP_CI_* 环境变量构建临时 provider 配置
+    // CI 模式覆盖（优先级最高，直接修改反序列化后的结构体）
     apply_ci_mode_overrides(&mut app_config)?;
 
-    // 4. 验证配置合法性
+    // 验证配置合法性
     app_config.validate()?;
 
     Ok(app_config)
@@ -83,7 +85,7 @@ fn apply_ci_mode_overrides(config: &mut AppConfig) -> Result<()> {
     })?;
 
     // 验证 provider_type
-    if !matches!(provider_type.as_str(), "claude" | "openai" | "ollama") {
+    if !crate::llm::provider::SUPPORTED_API_STYLES.contains(&provider_type.as_str()) {
         return Err(crate::error::GcopError::Config(
             rust_i18n::t!(
                 "config.ci_provider_invalid",

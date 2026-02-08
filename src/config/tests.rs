@@ -274,6 +274,104 @@ fn test_ci_mode_disabled_by_default() {
     assert_eq!(config.llm.default_provider, "claude"); // 默认值
 }
 
+// === validate: default_provider / fallback_providers 存在性检查 ===
+
+#[test]
+fn test_validate_default_provider_not_in_providers() {
+    let mut config = AppConfig::default();
+    config.llm.default_provider = "nonexistent".to_string();
+    config
+        .llm
+        .providers
+        .insert("claude".to_string(), make_test_provider());
+
+    let result = config.validate();
+    assert!(result.is_err());
+    let msg = result.unwrap_err().to_string();
+    assert!(msg.contains("nonexistent"));
+    assert!(msg.contains("not found"));
+}
+
+#[test]
+fn test_validate_default_provider_ok_when_providers_empty() {
+    // 默认配置：default_provider = "claude"，providers = {}
+    // providers 为空时不报错（用户还没配置，延迟到运行时处理）
+    let config = AppConfig::default();
+    assert!(config.validate().is_ok());
+}
+
+#[test]
+fn test_validate_default_provider_exists() {
+    let mut config = AppConfig::default();
+    config.llm.default_provider = "claude".to_string();
+    config
+        .llm
+        .providers
+        .insert("claude".to_string(), make_test_provider());
+
+    assert!(config.validate().is_ok());
+}
+
+#[test]
+fn test_validate_fallback_provider_not_in_providers() {
+    let mut config = AppConfig::default();
+    config.llm.default_provider = "claude".to_string();
+    config
+        .llm
+        .providers
+        .insert("claude".to_string(), make_test_provider());
+    config.llm.fallback_providers = vec!["typo_openai".to_string()];
+
+    let result = config.validate();
+    assert!(result.is_err());
+    let msg = result.unwrap_err().to_string();
+    assert!(msg.contains("typo_openai"));
+    assert!(msg.contains("not found"));
+}
+
+#[test]
+fn test_validate_fallback_providers_all_exist() {
+    let mut config = AppConfig::default();
+    config.llm.default_provider = "claude".to_string();
+    config
+        .llm
+        .providers
+        .insert("claude".to_string(), make_test_provider());
+    config
+        .llm
+        .providers
+        .insert("openai".to_string(), make_test_provider());
+    config.llm.fallback_providers = vec!["openai".to_string()];
+
+    assert!(config.validate().is_ok());
+}
+
+#[test]
+fn test_validate_fallback_providers_empty_is_ok() {
+    let mut config = AppConfig::default();
+    config.llm.default_provider = "claude".to_string();
+    config
+        .llm
+        .providers
+        .insert("claude".to_string(), make_test_provider());
+    config.llm.fallback_providers = vec![];
+
+    assert!(config.validate().is_ok());
+}
+
+/// 构造一个最小合法的 ProviderConfig 用于测试
+fn make_test_provider() -> structs::ProviderConfig {
+    structs::ProviderConfig {
+        api_style: None,
+        endpoint: None,
+        api_key: Some("sk-test-key".to_string()),
+        model: "test-model".to_string(),
+        max_tokens: None,
+        temperature: None,
+        extra: Default::default(),
+    }
+}
+
 // === 默认值一致性测试 ===
 
 #[test]

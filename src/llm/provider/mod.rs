@@ -18,6 +18,12 @@ use crate::config::{AppConfig, NetworkConfig, ProviderConfig};
 use crate::error::{GcopError, Result};
 use crate::llm::LLMProvider;
 
+/// 支持的 API 风格列表
+///
+/// CI 模式验证和 provider dispatch 共用此常量，
+/// 新增 provider 时只需在此处和下方 match 分支同步添加。
+pub const SUPPORTED_API_STYLES: &[&str] = &["claude", "openai", "ollama"];
+
 /// 全局 HTTP 客户端（共享连接池）
 static HTTP_CLIENT: OnceLock<Client> = OnceLock::new();
 
