@@ -4,7 +4,7 @@ use colored::Colorize;
 use serde::Serialize;
 
 use super::options::CommitOptions;
-use super::truncate_diff;
+use super::smart_truncate_diff;
 use crate::commands::commit_state_machine::{CommitState, GenerationResult, UserAction};
 use crate::commands::json::{self, JsonOutput};
 use crate::config::AppConfig;
@@ -86,7 +86,7 @@ async fn run_with_deps(
     let stats = repo.get_diff_stats(&diff)?;
 
     // 截断过大的 diff，防止 token 超限
-    let (diff, truncated) = truncate_diff(&diff, config.llm.max_diff_size);
+    let (diff, truncated) = smart_truncate_diff(&diff, config.llm.max_diff_size);
     if truncated {
         ui::warning(&rust_i18n::t!("diff.truncated"), colored);
     }
@@ -203,7 +203,7 @@ async fn handle_json_mode(
 
     let diff = repo.get_staged_diff()?;
     let stats = repo.get_diff_stats(&diff)?;
-    let (diff, _truncated) = truncate_diff(&diff, config.llm.max_diff_size);
+    let (diff, _truncated) = smart_truncate_diff(&diff, config.llm.max_diff_size);
     let branch_name = repo.get_current_branch()?;
     let custom_prompt = config.commit.custom_prompt.clone();
 

@@ -1,6 +1,19 @@
 use crate::error::Result;
 use crate::git::DiffStats;
 
+/// 单个文件的 diff 信息
+#[derive(Debug, Clone)]
+pub struct FileDiff {
+    /// 文件名（相对于仓库根目录）
+    pub filename: String,
+    /// 该文件的完整 diff patch（从 "diff --git" 到下一个文件边界）
+    pub content: String,
+    /// 新增行数
+    pub insertions: usize,
+    /// 删除行数
+    pub deletions: usize,
+}
+
 fn extract_filename_from_diff_header(line: &str) -> Option<String> {
     const PREFIX: &str = "diff --git ";
     if !line.starts_with(PREFIX) {
@@ -55,6 +68,64 @@ pub fn parse_diff_stats(diff: &str) -> Result<DiffStats> {
         insertions,
         deletions,
     })
+}
+
+/// 将原始 diff 文本按文件边界拆分为 `Vec<FileDiff>`
+///
+/// 每个 `FileDiff` 包含一个文件的完整 diff patch 及其统计信息。
+/// 保持原始文件顺序。
+pub fn split_diff_by_file(diff: &str) -> Vec<FileDiff> {
+    if diff.is_empty() {
+        return Vec::new();
+    }
+
+    let mut files: Vec<FileDiff> = Vec::new();
+    let mut current_filename: Option<String> = None;
+    let mut current_lines: Vec<&str> = Vec::new();
+    let mut current_insertions = 0usize;
+    let mut current_deletions = 0usize;
+
+    for line in diff.lines() {
+        if line.starts_with("diff --git") {
+            // 遇到新文件边界，保存上一个文件
+            if let Some(filename) = current_filename.take() {
+                let content = current_lines.join("\n");
+                files.push(FileDiff {
+                    filename,
+                    content,
+                    insertions: current_insertions,
+                    deletions: current_deletions,
+                });
+                current_lines.clear();
+                current_insertions = 0;
+                current_deletions = 0;
+            }
+            current_filename = extract_filename_from_diff_header(line);
+            current_lines.push(line);
+        } else {
+            if current_filename.is_some() {
+                if line.starts_with('+') && !line.starts_with("+++") {
+                    current_insertions += 1;
+                } else if line.starts_with('-') && !line.starts_with("---") {
+                    current_deletions += 1;
+                }
+            }
+            current_lines.push(line);
+        }
+    }
+
+    // 保存最后一个文件
+    if let Some(filename) = current_filename {
+        let content = current_lines.join("\n");
+        files.push(FileDiff {
+            filename,
+            content,
+            insertions: current_insertions,
+            deletions: current_deletions,
+        });
+    }
+
+    files
 }
 
 #[cfg(test)]
@@ -181,5 +252,70 @@ Binary files a/image.png and b/image.png differ
         // 二进制文件没有 +/- 行
         assert_eq!(stats.insertions, 0);
         assert_eq!(stats.deletions, 0);
+    }
+
+    // === split_diff_by_file 测试 ===
+
+    #[test]
+    fn test_split_diff_by_file_empty() {
+        let files = split_diff_by_file("");
+        assert!(files.is_empty());
+    }
+
+    #[test]
+    fn test_split_diff_by_file_single() {
+        let diff = "diff --git a/src/main.rs b/src/main.rs\n\
+                     index 1234567..abcdefg 100644\n\
+                     --- a/src/main.rs\n\
+                     +++ b/src/main.rs\n\
+                     @@ -1,3 +1,5 @@\n\
+                     +line1\n\
+                     +line2\n\
+                     -old_line";
+        let files = split_diff_by_file(diff);
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].filename, "src/main.rs");
+        assert_eq!(files[0].insertions, 2);
+        assert_eq!(files[0].deletions, 1);
+        assert!(files[0].content.starts_with("diff --git"));
+    }
+
+    #[test]
+    fn test_split_diff_by_file_multiple() {
+        let diff = "diff --git a/src/main.rs b/src/main.rs\n\
+                     --- a/src/main.rs\n\
+                     +++ b/src/main.rs\n\
+                     +line1\n\
+                     diff --git a/src/lib.rs b/src/lib.rs\n\
+                     --- a/src/lib.rs\n\
+                     +++ b/src/lib.rs\n\
+                     +line2\n\
+                     -old_line\n\
+                     diff --git a/Cargo.toml b/Cargo.toml\n\
+                     --- a/Cargo.toml\n\
+                     +++ b/Cargo.toml\n\
+                     -removed";
+        let files = split_diff_by_file(diff);
+        assert_eq!(files.len(), 3);
+        assert_eq!(files[0].filename, "src/main.rs");
+        assert_eq!(files[0].insertions, 1);
+        assert_eq!(files[0].deletions, 0);
+        assert_eq!(files[1].filename, "src/lib.rs");
+        assert_eq!(files[1].insertions, 1);
+        assert_eq!(files[1].deletions, 1);
+        assert_eq!(files[2].filename, "Cargo.toml");
+        assert_eq!(files[2].insertions, 0);
+        assert_eq!(files[2].deletions, 1);
+    }
+
+    #[test]
+    fn test_split_diff_by_file_binary() {
+        let diff = "diff --git a/image.png b/image.png\n\
+                     Binary files a/image.png and b/image.png differ";
+        let files = split_diff_by_file(diff);
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].filename, "image.png");
+        assert_eq!(files[0].insertions, 0);
+        assert_eq!(files[0].deletions, 0);
     }
 }

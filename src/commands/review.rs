@@ -1,5 +1,5 @@
 use super::options::ReviewOptions;
-use super::truncate_diff;
+use super::smart_truncate_diff;
 use crate::cli::ReviewTarget;
 use crate::commands::json::{self, JsonOutput};
 use crate::config::AppConfig;
@@ -106,7 +106,7 @@ pub async fn run_internal(
     };
 
     // 调用 LLM 进行审查（截断过大的 diff）
-    let (diff, truncated) = truncate_diff(&diff, config.llm.max_diff_size);
+    let (diff, truncated) = smart_truncate_diff(&diff, config.llm.max_diff_size);
     if truncated && !skip_ui {
         ui::warning(&rust_i18n::t!("diff.truncated"), colored);
     }

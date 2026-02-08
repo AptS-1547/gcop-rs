@@ -73,7 +73,7 @@ spinner.waiting: "等待中... %{seconds}秒"
 spinner.cancel_hint: "(Ctrl+C 取消)"
 
 # Diff 统计
-diff.truncated: "Diff 过大，已截断以避免超出 LLM token 限制"
+diff.truncated: "Diff 过大，部分文件仅显示统计摘要以适应 LLM token 限制"
 diff.files_changed: "%{count} 个文件已更改"
 diff.files_changed_plural: "%{count} 个文件已更改"
 diff.insertions: "%{count} 处插入(+)"
