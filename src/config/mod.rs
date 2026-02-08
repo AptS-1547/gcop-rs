@@ -14,6 +14,6 @@ mod tests;
 pub use global::{get_config, init_config};
 pub use loader::{get_config_dir, load_config};
 pub use structs::{
-    ApiStyle, AppConfig, CommitConfig, FileConfig, LLMConfig, NetworkConfig, ProviderConfig,
-    ReviewConfig, UIConfig,
+    ApiStyle, AppConfig, CommitConfig, CommitConvention, ConventionStyle, FileConfig, LLMConfig,
+    NetworkConfig, ProviderConfig, ReviewConfig, UIConfig,
 };

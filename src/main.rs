@@ -106,8 +106,8 @@ fn main() -> Result<()> {
                 }
                 Ok(())
             }
-            Commands::Init { force } => {
-                if let Err(e) = commands::init::run(force, config.ui.colored) {
+            Commands::Init { force, project } => {
+                if let Err(e) = commands::init::run(force, project, config.ui.colored) {
                     handle_command_error(&e, config.ui.colored);
                 }
                 Ok(())
@@ -217,6 +217,9 @@ fn parse_cli_localized() -> Result<Cli> {
             cmd.about(rust_i18n::t!("cli.init").to_string())
                 .mut_arg("force", |arg| {
                     arg.help(rust_i18n::t!("cli.init.force").to_string())
+                })
+                .mut_arg("project", |arg| {
+                    arg.help(rust_i18n::t!("cli.init.project").to_string())
                 })
         })
         .mut_subcommand("config", |cmd| {

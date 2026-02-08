@@ -2,9 +2,19 @@ use crate::config;
 use crate::error::{GcopError, Result};
 use crate::ui;
 use std::fs;
+use std::path::PathBuf;
 
 /// 初始化配置文件
-pub fn run(force: bool, colored: bool) -> Result<()> {
+pub fn run(force: bool, project: bool, colored: bool) -> Result<()> {
+    if project {
+        run_project_init(force, colored)
+    } else {
+        run_user_init(force, colored)
+    }
+}
+
+/// 初始化用户级配置文件
+fn run_user_init(force: bool, colored: bool) -> Result<()> {
     // 1. 获取配置目录和文件路径
     let config_dir = config::get_config_dir().ok_or_else(|| {
         GcopError::Config(rust_i18n::t!("config.failed_determine_dir").to_string())
@@ -64,7 +74,6 @@ pub fn run(force: bool, colored: bool) -> Result<()> {
 
     if install_aliases {
         println!();
-        // 调用 alias 模块
         match crate::commands::alias::install_all(force, colored) {
             Ok(_) => {}
             Err(e) => {
@@ -85,6 +94,71 @@ pub fn run(force: bool, colored: bool) -> Result<()> {
 
     println!();
     println!("{}", rust_i18n::t!("init.docs"));
+
+    Ok(())
+}
+
+/// 查找 git repo 根目录（向上找 .git）
+fn find_git_root() -> Option<PathBuf> {
+    let mut dir = std::env::current_dir().ok()?;
+    loop {
+        if dir.join(".git").exists() {
+            return Some(dir);
+        }
+        if !dir.pop() {
+            return None;
+        }
+    }
+}
+
+/// 初始化项目级配置文件 (.gcop/config.toml)
+fn run_project_init(force: bool, colored: bool) -> Result<()> {
+    // 1. 查找 git repo 根目录
+    let repo_root = match find_git_root() {
+        Some(root) => root,
+        None => {
+            ui::warning(&rust_i18n::t!("init.project_not_git_repo"), colored);
+            std::env::current_dir()?
+        }
+    };
+
+    let gcop_dir = repo_root.join(".gcop");
+    let config_file = gcop_dir.join("config.toml");
+
+    // 2. 检查是否已存在
+    if config_file.exists() && !force {
+        ui::warning(
+            &rust_i18n::t!("init.project_exists", path = config_file.display()),
+            colored,
+        );
+        println!();
+        println!("{}", rust_i18n::t!("init.use_force"));
+        return Ok(());
+    }
+
+    // 3. 创建 .gcop/ 目录
+    fs::create_dir_all(&gcop_dir)?;
+    ui::success(
+        &rust_i18n::t!("init.project_dir_created", path = gcop_dir.display()),
+        colored,
+    );
+
+    // 4. 写入项目级模板
+    let project_config = include_str!("../../examples/project-config.toml.example");
+    fs::write(&config_file, project_config)?;
+    ui::success(
+        &rust_i18n::t!("init.project_created", path = config_file.display()),
+        colored,
+    );
+
+    // 5. 提示下一步
+    println!();
+    println!(
+        "{}",
+        ui::info(&rust_i18n::t!("init.project_next_steps"), colored)
+    );
+    println!("{}", rust_i18n::t!("init.project_step1"));
+    println!("{}", rust_i18n::t!("init.project_step2"));
 
     Ok(())
 }

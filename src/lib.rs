@@ -7,9 +7,9 @@
 //! ## 功能
 //! - **Commit message 生成**：基于 staged changes 自动生成符合 Conventional Commits 规范的 commit message
 //! - **代码审查**：分析代码变更，识别潜在问题和改进建议
-//! - **多 Provider 支持**：Claude, OpenAI, Ollama（本地模型）
+//! - **多 Provider 支持**：Claude, OpenAI, Gemini, Ollama（本地模型）
 //! - **高可用**：Fallback 机制，主 provider 失败时自动切换
-//! - **流式输出**：实时打字机效果（Claude/OpenAI）
+//! - **流式输出**：实时打字机效果（Claude/OpenAI/Gemini）
 //! - **国际化**：支持中英文
 //!
 //! ## 快速开始
@@ -46,7 +46,7 @@
 //! // 2. 初始化 LLM provider
 //! let config = ProviderConfig {
 //!     api_key: Some("sk-...".to_string()),
-//!     model: "gpt-4".to_string(),
+//!     model: "gpt-4o-mini".to_string(),
 //!     ..Default::default()
 //! };
 //! let network_config = NetworkConfig::default();
@@ -72,6 +72,7 @@
 //! - Linux: `~/.config/gcop/config.toml`
 //! - macOS: `~/Library/Application Support/gcop/config.toml`
 //! - Windows: `%APPDATA%\gcop\config\config.toml`
+//! - 项目级（可选）: `<repo>/.gcop/config.toml`
 //!
 //! 示例配置：
 //! ```toml

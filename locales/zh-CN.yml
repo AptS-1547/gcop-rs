@@ -127,6 +127,15 @@ init.alias_skipped: "已跳过别名安装。"
 init.alias_run_later: "如需安装，请运行 'gcop-rs alias'。"
 init.docs: "查看 docs/configuration.md 了解更多选项。"
 
+# Init --project 消息
+init.project_exists: "项目配置已存在：%{path}"
+init.project_created: "已创建项目配置：%{path}"
+init.project_dir_created: "已创建 .gcop 目录：%{path}"
+init.project_not_git_repo: "当前不在 git 仓库中。将在当前目录创建 .gcop/config.toml。"
+init.project_next_steps: "下一步："
+init.project_step1: "  1. 编辑 .gcop/config.toml 设置团队规范"
+init.project_step2: "  2. 将 .gcop/config.toml 提交到版本控制"
+
 # Config 命令消息
 config.failed_determine_dir: "无法确定配置目录"
 config.file_not_found: "未找到配置文件"
@@ -152,6 +161,11 @@ config.suggestion: "💡 建议：%{suggestion}"
 config.ci_provider_not_set: "CI 模式已启用但未设置 GCOP_CI_PROVIDER。必须为 'claude'、'openai'、'ollama' 或 'gemini'。"
 config.ci_provider_invalid: "无效的 GCOP_CI_PROVIDER '%{provider}'。必须为 'claude'、'openai'、'ollama' 或 'gemini'。"
 config.ci_api_key_not_set: "CI 模式已启用但未设置 GCOP_CI_API_KEY。"
+
+# 项目配置安全警告
+config.project_api_key_warning_line1: "⚠ 警告：.gcop/config.toml 包含 api_key 字段。"
+config.project_api_key_warning_line2: "  API key 不应提交到版本控制。"
+config.project_api_key_warning_line3: "  请迁移到用户级配置或使用 GCOP__LLM__PROVIDERS__<NAME>__API_KEY 环境变量。"
 
 # Alias 命令消息
 alias.not_found: "PATH 中未找到 'gcop-rs' 命令"
@@ -304,6 +318,7 @@ cli.review.file: "审查指定文件"
 cli.review.file.path: "文件路径"
 cli.init: "初始化配置文件"
 cli.init.force: "强制覆盖现有配置"
+cli.init.project: "在当前仓库初始化项目级 .gcop/config.toml"
 cli.config: "管理配置"
 cli.config.action: "配置操作"
 cli.config.edit: "编辑配置文件"

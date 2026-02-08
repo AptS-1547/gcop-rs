@@ -73,9 +73,10 @@ index 1234567..abcdefg 100644
         branch_name: Some("feature/greeting".to_string()),
         custom_prompt: None,
         user_feedback: vec![],
+        convention: None,
     };
 
-    let (system, user) = build_commit_prompt_split(diff, &context, None);
+    let (system, user) = build_commit_prompt_split(diff, &context, None, None);
 
     // 验证 system prompt 包含角色和规则
     assert!(system.contains("git commit message generator"));
@@ -175,9 +176,10 @@ fn test_user_feedback_accumulation() {
             "不要超过50字符".to_string(),
             "使用 feat 类型".to_string(),
         ],
+        convention: None,
     };
 
-    let (_, user) = build_commit_prompt_split("diff", &context, None);
+    let (_, user) = build_commit_prompt_split("diff", &context, None, None);
 
     // 验证所有反馈都被追加且编号正确
     assert!(user.contains("User Requirements"));

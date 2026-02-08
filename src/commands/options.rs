@@ -269,7 +269,10 @@ mod tests {
 
     fn mock_cli() -> Cli {
         Cli {
-            command: crate::cli::Commands::Init { force: false },
+            command: crate::cli::Commands::Init {
+                force: false,
+                project: false,
+            },
             verbose: true,
             provider: Some("test-provider".to_string()),
         }

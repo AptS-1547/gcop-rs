@@ -9,12 +9,20 @@ use crate::error::{GcopError, Result};
 
 /// 应用配置
 ///
-/// gcop-rs 的顶层配置结构，从平台相关配置目录下的 `config.toml` 加载。
+/// gcop-rs 的顶层配置结构。
+///
+/// 实际生效配置由多来源合并得到（从低到高）：
+/// 1. 默认值
+/// 2. 用户级配置文件（平台相关目录）
+/// 3. 项目级配置文件（`.gcop/config.toml`，从当前目录向上查找）
+/// 4. `GCOP__*` 环境变量
+/// 5. CI 模式覆盖（`CI=1` + `GCOP_CI_*`）
 ///
 /// # 配置文件位置
 /// - Linux: `~/.config/gcop/config.toml`
 /// - macOS: `~/Library/Application Support/gcop/config.toml`
 /// - Windows: `%APPDATA%\gcop\config\config.toml`
+/// - 项目级（可选）: `<repo>/.gcop/config.toml`
 ///
 /// # 配置示例
 /// ```toml
@@ -65,7 +73,7 @@ pub struct AppConfig {
 /// 管理 LLM provider 的选择和配置。
 ///
 /// # 字段
-/// - `default_provider`: 默认 provider（"claude", "openai", "ollama", "gemini"）
+/// - `default_provider`: 默认 provider 名称（对应 `[llm.providers.<name>]` 的 key）
 /// - `fallback_providers`: 备用 provider 列表（按顺序尝试）
 /// - `providers`: 各 provider 的详细配置
 /// - `max_diff_size`: 发送给 LLM 的最大 diff 大小（字节，默认 100KB）
@@ -87,7 +95,7 @@ pub struct AppConfig {
 /// ```
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct LLMConfig {
-    /// 默认使用的 provider: "claude" | "openai" | "ollama" | "gemini"
+    /// 默认使用的 provider 名称（对应 `[llm.providers.<name>]` 的 key）
     pub default_provider: String,
 
     /// 备用 provider 列表，当主 provider 失败时按顺序尝试
@@ -230,6 +238,50 @@ impl std::fmt::Debug for ProviderConfig {
     }
 }
 
+/// Commit 规范风格
+///
+/// 决定 commit message 遵循的规范格式。
+/// 该信息会注入到 LLM prompt 中引导生成，不做硬校验。
+#[derive(Debug, Clone, Deserialize, Serialize, Default, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum ConventionStyle {
+    /// Conventional Commits: type(scope): description
+    #[default]
+    Conventional,
+    /// Gitmoji: :emoji: description
+    Gitmoji,
+    /// 自定义格式（需配合 template 字段）
+    Custom,
+}
+
+/// Commit 规范配置
+///
+/// 定义团队统一的 commit message 规范，注入到 LLM prompt 中引导生成。
+///
+/// # 示例
+/// ```toml
+/// [commit.convention]
+/// style = "conventional"
+/// types = ["feat", "fix", "docs", "style", "refactor", "perf", "test", "chore", "ci"]
+/// extra_prompt = "All commit messages must be in English"
+/// ```
+#[derive(Debug, Clone, Deserialize, Serialize, Default, PartialEq)]
+pub struct CommitConvention {
+    /// 规范风格
+    #[serde(default)]
+    pub style: ConventionStyle,
+
+    /// 允许的 type 列表（style = "conventional" 或 "custom" 时生效）
+    pub types: Option<Vec<String>>,
+
+    /// 自定义模板（style = "custom" 时生效）
+    /// 占位符：{type}, {scope}, {subject}, {body}
+    pub template: Option<String>,
+
+    /// 附加 prompt 指令，追加到默认 prompt 之后
+    pub extra_prompt: Option<String>,
+}
+
 /// Commit 命令配置
 ///
 /// 控制 commit message 生成的行为。
@@ -239,6 +291,7 @@ impl std::fmt::Debug for ProviderConfig {
 /// - `allow_edit`: 是否允许编辑生成的消息（默认 true）
 /// - `custom_prompt`: 自定义 prompt 模板（可选）
 /// - `max_retries`: 最大生成尝试次数（默认 10，包含首次生成）
+/// - `convention`: commit 规范配置（可选）
 ///
 /// # 示例
 /// ```toml
@@ -247,6 +300,10 @@ impl std::fmt::Debug for ProviderConfig {
 /// allow_edit = true
 /// max_retries = 10
 /// custom_prompt = "Generate a concise commit message"
+///
+/// [commit.convention]
+/// style = "conventional"
+/// types = ["feat", "fix", "docs", "refactor", "test", "chore"]
 /// ```
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct CommitConfig {
@@ -266,6 +323,10 @@ pub struct CommitConfig {
     /// 最大生成尝试次数（包含首次生成）
     #[serde(default = "default_commit_max_retries")]
     pub max_retries: usize,
+
+    /// Commit 规范配置（可选，通常在项目级 .gcop/config.toml 中设置）
+    #[serde(default)]
+    pub convention: Option<CommitConvention>,
 }
 
 /// Review 命令配置
@@ -452,6 +513,7 @@ impl Default for CommitConfig {
             allow_edit: true,
             custom_prompt: None,
             max_retries: default_commit_max_retries(),
+            convention: None,
         }
     }
 }

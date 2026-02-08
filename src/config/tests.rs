@@ -86,14 +86,14 @@ fn test_app_config_default_file() {
 #[serial]
 fn test_load_config_succeeds() {
     // 验证 load_config 不会崩溃（不读用户配置文件）
-    let result = loader::load_config_from_path(None);
+    let result = loader::load_config_from_path(None, None);
     assert!(result.is_ok());
 }
 
 #[test]
 #[serial]
 fn test_load_config_returns_valid_config() {
-    let config = loader::load_config_from_path(None).unwrap();
+    let config = loader::load_config_from_path(None, None).unwrap();
     // 验证配置有合理的值
     assert!(!config.llm.default_provider.is_empty());
     assert!(config.commit.max_retries > 0);
@@ -154,7 +154,7 @@ fn test_env_var_llm_default_provider() {
     // 验证 GCOP__LLM__DEFAULT_PROVIDER 环境变量是否生效
     // 注意：使用双下划线表示嵌套层级
     let _guard = EnvGuard::set("GCOP__LLM__DEFAULT_PROVIDER", "test_provider");
-    let config = loader::load_config_from_path(None).unwrap();
+    let config = loader::load_config_from_path(None, None).unwrap();
     // 环境变量优先级最高，应该覆盖配置文件
     assert_eq!(config.llm.default_provider, "test_provider");
 }
@@ -168,7 +168,7 @@ fn test_ci_mode_enabled_with_ci_env() {
     let _type = EnvGuard::set("GCOP_CI_PROVIDER", "claude");
     let _key = EnvGuard::set("GCOP_CI_API_KEY", "sk-test");
 
-    let config = loader::load_config_from_path(None).unwrap();
+    let config = loader::load_config_from_path(None, None).unwrap();
 
     // CI 模式应该设置 default_provider 为 "ci"
     assert_eq!(config.llm.default_provider, "ci");
@@ -190,7 +190,7 @@ fn test_ci_mode_with_custom_model() {
     let _key = EnvGuard::set("GCOP_CI_API_KEY", "dummy");
     let _model = EnvGuard::set("GCOP_CI_MODEL", "llama3.1");
 
-    let config = loader::load_config_from_path(None).unwrap();
+    let config = loader::load_config_from_path(None, None).unwrap();
 
     let ci_provider = &config.llm.providers["ci"];
     assert_eq!(ci_provider.api_style, Some(structs::ApiStyle::Ollama));
@@ -205,7 +205,7 @@ fn test_ci_mode_with_custom_endpoint() {
     let _key = EnvGuard::set("GCOP_CI_API_KEY", "sk-test");
     let _endpoint = EnvGuard::set("GCOP_CI_ENDPOINT", "https://custom-api.com");
 
-    let config = loader::load_config_from_path(None).unwrap();
+    let config = loader::load_config_from_path(None, None).unwrap();
 
     let ci_provider = &config.llm.providers["ci"];
     assert_eq!(
@@ -221,7 +221,7 @@ fn test_ci_mode_missing_provider_type() {
     let _key = EnvGuard::set("GCOP_CI_API_KEY", "sk-test");
     // 没有设置 GCOP_CI_PROVIDER
 
-    let result = loader::load_config_from_path(None);
+    let result = loader::load_config_from_path(None, None);
     assert!(result.is_err());
     assert!(
         result
@@ -238,7 +238,7 @@ fn test_ci_mode_missing_api_key() {
     let _type = EnvGuard::set("GCOP_CI_PROVIDER", "claude");
     // 没有设置 GCOP_CI_API_KEY
 
-    let result = loader::load_config_from_path(None);
+    let result = loader::load_config_from_path(None, None);
     assert!(result.is_err());
     assert!(
         result
@@ -255,7 +255,7 @@ fn test_ci_mode_invalid_provider_type() {
     let _type = EnvGuard::set("GCOP_CI_PROVIDER", "invalid");
     let _key = EnvGuard::set("GCOP_CI_API_KEY", "sk-test");
 
-    let result = loader::load_config_from_path(None);
+    let result = loader::load_config_from_path(None, None);
     assert!(result.is_err());
     assert!(
         result
@@ -269,7 +269,7 @@ fn test_ci_mode_invalid_provider_type() {
 #[serial]
 fn test_ci_mode_disabled_by_default() {
     // 没有设置 CI=1，不应该创建 "ci" provider
-    let config = loader::load_config_from_path(None).unwrap();
+    let config = loader::load_config_from_path(None, None).unwrap();
     assert!(!config.llm.providers.contains_key("ci"));
     assert_eq!(config.llm.default_provider, "claude"); // 默认值
 }
@@ -440,4 +440,154 @@ fn test_serde_empty_config_matches_default() {
 
     // File
     assert_eq!(deserialized.file.max_size, default_config.file.max_size);
+
+    // Commit convention
+    assert_eq!(
+        deserialized.commit.convention,
+        default_config.commit.convention
+    );
+}
+
+// === CommitConvention 测试 ===
+
+#[test]
+fn test_commit_convention_default() {
+    let conv = structs::CommitConvention::default();
+    assert_eq!(conv.style, structs::ConventionStyle::Conventional);
+    assert!(conv.types.is_none());
+    assert!(conv.template.is_none());
+    assert!(conv.extra_prompt.is_none());
+}
+
+#[test]
+fn test_commit_config_default_convention_is_none() {
+    let config = AppConfig::default();
+    assert!(config.commit.convention.is_none());
+}
+
+#[test]
+fn test_convention_style_serde_roundtrip() {
+    // 验证 ConventionStyle 的序列化/反序列化
+    let styles = vec![
+        (structs::ConventionStyle::Conventional, "\"conventional\""),
+        (structs::ConventionStyle::Gitmoji, "\"gitmoji\""),
+        (structs::ConventionStyle::Custom, "\"custom\""),
+    ];
+    for (style, expected_json) in styles {
+        let json = serde_json::to_string(&style).unwrap();
+        assert_eq!(json, expected_json);
+        let deserialized: structs::ConventionStyle = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized, style);
+    }
+}
+
+// === 项目配置三层优先级测试 ===
+
+#[test]
+#[serial]
+fn test_project_config_overrides_user_config() {
+    use std::io::Write;
+
+    let user_dir = tempfile::tempdir().unwrap();
+    let project_dir = tempfile::tempdir().unwrap();
+
+    // 用户配置：default_provider = "claude"
+    let user_config = user_dir.path().join("config.toml");
+    let mut f = std::fs::File::create(&user_config).unwrap();
+    writeln!(f, "[llm]\ndefault_provider = \"claude\"").unwrap();
+
+    // 项目配置：default_provider = "openai"
+    let project_config = project_dir.path().join("config.toml");
+    let mut f = std::fs::File::create(&project_config).unwrap();
+    writeln!(f, "[llm]\ndefault_provider = \"openai\"").unwrap();
+
+    let config = loader::load_config_from_path(Some(user_config), Some(project_config)).unwrap();
+
+    // 项目配置应覆盖用户配置
+    assert_eq!(config.llm.default_provider, "openai");
+}
+
+#[test]
+#[serial]
+fn test_env_overrides_project_config() {
+    use std::io::Write;
+
+    let project_dir = tempfile::tempdir().unwrap();
+
+    // 项目配置：default_provider = "openai"
+    let project_config = project_dir.path().join("config.toml");
+    let mut f = std::fs::File::create(&project_config).unwrap();
+    writeln!(f, "[llm]\ndefault_provider = \"openai\"").unwrap();
+
+    // 环境变量覆盖
+    let _guard = EnvGuard::set("GCOP__LLM__DEFAULT_PROVIDER", "gemini");
+
+    let config = loader::load_config_from_path(None, Some(project_config)).unwrap();
+
+    // 环境变量应覆盖项目配置
+    assert_eq!(config.llm.default_provider, "gemini");
+}
+
+#[test]
+#[serial]
+fn test_load_config_with_no_project_config() {
+    // 无项目配置时应正常工作
+    let config = loader::load_config_from_path(None, None).unwrap();
+    assert_eq!(config.llm.default_provider, "claude"); // 默认值
+}
+
+// === CommitConvention TOML 解析测试 ===
+
+#[test]
+fn test_convention_from_toml() {
+    use config::{Config, File, FileFormat};
+
+    let toml_content = r#"
+[commit.convention]
+style = "gitmoji"
+types = ["feat", "fix", "docs"]
+template = "{type}: {subject}"
+extra_prompt = "Use English only"
+"#;
+
+    let config = Config::builder()
+        .add_source(File::from_str(toml_content, FileFormat::Toml))
+        .build()
+        .unwrap();
+    let app_config: AppConfig = config.try_deserialize().unwrap();
+
+    let conv = app_config.commit.convention.unwrap();
+    assert_eq!(conv.style, structs::ConventionStyle::Gitmoji);
+    assert_eq!(
+        conv.types,
+        Some(vec![
+            "feat".to_string(),
+            "fix".to_string(),
+            "docs".to_string()
+        ])
+    );
+    assert_eq!(conv.template, Some("{type}: {subject}".to_string()));
+    assert_eq!(conv.extra_prompt, Some("Use English only".to_string()));
+}
+
+#[test]
+fn test_convention_partial_from_toml() {
+    use config::{Config, File, FileFormat};
+
+    let toml_content = r#"
+[commit.convention]
+style = "conventional"
+"#;
+
+    let config = Config::builder()
+        .add_source(File::from_str(toml_content, FileFormat::Toml))
+        .build()
+        .unwrap();
+    let app_config: AppConfig = config.try_deserialize().unwrap();
+
+    let conv = app_config.commit.convention.unwrap();
+    assert_eq!(conv.style, structs::ConventionStyle::Conventional);
+    assert!(conv.types.is_none());
+    assert!(conv.template.is_none());
+    assert!(conv.extra_prompt.is_none());
 }

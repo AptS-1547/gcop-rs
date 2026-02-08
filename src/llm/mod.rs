@@ -298,6 +298,8 @@ pub trait LLMProvider: Send + Sync {
     }
 }
 
+use crate::config::CommitConvention;
+
 /// Commit 上下文信息
 ///
 /// 提供给 LLM 的额外信息，用于生成更准确的 commit message。
@@ -309,6 +311,7 @@ pub trait LLMProvider: Send + Sync {
 /// - `branch_name`: 当前分支名（可能为 None，如 detached HEAD）
 /// - `custom_prompt`: 用户自定义 prompt（追加到系统 prompt）
 /// - `user_feedback`: 用户反馈（重新生成时使用，支持累积）
+/// - `convention`: commit 规范配置（来自项目级或用户级配置）
 ///
 /// # 示例
 /// ```
@@ -321,6 +324,7 @@ pub trait LLMProvider: Send + Sync {
 ///     branch_name: Some("feature/login".to_string()),
 ///     custom_prompt: Some("Focus on security changes".to_string()),
 ///     user_feedback: vec!["Be more specific".to_string()],
+///     convention: None,
 /// };
 /// ```
 #[derive(Debug, Clone, Default)]
@@ -331,6 +335,7 @@ pub struct CommitContext {
     pub branch_name: Option<String>,
     pub custom_prompt: Option<String>,
     pub user_feedback: Vec<String>, // 用户重试反馈（支持累积）
+    pub convention: Option<CommitConvention>,
 }
 
 /// 审查类型

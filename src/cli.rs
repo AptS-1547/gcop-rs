@@ -72,6 +72,10 @@ pub enum Commands {
         /// Force overwrite existing config
         #[arg(short, long)]
         force: bool,
+
+        /// Initialize project-level .gcop/config.toml in current repo
+        #[arg(long)]
+        project: bool,
     },
 
     /// Manage configuration

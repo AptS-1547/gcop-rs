@@ -1,0 +1,30 @@
+# gcop 项目级配置
+# 此文件应提交到版本控制，团队共享
+# 文档：https://github.com/AptS-1547/gcop-rs
+#
+# 优先级：环境变量 (GCOP__*) > 项目配置 (.gcop/config.toml) > 用户配置 (~/.config/gcop/config.toml) > 默认值
+# 警告：不要在此文件中填写 api_key —— 请使用环境变量或用户级配置
+
+# --- LLM ---
+# [llm]
+# default_provider = "openai"
+
+# [llm.providers.openai]
+# model = "gpt-4o"
+# ⚠ 不要在此文件中填写 api_key，请使用环境变量或用户级配置
+
+# --- Commit ---
+# [commit]
+# custom_prompt = ""
+# show_diff_preview = true
+
+# [commit.convention]
+# style = "conventional"
+# types = ["feat", "fix", "docs", "style", "refactor", "perf", "test", "chore", "ci"]
+# template = "{type}({scope}): {subject}"
+# extra_prompt = "所有 commit message 使用英文"
+
+# --- Review ---
+# [review]
+# custom_prompt = ""
+# min_severity = "warning"

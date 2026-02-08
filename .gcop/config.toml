@@ -1,0 +1,5 @@
+[commit.convention]
+style = "conventional"
+types = ["feat", "fix", "docs", "style", "refactor", "perf", "test", "chore", "ci"]
+template = "{type}({scope}): {subject}"
+extra_prompt = "使用中文输出。第一行写简短摘要，空一行后写正文：解释是什么和为什么，分点输出。"

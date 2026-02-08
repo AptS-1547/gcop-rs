@@ -4,7 +4,7 @@
 
 use config::{Config, Environment, File};
 use directories::ProjectDirs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use super::structs::{AppConfig, ProviderConfig};
 use crate::error::Result;
@@ -16,29 +16,42 @@ use crate::error::Result;
 /// 2. 环境变量（`GCOP__*` 前缀，双下划线表示嵌套）
 ///    - 例如：`GCOP__LLM__DEFAULT_PROVIDER=openai`
 ///    - 例如：`GCOP__UI__COLORED=false`
-/// 3. 配置文件（平台相关路径下的 `config.toml`）
-/// 4. 默认值（来自 structs.rs 的 Default trait 和 serde(default) 属性）
+/// 3. 项目级配置（`.gcop/config.toml`，从 CWD 向上查找，以 `.git` 为边界）
+/// 4. 用户级配置文件（平台相关路径下的 `config.toml`）
+/// 5. 默认值（来自 structs.rs 的 Default trait 和 serde(default) 属性）
 ///
-/// 代码执行顺序：先加载低优先级源（文件→环境变量），config-rs 后加的覆盖先加的；
+/// 代码执行顺序：先加载低优先级源（用户文件→项目文件→环境变量），config-rs 后加的覆盖先加的；
 /// 再在反序列化后应用 CI 覆盖。
 pub fn load_config() -> Result<AppConfig> {
-    load_config_from_path(get_config_path())
+    load_config_from_path(get_config_path(), find_project_config())
 }
 
 /// 从指定路径加载配置（可测试版本）
 ///
-/// 传入 `None` 跳过配置文件加载，仅使用环境变量和默认值。
-pub(crate) fn load_config_from_path(config_path: Option<PathBuf>) -> Result<AppConfig> {
+/// 传入 `None` 跳过对应配置文件加载，仅使用其他源和默认值。
+pub(crate) fn load_config_from_path(
+    config_path: Option<PathBuf>,
+    project_config_path: Option<PathBuf>,
+) -> Result<AppConfig> {
     let mut builder = Config::builder();
 
-    // 配置文件（优先级低，先加载；config-rs 后加的源覆盖先加的）
+    // 用户级配置文件（优先级最低，先加载；config-rs 后加的源覆盖先加的）
     if let Some(config_path) = config_path
         && config_path.exists()
     {
         builder = builder.add_source(File::from(config_path));
     }
 
-    // 环境变量（优先级高于配置文件，后加载以实现覆盖）
+    // 项目级配置文件（优先级高于用户配置，后加载以实现覆盖）
+    if let Some(ref project_path) = project_config_path
+        && project_path.exists()
+    {
+        // 安全检查：项目配置不应包含 api_key
+        check_project_config_security(project_path);
+        builder = builder.add_source(File::from(project_path.clone()));
+    }
+
+    // 环境变量（优先级最高，最后加载以实现覆盖）
     // 使用双下划线作为嵌套层级分隔符，避免与字段名中的单下划线冲突
     // 例如：GCOP__LLM__DEFAULT_PROVIDER -> llm.default_provider
     builder = builder.add_source(
@@ -58,6 +71,45 @@ pub(crate) fn load_config_from_path(config_path: Option<PathBuf>) -> Result<AppC
     app_config.validate()?;
 
     Ok(app_config)
+}
+
+/// 从当前工作目录向上查找项目级配置 `.gcop/config.toml`
+///
+/// 遇到 `.git` 目录即停止查找（不跨 repo 边界）。
+/// 只取最近的一个 `.gcop/config.toml`，不做多层合并。
+pub(crate) fn find_project_config() -> Option<PathBuf> {
+    let mut dir = std::env::current_dir().ok()?;
+    loop {
+        let candidate = dir.join(".gcop").join("config.toml");
+        if candidate.exists() {
+            return Some(candidate);
+        }
+        // 到达 repo 根目录，停止查找
+        if dir.join(".git").exists() {
+            return None;
+        }
+        if !dir.pop() {
+            return None;
+        }
+    }
+}
+
+/// 检查项目级配置文件的安全性
+///
+/// 如果项目配置中包含 `api_key` 字段，输出 warning 提示用户迁移到用户级配置或环境变量。
+fn check_project_config_security(path: &Path) {
+    if let Ok(content) = std::fs::read_to_string(path) {
+        // 检查非注释行中是否包含 api_key
+        let has_api_key = content.lines().any(|line| {
+            let trimmed = line.trim();
+            !trimmed.starts_with('#') && trimmed.contains("api_key")
+        });
+        if has_api_key {
+            eprintln!("{}", rust_i18n::t!("config.project_api_key_warning_line1"));
+            eprintln!("{}", rust_i18n::t!("config.project_api_key_warning_line2"));
+            eprintln!("{}", rust_i18n::t!("config.project_api_key_warning_line3"));
+        }
+    }
 }
 
 /// 应用 CI 模式环境变量覆盖

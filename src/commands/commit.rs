@@ -215,6 +215,7 @@ async fn handle_json_mode(
         options.verbose,
         &branch_name,
         &custom_prompt,
+        &config.commit.convention,
     )
     .await
     {
@@ -367,6 +368,7 @@ async fn generate_message(
         branch_name: branch_name.clone(),
         custom_prompt: custom_prompt.clone(),
         user_feedback: feedbacks.to_vec(),
+        convention: config.commit.convention.clone(),
     };
 
     // verbose 模式下显示 prompt
@@ -375,6 +377,7 @@ async fn generate_message(
             diff,
             &context,
             context.custom_prompt.as_deref(),
+            context.convention.as_ref(),
         );
         println!(
             "\n{}",
@@ -470,6 +473,7 @@ fn display_edited_message(message: &str, colored: bool) {
 }
 
 /// 生成 commit message（非流式版本，用于 JSON 输出模式）
+#[allow(clippy::too_many_arguments)]
 async fn generate_message_no_streaming(
     provider: &Arc<dyn LLMProvider>,
     diff: &str,
@@ -478,6 +482,7 @@ async fn generate_message_no_streaming(
     verbose: bool,
     branch_name: &Option<String>,
     custom_prompt: &Option<String>,
+    convention: &Option<crate::config::CommitConvention>,
 ) -> Result<String> {
     let context = CommitContext {
         files_changed: stats.files_changed.clone(),
@@ -486,6 +491,7 @@ async fn generate_message_no_streaming(
         branch_name: branch_name.clone(),
         custom_prompt: custom_prompt.clone(),
         user_feedback: feedbacks.to_vec(),
+        convention: convention.clone(),
     };
 
     // verbose 模式下显示 prompt
@@ -494,6 +500,7 @@ async fn generate_message_no_streaming(
             diff,
             &context,
             context.custom_prompt.as_deref(),
+            context.convention.as_ref(),
         );
         eprintln!("\n{}", rust_i18n::t!("commit.verbose.generated_prompt"));
         eprintln!("{}", rust_i18n::t!("commit.verbose.system_prompt"));

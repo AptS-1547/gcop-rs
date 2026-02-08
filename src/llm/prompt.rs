@@ -1,3 +1,4 @@
+use crate::config::{CommitConvention, ConventionStyle};
 use crate::llm::{CommitContext, ReviewType};
 
 /// 静态系统指令（可缓存）- 用于 system/user 分离模式
@@ -41,6 +42,39 @@ fn format_feedbacks(feedbacks: &[String]) -> String {
     result
 }
 
+/// 格式化 convention 约束为 prompt 片段
+fn format_convention(convention: &CommitConvention) -> String {
+    let mut parts = Vec::new();
+
+    match convention.style {
+        ConventionStyle::Conventional => {
+            parts.push("Follow conventional commits format: type(scope): description".to_string());
+        }
+        ConventionStyle::Gitmoji => {
+            parts.push("Use gitmoji format: :emoji: description".to_string());
+        }
+        ConventionStyle::Custom => {}
+    }
+
+    if let Some(ref types) = convention.types {
+        parts.push(format!("Allowed types: {}", types.join(", ")));
+    }
+
+    if let Some(ref template) = convention.template {
+        parts.push(format!("Commit template: {}", template));
+    }
+
+    if let Some(ref extra) = convention.extra_prompt {
+        parts.push(extra.clone());
+    }
+
+    if parts.is_empty() {
+        return String::new();
+    }
+
+    format!("\n\n## Convention:\n{}", parts.join("\n"))
+}
+
 /// 构建拆分的 commit prompt（system + user）
 ///
 /// 返回 (system_prompt, user_message)
@@ -50,9 +84,15 @@ pub fn build_commit_prompt_split(
     diff: &str,
     context: &CommitContext,
     custom_template: Option<&str>,
+    convention: Option<&CommitConvention>,
 ) -> (String, String) {
     // 自定义模板用作 system prompt
-    let system = custom_template.unwrap_or(COMMIT_SYSTEM_PROMPT).to_string();
+    let mut system = custom_template.unwrap_or(COMMIT_SYSTEM_PROMPT).to_string();
+
+    // 追加 convention 约束
+    if let Some(conv) = convention {
+        system.push_str(&format_convention(conv));
+    }
 
     // user message 包含动态内容
     let branch_info = context
@@ -112,6 +152,7 @@ mod tests {
             branch_name: branch.map(String::from),
             custom_prompt: None,
             user_feedback: feedbacks.into_iter().map(String::from).collect(),
+            convention: None,
         }
     }
 
@@ -120,7 +161,7 @@ mod tests {
     #[test]
     fn test_commit_prompt_split_default() {
         let ctx = create_context(vec!["foo.rs"], 10, 5, None, vec![]);
-        let (system, user) = build_commit_prompt_split("diff content", &ctx, None);
+        let (system, user) = build_commit_prompt_split("diff content", &ctx, None, None);
 
         // system 应该包含角色定义和规则
         assert!(system.contains("git commit message generator"));
@@ -135,7 +176,7 @@ mod tests {
     #[test]
     fn test_commit_prompt_split_with_branch() {
         let ctx = create_context(vec!["a.rs"], 1, 1, Some("feature/test"), vec![]);
-        let (_, user) = build_commit_prompt_split("diff", &ctx, None);
+        let (_, user) = build_commit_prompt_split("diff", &ctx, None, None);
 
         assert!(user.contains("Branch: feature/test"));
     }
@@ -149,7 +190,7 @@ mod tests {
             None,
             vec!["请使用中文", "不要超过50字符"],
         );
-        let (_, user) = build_commit_prompt_split("diff", &ctx, None);
+        let (_, user) = build_commit_prompt_split("diff", &ctx, None, None);
 
         assert!(user.contains("User Requirements"));
         assert!(user.contains("1. 请使用中文"));
@@ -159,10 +200,63 @@ mod tests {
     #[test]
     fn test_commit_prompt_split_custom_template() {
         let ctx = create_context(vec!["a.rs"], 1, 1, None, vec![]);
-        let (system, _) = build_commit_prompt_split("diff", &ctx, Some("Custom system prompt"));
+        let (system, _) =
+            build_commit_prompt_split("diff", &ctx, Some("Custom system prompt"), None);
 
         // 自定义模板应该用作 system prompt
         assert_eq!(system, "Custom system prompt");
+    }
+
+    // === convention 注入测试 ===
+
+    #[test]
+    fn test_commit_prompt_split_with_conventional_convention() {
+        let ctx = create_context(vec!["a.rs"], 1, 1, None, vec![]);
+        let conv = CommitConvention {
+            style: ConventionStyle::Conventional,
+            types: Some(vec!["feat".to_string(), "fix".to_string()]),
+            ..Default::default()
+        };
+        let (system, _) = build_commit_prompt_split("diff", &ctx, None, Some(&conv));
+
+        assert!(system.contains("## Convention:"));
+        assert!(system.contains("conventional commits"));
+        assert!(system.contains("Allowed types: feat, fix"));
+    }
+
+    #[test]
+    fn test_commit_prompt_split_with_gitmoji_convention() {
+        let ctx = create_context(vec!["a.rs"], 1, 1, None, vec![]);
+        let conv = CommitConvention {
+            style: ConventionStyle::Gitmoji,
+            ..Default::default()
+        };
+        let (system, _) = build_commit_prompt_split("diff", &ctx, None, Some(&conv));
+
+        assert!(system.contains("gitmoji"));
+    }
+
+    #[test]
+    fn test_commit_prompt_split_with_custom_convention() {
+        let ctx = create_context(vec!["a.rs"], 1, 1, None, vec![]);
+        let conv = CommitConvention {
+            style: ConventionStyle::Custom,
+            template: Some("{type}({scope}): {subject}".to_string()),
+            extra_prompt: Some("Use English only".to_string()),
+            ..Default::default()
+        };
+        let (system, _) = build_commit_prompt_split("diff", &ctx, None, Some(&conv));
+
+        assert!(system.contains("Commit template: {type}({scope}): {subject}"));
+        assert!(system.contains("Use English only"));
+    }
+
+    #[test]
+    fn test_commit_prompt_split_no_convention() {
+        let ctx = create_context(vec!["a.rs"], 1, 1, None, vec![]);
+        let (system_with, _) = build_commit_prompt_split("diff", &ctx, None, None);
+        // 无 convention 时不应包含 Convention 段
+        assert!(!system_with.contains("## Convention:"));
     }
 
     // === build_review_prompt_split 测试 ===

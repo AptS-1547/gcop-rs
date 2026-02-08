@@ -67,8 +67,12 @@ impl<T: ApiBackend> LLMProvider for T {
         progress: Option<&dyn ProgressReporter>,
     ) -> Result<String> {
         let ctx = context.unwrap_or_default();
-        let (system, user) =
-            crate::llm::prompt::build_commit_prompt_split(diff, &ctx, ctx.custom_prompt.as_deref());
+        let (system, user) = crate::llm::prompt::build_commit_prompt_split(
+            diff,
+            &ctx,
+            ctx.custom_prompt.as_deref(),
+            ctx.convention.as_ref(),
+        );
         tracing::debug!(
             "Commit prompt split - system ({} chars), user ({} chars)",
             system.len(),
@@ -130,8 +134,12 @@ impl<T: ApiBackend> LLMProvider for T {
         }
 
         let ctx = context.unwrap_or_default();
-        let (system, user) =
-            crate::llm::prompt::build_commit_prompt_split(diff, &ctx, ctx.custom_prompt.as_deref());
+        let (system, user) = crate::llm::prompt::build_commit_prompt_split(
+            diff,
+            &ctx,
+            ctx.custom_prompt.as_deref(),
+            ctx.convention.as_ref(),
+        );
         tracing::debug!(
             "Streaming - system ({} chars), user ({} chars)",
             system.len(),

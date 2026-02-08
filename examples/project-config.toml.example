@@ -1,0 +1,30 @@
+# gcop project-level configuration
+# This file should be committed to version control for team sharing
+# Docs: https://github.com/AptS-1547/gcop-rs
+#
+# Priority: env vars (GCOP__*) > project config (.gcop/config.toml) > user config (~/.config/gcop/config.toml) > defaults
+# WARNING: Do NOT put api_key in this file — use env vars or user-level config
+
+# --- LLM ---
+# [llm]
+# default_provider = "openai"
+
+# [llm.providers.openai]
+# model = "gpt-4o"
+# ⚠ Do NOT put api_key here — use env vars or user-level config
+
+# --- Commit ---
+# [commit]
+# custom_prompt = ""
+# show_diff_preview = true
+
+# [commit.convention]
+# style = "conventional"
+# types = ["feat", "fix", "docs", "style", "refactor", "perf", "test", "chore", "ci"]
+# template = "{type}({scope}): {subject}"
+# extra_prompt = "All commit messages must be in English"
+
+# --- Review ---
+# [review]
+# custom_prompt = ""
+# min_severity = "warning"

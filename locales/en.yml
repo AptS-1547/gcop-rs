@@ -127,6 +127,15 @@ init.alias_skipped: "Skipped alias installation."
 init.alias_run_later: "Run 'gcop-rs alias' later if needed."
 init.docs: "See docs/configuration.md for more options."
 
+# Init --project messages
+init.project_exists: "Project config already exists: %{path}"
+init.project_created: "Created project config: %{path}"
+init.project_dir_created: "Created .gcop directory: %{path}"
+init.project_not_git_repo: "Not in a git repository. Creating .gcop/config.toml in current directory."
+init.project_next_steps: "Next steps:"
+init.project_step1: "  1. Edit .gcop/config.toml to set team conventions"
+init.project_step2: "  2. Commit .gcop/config.toml to version control"
+
 # Config command messages
 config.failed_determine_dir: "Failed to determine config directory"
 config.file_not_found: "Config file not found"
@@ -152,6 +161,11 @@ config.suggestion: "💡 Suggestion: %{suggestion}"
 config.ci_provider_not_set: "CI mode enabled but GCOP_CI_PROVIDER not set. Must be 'claude', 'openai', 'ollama', or 'gemini'."
 config.ci_provider_invalid: "Invalid GCOP_CI_PROVIDER '%{provider}'. Must be 'claude', 'openai', 'ollama', or 'gemini'."
 config.ci_api_key_not_set: "CI mode enabled but GCOP_CI_API_KEY not set."
+
+# Project config security warnings
+config.project_api_key_warning_line1: "⚠ Warning: .gcop/config.toml contains api_key fields."
+config.project_api_key_warning_line2: "  API keys should not be committed to version control."
+config.project_api_key_warning_line3: "  Move them to user config or use GCOP__LLM__PROVIDERS__<NAME>__API_KEY env var."
 
 # Alias command messages
 alias.not_found: "'gcop-rs' command not found in PATH"
@@ -304,6 +318,7 @@ cli.review.file: "Review a specific file"
 cli.review.file.path: "Path to file"
 cli.init: "Initialize configuration file"
 cli.init.force: "Force overwrite existing config"
+cli.init.project: "Initialize project-level .gcop/config.toml in current repo"
 cli.config: "Manage configuration"
 cli.config.action: "Configuration action"
 cli.config.edit: "Edit configuration file"
