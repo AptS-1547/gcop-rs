@@ -95,7 +95,8 @@ struct GeminiCandidate {
 
 #[derive(Deserialize)]
 struct GeminiResponseContent {
-    parts: Vec<GeminiResponsePart>,
+    #[serde(default)]
+    parts: Option<Vec<GeminiResponsePart>>,
 }
 
 #[derive(Deserialize)]
@@ -222,20 +223,27 @@ impl ApiBackend for GeminiProvider {
                 GcopError::Llm(rust_i18n::t!("provider.gemini_no_candidates").to_string())
             })?;
 
-        // 检查非正常结束原因（SAFETY、MAX_TOKENS 等）
-        if let Some(reason) = &candidate.finish_reason
-            && reason != "STOP"
-        {
-            tracing::warn!("Gemini response finished with reason: {}", reason);
-            return Err(GcopError::Llm(
-                rust_i18n::t!("provider.gemini_content_blocked", reason = reason.as_str())
-                    .to_string(),
-            ));
+        // 检查非正常结束原因（SAFETY、RECITATION 等）
+        if let Some(reason) = &candidate.finish_reason {
+            match reason.as_str() {
+                "STOP" => {}
+                "MAX_TOKENS" => {
+                    tracing::warn!("Gemini response truncated (MAX_TOKENS)");
+                }
+                _ => {
+                    tracing::warn!("Gemini response finished with reason: {}", reason);
+                    return Err(GcopError::Llm(
+                        rust_i18n::t!("provider.gemini_content_blocked", reason = reason.as_str())
+                            .to_string(),
+                    ));
+                }
+            }
         }
 
         candidate
             .content
-            .and_then(|c| c.parts.into_iter().next())
+            .and_then(|c| c.parts)
+            .and_then(|parts| parts.into_iter().next())
             .map(|p| p.text)
             .ok_or_else(|| {
                 GcopError::Llm(rust_i18n::t!("provider.gemini_no_candidates").to_string())

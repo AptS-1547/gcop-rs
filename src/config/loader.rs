@@ -63,7 +63,7 @@ pub(crate) fn load_config_from_path(config_path: Option<PathBuf>) -> Result<AppC
 /// 应用 CI 模式环境变量覆盖
 ///
 /// 当 `CI=1` 时，从以下环境变量构建 provider 配置：
-/// - `GCOP_CI_PROVIDER`: "claude", "openai", 或 "ollama"（必需）
+/// - `GCOP_CI_PROVIDER`: "claude", "openai", "ollama" 或 "gemini"（必需）
 /// - `GCOP_CI_API_KEY`: API key（必需）
 /// - `GCOP_CI_MODEL`: 模型名称（可选，有默认值）
 /// - `GCOP_CI_ENDPOINT`: 自定义端点（可选）
