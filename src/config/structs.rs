@@ -220,13 +220,8 @@ pub struct ProviderConfig {
 
 impl std::fmt::Debug for ProviderConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let masked_key = self.api_key.as_ref().map(|k| {
-            if k.len() > 8 {
-                format!("{}***", &k[..8])
-            } else {
-                "***".to_string()
-            }
-        });
+        use crate::llm::provider::utils::mask_api_key;
+        let masked_key = self.api_key.as_deref().map(mask_api_key);
         f.debug_struct("ProviderConfig")
             .field("api_style", &self.api_style)
             .field("endpoint", &self.endpoint)

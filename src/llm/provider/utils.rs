@@ -111,9 +111,48 @@ fn is_complete_api_path(url: &str) -> bool {
     segment_count >= 2
 }
 
+/// 掩码 API key，防止日志泄露
+///
+/// # 规则
+/// - 长度 > 8：显示前 4 字符 + `...` + 后 4 字符
+/// - 长度 <= 8：显示 `****`
+///
+/// # 示例
+/// ```
+/// use gcop_rs::llm::provider::utils::mask_api_key;
+///
+/// assert_eq!(mask_api_key("sk-ant-api03-abcdefgh"), "sk-a...efgh");
+/// assert_eq!(mask_api_key("short"), "****");
+/// assert_eq!(mask_api_key(""), "****");
+/// ```
+pub fn mask_api_key(key: &str) -> String {
+    if key.len() > 8 {
+        format!("{}...{}", &key[..4], &key[key.len() - 4..])
+    } else {
+        "****".to_string()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_mask_api_key() {
+        // 长 key：前4 + ... + 后4
+        assert_eq!(mask_api_key("sk-ant-api03-abcdefgh"), "sk-a...efgh");
+        assert_eq!(mask_api_key("AIzaSyD-1234567890abcdef"), "AIza...cdef");
+
+        // 短 key
+        assert_eq!(mask_api_key("12345678"), "****");
+        assert_eq!(mask_api_key("short"), "****");
+
+        // 空
+        assert_eq!(mask_api_key(""), "****");
+
+        // 刚好 9 字符
+        assert_eq!(mask_api_key("123456789"), "1234...6789");
+    }
 
     #[test]
     fn test_complete_endpoint_basic() {
