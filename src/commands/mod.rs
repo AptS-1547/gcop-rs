@@ -29,6 +29,7 @@ pub mod commit;
 pub mod commit_state_machine;
 pub mod config;
 pub mod format;
+pub mod hook;
 pub mod init;
 pub mod json;
 pub mod options;

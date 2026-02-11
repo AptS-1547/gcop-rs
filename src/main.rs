@@ -50,7 +50,7 @@ fn main() -> Result<()> {
     //    其他命令使用 fallback 默认值即可
     let config = if matches!(
         &cli.command,
-        Commands::Commit { .. } | Commands::Review { .. }
+        Commands::Commit { .. } | Commands::Review { .. } | Commands::Hook { .. }
     ) {
         config_result?
     } else {
@@ -140,6 +140,35 @@ fn main() -> Result<()> {
                         std::process::exit(1);
                     }
                     handle_command_error(&e, config.ui.colored);
+                }
+                Ok(())
+            }
+            Commands::Hook { ref action } => {
+                match action {
+                    cli::HookAction::Install { force } => {
+                        if let Err(e) = commands::hook::install(*force) {
+                            handle_command_error(&e, config.ui.colored);
+                        }
+                    }
+                    cli::HookAction::Uninstall => {
+                        if let Err(e) = commands::hook::uninstall() {
+                            handle_command_error(&e, config.ui.colored);
+                        }
+                    }
+                    cli::HookAction::Run {
+                        commit_msg_file,
+                        source,
+                        sha: _,
+                    } => {
+                        commands::hook::run_hook_safe(
+                            commit_msg_file,
+                            source,
+                            &config,
+                            cli.verbose,
+                            cli.provider.as_deref(),
+                        )
+                        .await;
+                    }
                 }
                 Ok(())
             }
@@ -253,6 +282,18 @@ fn parse_cli_localized() -> Result<Cli> {
                 })
                 .mut_arg("author", |arg| {
                     arg.help(rust_i18n::t!("cli.stats.author").to_string())
+                })
+        })
+        .mut_subcommand("hook", |cmd| {
+            cmd.about(rust_i18n::t!("cli.hook").to_string())
+                .mut_subcommand("install", |s| {
+                    s.about(rust_i18n::t!("cli.hook.install").to_string())
+                        .mut_arg("force", |arg| {
+                            arg.help(rust_i18n::t!("cli.hook.install.force").to_string())
+                        })
+                })
+                .mut_subcommand("uninstall", |s| {
+                    s.about(rust_i18n::t!("cli.hook.uninstall").to_string())
                 })
         });
 

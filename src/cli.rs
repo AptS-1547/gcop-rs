@@ -113,6 +113,12 @@ pub enum Commands {
         #[arg(long)]
         author: Option<String>,
     },
+
+    /// Manage git hooks (prepare-commit-msg)
+    Hook {
+        #[command(subcommand)]
+        action: HookAction,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -146,4 +152,32 @@ pub enum ConfigAction {
 
     /// Validate configuration and test provider chain connection
     Validate,
+}
+
+#[derive(Subcommand)]
+pub enum HookAction {
+    /// Install prepare-commit-msg hook in current repository
+    Install {
+        /// Force overwrite existing hook
+        #[arg(short, long)]
+        force: bool,
+    },
+
+    /// Uninstall prepare-commit-msg hook from current repository
+    Uninstall,
+
+    /// Run hook logic (called by git, not intended for direct use)
+    #[command(hide = true)]
+    Run {
+        /// Path to the commit message file (provided by git)
+        commit_msg_file: String,
+
+        /// Source of the commit message
+        #[arg(default_value = "")]
+        source: String,
+
+        /// Commit SHA (for amend)
+        #[arg(default_value = "")]
+        sha: String,
+    },
 }
