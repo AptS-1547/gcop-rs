@@ -29,6 +29,7 @@ gcop-rs -v review changes
 | `config` | 编辑并验证配置 | [config](./commands/config.md) |
 | `alias` | 安装/列出/删除 git 别名 | [alias](./commands/alias.md) |
 | `stats` | 查看仓库提交统计 | [stats](./commands/stats.md) |
+| `hook` | 安装/卸载 `prepare-commit-msg` hook | [hook](./commands/hook.md) |
 
 ## 自动化与环境
 

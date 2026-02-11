@@ -161,7 +161,7 @@ gcop-rs changelog --unreleased
 
 ## 4. 💡 低优先级/脑洞功能
 
-### 4.1 Commit streak 统计 (#feat) ❌
+### 4.1 Commit streak 统计 (#feat) ✅ 已实现
 **描述**: 类似 GitHub 的 contribution graph，但本地统计
 
 ```bash

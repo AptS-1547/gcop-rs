@@ -9,7 +9,12 @@ gcop-rs stats [OPTIONS]
 
 **Description**:
 
-Analyzes commit history and displays statistics including total commits, contributors, time span, and recent activity.
+Analyzes commit history and reports:
+- overview (total commits, contributors, time span)
+- top contributors
+- recent weekly activity (last 4 weeks)
+- daily activity heatmap (last 30 days)
+- current and longest commit streak
 
 **Options**:
 
@@ -17,7 +22,7 @@ Analyzes commit history and displays statistics including total commits, contrib
 |--------|-------------|
 | `--format <FORMAT>`, `-f` | Output format: `text` (default), `json`, or `markdown` |
 | `--json` | Shortcut for `--format json` |
-| `--author <NAME>` | Filter statistics by author name or email |
+| `--author <NAME>` | Filter all statistics by author name or email |
 
 **Examples**:
 
@@ -29,7 +34,7 @@ gcop-rs stats
 gcop-rs stats --format json
 gcop-rs stats --json
 
-# Output as Markdown for documentation
+# Output as Markdown for reports
 gcop-rs stats --format markdown > STATS.md
 
 # Filter by specific author
@@ -37,27 +42,35 @@ gcop-rs stats --author "john"
 gcop-rs stats --author "john@example.com"
 ```
 
+> **Note**: In `json`/`markdown` formats, stats output is non-interactive (no step/spinner UI lines).
+
 **Output Format (text)**:
 
 ```
 ℹ Repository Statistics
-========================================
+────────────────────────────────────────
 
-[] Overview
-  Total commits:  156
-  Contributors:   3
-  Time span:      2024-06-15 ~ 2025-12-23 (192 days)
+  ▸ Overview
+    Total commits:    170
+    Contributors:     6
+    Time span:        2025-12-16 ~ 2026-02-12 (57 days)
 
-[] Top Contributors
-  #1  AptS-1547 <esaps@esaps.net>  142 commits (91.0%)
-  #2  bot <noreply@github.com>      8 commits  (5.1%)
-  #3  contributor <x@y.com>         6 commits  (3.8%)
+  ▸ Top Contributors
+    #1  AptS-1547 <esaps@esaps.net>  133 commits (78.2%)
+    #2  AptS-1738 <apts-1738@esaps.net>  32 commits (18.8%)
 
-[] Recent Activity (last 4 weeks)
-  2025-W52: ████████████           12
-  2025-W51: ████████████████████   20
-  2025-W50: ██████                  6
-  2025-W49: ████████████████       16
+  ▸ Recent Activity (last 4 weeks)
+    2026-W07: █                    4
+    2026-W06: ████████████████████ 45
+    2026-W05:                      0
+    2026-W04: ██████               14
+
+  ▸ Commit Activity (last 30 days)
+    01/14 ▂······▄▂·············▂▂▄█···▂ 02/12  peak: 31
+
+  ▸ Streak
+    Current streak:   1 days
+    Longest streak:   9 days
 ```
 
 **Output Format (json)**:
@@ -66,28 +79,34 @@ gcop-rs stats --author "john@example.com"
 {
   "success": true,
   "data": {
-    "total_commits": 156,
-    "total_authors": 3,
-    "first_commit_date": "2024-06-15T10:30:00+08:00",
-    "last_commit_date": "2025-12-23T15:43:34+08:00",
+    "total_commits": 170,
+    "total_authors": 6,
+    "first_commit_date": "2025-12-16T14:38:08+08:00",
+    "last_commit_date": "2026-02-12T06:03:30+08:00",
     "authors": [
-      {"name": "AptS-1547", "email": "esaps@esaps.net", "commits": 142},
-      {"name": "bot", "email": "noreply@github.com", "commits": 8}
+      {"name": "AptS-1547", "email": "esaps@esaps.net", "commits": 133},
+      {"name": "AptS-1738", "email": "apts-1738@esaps.net", "commits": 32}
     ],
     "commits_by_week": {
-      "2025-W49": 16,
-      "2025-W50": 6,
-      "2025-W51": 20,
-      "2025-W52": 12
-    }
+      "2026-W04": 14,
+      "2026-W05": 0,
+      "2026-W06": 45,
+      "2026-W07": 4
+    },
+    "commits_by_day": {
+      "2026-02-08": 31,
+      "2026-02-12": 4
+    },
+    "current_streak": 1,
+    "longest_streak": 9
   }
 }
 ```
 
 **Tips**:
-- Use `--format json` for CI/CD integration or scripting
-- Use `--author` to see individual contributor statistics
-- The ASCII bar chart shows relative activity across weeks
+- Use `--format json` for CI/CD integration or scripts
+- Use `--author` to focus on one contributor
+- Markdown output includes commit activity by day (non-zero days only)
 
 ## See Also
 

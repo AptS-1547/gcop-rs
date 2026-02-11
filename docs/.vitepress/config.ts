@@ -52,6 +52,7 @@ export default defineConfig({
               { text: 'commit', link: '/zh/guide/commands/commit' },
               { text: 'review', link: '/zh/guide/commands/review' },
               { text: 'config', link: '/zh/guide/commands/config' },
+              { text: 'hook', link: '/zh/guide/commands/hook' },
             ],
           },
           {
@@ -95,6 +96,7 @@ export default defineConfig({
                     { text: 'config', link: '/zh/guide/commands/config' },
                     { text: 'alias', link: '/zh/guide/commands/alias' },
                     { text: 'stats', link: '/zh/guide/commands/stats' },
+                    { text: 'hook', link: '/zh/guide/commands/hook' },
                     { text: '自动化与环境', link: '/zh/guide/commands/automation' },
                   ],
                 },
@@ -188,6 +190,7 @@ export default defineConfig({
           { text: 'commit', link: '/guide/commands/commit' },
           { text: 'review', link: '/guide/commands/review' },
           { text: 'config', link: '/guide/commands/config' },
+          { text: 'hook', link: '/guide/commands/hook' },
         ],
       },
       {
@@ -232,6 +235,7 @@ export default defineConfig({
                 { text: 'config', link: '/guide/commands/config' },
                 { text: 'alias', link: '/guide/commands/alias' },
                 { text: 'stats', link: '/guide/commands/stats' },
+                { text: 'hook', link: '/guide/commands/hook' },
                 { text: 'Automation & Env Vars', link: '/guide/commands/automation' },
               ],
             },

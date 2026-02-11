@@ -10,7 +10,7 @@
 gcop-rs config edit
 
 # 或手动编辑配置文件路径
-# 见: /zh/guide/configuration#配置文件位置
+# 见: /zh/guide/configuration#配置文件层级
 ```
 
 ## 问题: "API key not found"

@@ -77,7 +77,7 @@ pub trait GitOperations {
 
     /// 获取指定 commit 的 diff
     ///
-    /// 等价于 `git show <commit_hash>`。
+    /// 等价于 `git diff <commit_hash>^!`（仅返回 diff 内容）。
     ///
     /// # 参数
     /// - `commit_hash`: commit SHA（支持短 hash）
@@ -107,7 +107,7 @@ pub trait GitOperations {
     /// 读取工作区中的文件内容（不是 Git 对象）。
     ///
     /// # 参数
-    /// - `path`: 相对于仓库根目录的文件路径
+    /// - `path`: 文件路径（相对于当前工作目录或绝对路径）
     ///
     /// # 返回
     /// - `Ok(content)` - 文件内容

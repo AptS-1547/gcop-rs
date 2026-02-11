@@ -147,7 +147,7 @@ gcop-rs --provider deepseek review changes
 
 ### Changing Default
 
-Edit your platform-specific config file (see [Configuration Guide](configuration.md#configuration-file-location)):
+Edit your platform-specific config file (see [Configuration Guide](configuration.md#configuration-files)):
 
 ```toml
 [llm]

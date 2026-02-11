@@ -9,6 +9,7 @@
 //! - [`alias`] - Git alias 管理
 //! - [`init`] - 项目初始化
 //! - [`stats`] - 仓库统计
+//! - [`hook`] - Git hook 管理（prepare-commit-msg）
 //! - [`commit_state_machine`] - Commit 流程状态机
 //! - [`format`] - 输出格式定义
 //! - [`options`] - 命令选项结构体
@@ -20,7 +21,8 @@
 //!   ├── commands/commit.rs ─> commit_state_machine.rs
 //!   ├── commands/review.rs
 //!   ├── commands/config.rs
-//!   └── commands/stats.rs
+//!   ├── commands/stats.rs
+//!   └── commands/hook.rs
 //!        └── options.rs (CommitOptions, ReviewOptions, etc.)
 //! ```
 

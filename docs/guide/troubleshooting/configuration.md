@@ -10,7 +10,7 @@
 gcop-rs config edit
 
 # Or manually edit your config file path
-# See: /guide/configuration#configuration-file-location
+# See: /guide/configuration#configuration-files
 ```
 
 ## Issue: "API key not found"

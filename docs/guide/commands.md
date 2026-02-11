@@ -29,6 +29,7 @@ gcop-rs -v review changes
 | `config` | Edit and validate configuration | [config](./commands/config.md) |
 | `alias` | Install/list/remove git aliases | [alias](./commands/alias.md) |
 | `stats` | Repository commit statistics | [stats](./commands/stats.md) |
+| `hook` | Install/uninstall `prepare-commit-msg` hook | [hook](./commands/hook.md) |
 
 ## Scripting and Environment
 

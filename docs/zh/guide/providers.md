@@ -147,7 +147,7 @@ gcop-rs --provider deepseek review changes
 
 ### 修改默认值
 
-编辑平台对应的配置文件（见[配置指南](configuration.md#配置文件位置)）：
+编辑平台对应的配置文件（见[配置指南](configuration.md#配置文件层级)）：
 
 ```toml
 [llm]
