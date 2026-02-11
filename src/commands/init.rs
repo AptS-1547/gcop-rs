@@ -1,8 +1,8 @@
 use crate::config;
 use crate::error::{GcopError, Result};
+use crate::git::find_git_root;
 use crate::ui;
 use std::fs;
-use std::path::PathBuf;
 
 /// 初始化配置文件
 pub fn run(force: bool, project: bool, colored: bool) -> Result<()> {
@@ -96,19 +96,6 @@ fn run_user_init(force: bool, colored: bool) -> Result<()> {
     println!("{}", rust_i18n::t!("init.docs"));
 
     Ok(())
-}
-
-/// 查找 git repo 根目录（向上找 .git）
-fn find_git_root() -> Option<PathBuf> {
-    let mut dir = std::env::current_dir().ok()?;
-    loop {
-        if dir.join(".git").exists() {
-            return Some(dir);
-        }
-        if !dir.pop() {
-            return None;
-        }
-    }
 }
 
 /// 初始化项目级配置文件 (.gcop/config.toml)

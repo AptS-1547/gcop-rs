@@ -20,7 +20,7 @@ impl GitRepository {
     /// # Arguments
     /// * `file_config` - 可选的文件配置，None 则使用默认值
     pub fn open(file_config: Option<&FileConfig>) -> Result<Self> {
-        let repo = Repository::open(".")?;
+        let repo = Repository::discover(".")?;
         let max_file_size = file_config
             .map(|c| c.max_size)
             .unwrap_or(DEFAULT_MAX_FILE_SIZE);

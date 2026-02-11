@@ -2,6 +2,8 @@ pub mod commit;
 pub mod diff;
 pub mod repository;
 
+use std::path::PathBuf;
+
 use crate::error::Result;
 use chrono::{DateTime, Local};
 use serde::Serialize;
@@ -239,4 +241,20 @@ pub struct DiffStats {
     pub files_changed: Vec<String>,
     pub insertions: usize,
     pub deletions: usize,
+}
+
+/// 从当前工作目录向上查找 git 仓库根目录
+///
+/// 等价于 `git rev-parse --show-toplevel`。
+/// 检查每一级目录是否存在 `.git`（目录或文件，兼容 submodule/worktree）。
+pub fn find_git_root() -> Option<PathBuf> {
+    let mut dir = std::env::current_dir().ok()?;
+    loop {
+        if dir.join(".git").exists() {
+            return Some(dir);
+        }
+        if !dir.pop() {
+            return None;
+        }
+    }
 }

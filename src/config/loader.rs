@@ -73,25 +73,14 @@ pub(crate) fn load_config_from_path(
     Ok(app_config)
 }
 
-/// 从当前工作目录向上查找项目级配置 `.gcop/config.toml`
+/// 从当前工作目录查找项目级配置 `.gcop/config.toml`
 ///
-/// 遇到 `.git` 目录即停止查找（不跨 repo 边界）。
-/// 只取最近的一个 `.gcop/config.toml`，不做多层合并。
+/// 通过 `find_git_root()` 定位仓库根目录，再检查该目录下是否存在 `.gcop/config.toml`。
+/// `init --project` 始终在仓库根目录创建 `.gcop/`，因此只需检查根目录。
 pub(crate) fn find_project_config() -> Option<PathBuf> {
-    let mut dir = std::env::current_dir().ok()?;
-    loop {
-        let candidate = dir.join(".gcop").join("config.toml");
-        if candidate.exists() {
-            return Some(candidate);
-        }
-        // 到达 repo 根目录，停止查找
-        if dir.join(".git").exists() {
-            return None;
-        }
-        if !dir.pop() {
-            return None;
-        }
-    }
+    let root = crate::git::find_git_root()?;
+    let candidate = root.join(".gcop").join("config.toml");
+    candidate.exists().then_some(candidate)
 }
 
 /// 检查项目级配置文件的安全性
