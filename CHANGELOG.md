@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-02-12
+
+### Added
+
+- **Git Hook Management**: `gcop-rs hook install/uninstall` for `prepare-commit-msg` hook with automatic commit message generation
+- **Commit Heatmap**: 30-day commit activity heatmap in `stats` command with intensity indicators
+- **Commit Streaks**: Current and longest consecutive commit streak statistics
+
+### Changed
+
+- **Git Repository Discovery**: Use `Repository::discover()` instead of `Repository::open()` for subdirectory support
+- **Centralized `find_git_root`**: Unified implementation replacing duplicates in init and config loader
+- **Provider Utilities**: Extracted API key masking and added `complete_endpoint` function
+- **Dependencies**: Updated core dependency versions
+
 ## [0.11.0] - 2026-02-08
 
 ### Added

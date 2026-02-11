@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "gcop-rs"
-version = "0.11.0"
+version = "0.11.1"
 description = "AI-powered Git commit message generator and code reviewer (Rust version)"
 readme = "README.md"
 license = "MIT"
