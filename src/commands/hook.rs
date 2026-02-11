@@ -4,9 +4,9 @@ use crate::commands::smart_truncate_diff;
 use crate::config::AppConfig;
 use crate::error::{GcopError, Result};
 use crate::git::repository::GitRepository;
-use crate::git::{find_git_root, GitOperations};
-use crate::llm::provider::create_provider;
+use crate::git::{GitOperations, find_git_root};
 use crate::llm::CommitContext;
+use crate::llm::provider::create_provider;
 
 /// Hook marker used to identify hooks installed by gcop-rs
 const HOOK_MARKER: &str = "gcop-rs hook run";
@@ -59,20 +59,14 @@ pub fn install(force: bool) -> Result<()> {
         if !force {
             eprintln!(
                 "{}",
-                rust_i18n::t!(
-                    "hook.existing_hook",
-                    path = hook_path.display().to_string()
-                )
+                rust_i18n::t!("hook.existing_hook", path = hook_path.display().to_string())
             );
             return Ok(());
         }
 
         eprintln!(
             "{}",
-            rust_i18n::t!(
-                "hook.overwriting",
-                path = hook_path.display().to_string()
-            )
+            rust_i18n::t!("hook.overwriting", path = hook_path.display().to_string())
         );
     }
 
@@ -88,10 +82,7 @@ pub fn install(force: bool) -> Result<()> {
 
     eprintln!(
         "{}",
-        rust_i18n::t!(
-            "hook.installed",
-            path = hook_path.display().to_string()
-        )
+        rust_i18n::t!("hook.installed", path = hook_path.display().to_string())
     );
 
     Ok(())
@@ -108,7 +99,10 @@ pub fn uninstall() -> Result<()> {
         )))
     })?;
 
-    let hook_path = git_root.join(".git").join("hooks").join("prepare-commit-msg");
+    let hook_path = git_root
+        .join(".git")
+        .join("hooks")
+        .join("prepare-commit-msg");
 
     if !hook_path.exists() {
         eprintln!("{}", rust_i18n::t!("hook.no_hook_found"));
@@ -125,10 +119,7 @@ pub fn uninstall() -> Result<()> {
 
     eprintln!(
         "{}",
-        rust_i18n::t!(
-            "hook.uninstalled",
-            path = hook_path.display().to_string()
-        )
+        rust_i18n::t!("hook.uninstalled", path = hook_path.display().to_string())
     );
 
     Ok(())
