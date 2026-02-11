@@ -7,8 +7,6 @@ on:
     paths:
       - 'docs/**'
       - '.github/workflows/vitepress.yml'
-    tags:
-      - 'v*'
   workflow_dispatch:
 
 permissions:
