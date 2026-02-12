@@ -117,7 +117,7 @@ fn detect_pnpm_workspace(root: &Path) -> Result<Option<Vec<WorkspaceMember>>> {
         packages: Option<Vec<String>>,
     }
 
-    let parsed: PnpmWorkspace = match serde_yml::from_str(&content) {
+    let parsed: PnpmWorkspace = match serde_yaml_ng::from_str(&content) {
         Ok(v) => v,
         Err(e) => {
             tracing::warn!("Failed to parse pnpm-workspace.yaml: {}", e);
