@@ -446,3 +446,8 @@ hook.not_installed_by_gcop: "The existing prepare-commit-msg hook was not instal
 hook.uninstalled: "Hook uninstalled successfully from %{path}"
 hook.generating: "Generating commit message..."
 hook.generated_success: "Commit message generated."
+
+# Workspace detection
+workspace.detected: "Detected %{type} workspace (%{count} packages)"
+workspace.scope_suggestion: "Scope: %{scope}"
+workspace.detection_failed: "Workspace detection skipped: %{error}"

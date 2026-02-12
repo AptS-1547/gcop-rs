@@ -99,6 +99,7 @@ pub mod error;
 pub mod git;
 pub mod llm;
 pub mod ui;
+pub mod workspace;
 
 // Initialize i18n for library modules
 i18n!("locales", fallback = "en");

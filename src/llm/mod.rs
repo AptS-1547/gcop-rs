@@ -300,6 +300,27 @@ pub trait LLMProvider: Send + Sync {
 
 use crate::config::CommitConvention;
 
+/// Workspace scope 信息
+///
+/// 提供给 LLM 的 monorepo scope 上下文。
+///
+/// # 字段
+/// - `workspace_types`: 检测到的 workspace 类型（如 "cargo", "pnpm"）
+/// - `packages`: 受影响的包路径列表
+/// - `suggested_scope`: 建议的 scope 字符串（可能为 None）
+/// - `has_root_changes`: 是否有 root 级别（非包内）的变更
+#[derive(Debug, Clone, Default)]
+pub struct ScopeInfo {
+    /// 检测到的 workspace 类型
+    pub workspace_types: Vec<String>,
+    /// 受影响的包路径
+    pub packages: Vec<String>,
+    /// 建议的 scope 字符串
+    pub suggested_scope: Option<String>,
+    /// 是否有 root 级别变更
+    pub has_root_changes: bool,
+}
+
 /// Commit 上下文信息
 ///
 /// 提供给 LLM 的额外信息，用于生成更准确的 commit message。
@@ -325,6 +346,7 @@ use crate::config::CommitConvention;
 ///     custom_prompt: Some("Focus on security changes".to_string()),
 ///     user_feedback: vec!["Be more specific".to_string()],
 ///     convention: None,
+///     scope_info: None,
 /// };
 /// ```
 #[derive(Debug, Clone, Default)]
@@ -336,6 +358,8 @@ pub struct CommitContext {
     pub custom_prompt: Option<String>,
     pub user_feedback: Vec<String>, // 用户重试反馈（支持累积）
     pub convention: Option<CommitConvention>,
+    /// Workspace scope 信息（None 表示非 monorepo 或未启用检测）
+    pub scope_info: Option<ScopeInfo>,
 }
 
 /// 审查类型

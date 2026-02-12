@@ -196,6 +196,7 @@ async fn run_hook_inner(
         custom_prompt: config.commit.custom_prompt.clone(),
         user_feedback: vec![],
         convention: config.commit.convention.clone(),
+        scope_info: None, // Hook 模式暂不支持 workspace scope
     };
 
     // Create LLM provider

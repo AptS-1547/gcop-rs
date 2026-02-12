@@ -10,7 +10,7 @@ use crate::commands::json::{self, JsonOutput};
 use crate::config::AppConfig;
 use crate::error::{GcopError, Result};
 use crate::git::{DiffStats, GitOperations, repository::GitRepository};
-use crate::llm::{CommitContext, LLMProvider, provider::create_provider};
+use crate::llm::{CommitContext, LLMProvider, ScopeInfo, provider::create_provider};
 use crate::ui;
 
 /// Commit 命令的数据部分
@@ -91,6 +91,9 @@ async fn run_with_deps(
         ui::warning(&rust_i18n::t!("diff.truncated"), colored);
     }
 
+    // Workspace scope 检测
+    let scope_info = compute_scope_info(&stats.files_changed, config);
+
     ui::step(
         &rust_i18n::t!("commit.step1"),
         &rust_i18n::t!(
@@ -119,6 +122,7 @@ async fn run_with_deps(
             options.verbose,
             &branch_name,
             &custom_prompt,
+            &scope_info,
         )
         .await?;
         if !already_displayed {
@@ -155,6 +159,7 @@ async fn run_with_deps(
                     &stats,
                     &branch_name,
                     &custom_prompt,
+                    &scope_info,
                 )
                 .await?
             }
@@ -206,6 +211,7 @@ async fn handle_json_mode(
     let (diff, _truncated) = smart_truncate_diff(&diff, config.llm.max_diff_size);
     let branch_name = repo.get_current_branch()?;
     let custom_prompt = config.commit.custom_prompt.clone();
+    let scope_info = compute_scope_info(&stats.files_changed, config);
 
     match generate_message_no_streaming(
         provider,
@@ -216,6 +222,7 @@ async fn handle_json_mode(
         &branch_name,
         &custom_prompt,
         &config.commit.convention,
+        &scope_info,
     )
     .await
     {
@@ -241,6 +248,7 @@ async fn handle_generating(
     stats: &DiffStats,
     branch_name: &Option<String>,
     custom_prompt: &Option<String>,
+    scope_info: &Option<ScopeInfo>,
 ) -> Result<CommitState> {
     // 检查重试上限
     let gen_state = CommitState::Generating {
@@ -267,6 +275,7 @@ async fn handle_generating(
         options.verbose,
         branch_name,
         custom_prompt,
+        scope_info,
     )
     .await?;
 
@@ -360,6 +369,7 @@ async fn generate_message(
     verbose: bool,
     branch_name: &Option<String>,
     custom_prompt: &Option<String>,
+    scope_info: &Option<ScopeInfo>,
 ) -> Result<(String, bool)> {
     let context = CommitContext {
         files_changed: stats.files_changed.clone(),
@@ -369,6 +379,7 @@ async fn generate_message(
         custom_prompt: custom_prompt.clone(),
         user_feedback: feedbacks.to_vec(),
         convention: config.commit.convention.clone(),
+        scope_info: scope_info.clone(),
     };
 
     // verbose 模式下显示 prompt
@@ -483,6 +494,7 @@ async fn generate_message_no_streaming(
     branch_name: &Option<String>,
     custom_prompt: &Option<String>,
     convention: &Option<crate::config::CommitConvention>,
+    scope_info: &Option<ScopeInfo>,
 ) -> Result<String> {
     let context = CommitContext {
         files_changed: stats.files_changed.clone(),
@@ -492,6 +504,7 @@ async fn generate_message_no_streaming(
         custom_prompt: custom_prompt.clone(),
         user_feedback: feedbacks.to_vec(),
         convention: convention.clone(),
+        scope_info: scope_info.clone(),
     };
 
     // verbose 模式下显示 prompt
@@ -529,6 +542,83 @@ fn output_json_success(message: &str, stats: &DiffStats, committed: bool) -> Res
     };
     println!("{}", serde_json::to_string_pretty(&output)?);
     Ok(())
+}
+
+/// 计算 workspace scope 信息
+///
+/// 从 git root 检测 workspace 配置，推断 changed files 的 scope。
+/// 支持手动配置覆盖自动检测。检测失败时返回 None（非致命）。
+fn compute_scope_info(files_changed: &[String], config: &AppConfig) -> Option<ScopeInfo> {
+    if !config.workspace.enabled {
+        return None;
+    }
+
+    let root = crate::git::find_git_root()?;
+
+    // 构建 WorkspaceInfo：手动配置优先，否则自动检测
+    let workspace_info = if let Some(ref manual_members) = config.workspace.members {
+        crate::workspace::WorkspaceInfo {
+            workspace_types: vec![],
+            members: manual_members
+                .iter()
+                .map(|p| crate::workspace::WorkspaceMember {
+                    prefix: crate::workspace::glob_pattern_to_prefix(p),
+                    pattern: p.clone(),
+                })
+                .collect(),
+            root,
+        }
+    } else {
+        crate::workspace::detect_workspace(&root)?
+    };
+
+    // 输出检测结果
+    if !workspace_info.workspace_types.is_empty() {
+        let type_str = workspace_info
+            .workspace_types
+            .iter()
+            .map(|t| t.to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+        tracing::debug!(
+            "{}",
+            rust_i18n::t!(
+                "workspace.detected",
+                "type" = type_str,
+                count = workspace_info.members.len()
+            )
+        );
+    }
+
+    let scope = crate::workspace::scope::infer_scope(files_changed, &workspace_info, None);
+
+    // 应用 scope_mappings 重映射
+    let suggested = scope.suggested_scope.map(|s| {
+        config
+            .workspace
+            .scope_mappings
+            .get(&s)
+            .cloned()
+            .unwrap_or(s)
+    });
+
+    if let Some(ref s) = suggested {
+        tracing::debug!(
+            "{}",
+            rust_i18n::t!("workspace.scope_suggestion", scope = s)
+        );
+    }
+
+    Some(ScopeInfo {
+        workspace_types: workspace_info
+            .workspace_types
+            .iter()
+            .map(|t| t.to_string())
+            .collect(),
+        packages: scope.packages,
+        suggested_scope: suggested,
+        has_root_changes: !scope.root_files.is_empty(),
+    })
 }
 
 #[cfg(test)]

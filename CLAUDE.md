@@ -11,6 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with th
 - 配置管理（`init` / `config`）
 - Git alias 管理（`alias`）
 - 仓库统计（`stats`）
+- Git hook 管理（`hook`）
 
 支持的 Provider：`claude` / `openai` / `ollama` / `gemini`。
 
@@ -68,8 +69,8 @@ cargo fmt --all -- --check
 # 编译检查
 cargo check
 
-# lint
-cargo clippy
+# lint（CI 要求 -D warnings）
+cargo clippy --all-targets --all-features -- -D warnings
 ```
 
 ### Docs (VitePress)
@@ -100,6 +101,7 @@ src/
 │   ├── init.rs                 # 初始化配置
 │   ├── alias.rs                # git alias 管理
 │   ├── stats.rs                # 仓库统计
+│   ├── hook.rs                 # prepare-commit-msg hook 管理
 │   ├── options.rs              # 命令选项结构体
 │   ├── format.rs               # 输出格式（text/json/markdown）
 │   └── json.rs                 # JSON 输出辅助
@@ -195,6 +197,38 @@ src/
 
 - `GCOP_CI_PROVIDER` 支持：`claude` / `openai` / `ollama` / `gemini`
 - 会注入 provider 名为 `ci`，并成为 `default_provider`
+
+### Project-level config
+
+项目根目录下 `.gcop/config.toml` 可覆盖用户配置（如自定义 prompt、provider 等），优先级高于用户配置但低于环境变量。
+
+---
+
+## CI Checks
+
+PR 合入 master 前需通过以下检查（`.github/workflows/ci.yml`）：
+
+- **check**：`cargo fmt --check` + `cargo clippy --all-targets --all-features -- -D warnings`
+- **test**：三平台矩阵（ubuntu / macOS / Windows），`cargo test --all-features`
+- **audit**：`rustsec/audit-check` 安全扫描
+- **coverage**：`cargo-llvm-cov` 生成覆盖率上传 Codecov
+- **msrv**：Rust 1.92.0 兼容性检查
+
+---
+
+## Tests
+
+- 单元测试：`#[cfg(test)] mod tests` 在各模块内
+- 集成测试：`tests/` 目录，按功能组织（`commit_integration_test.rs`、`review_command_test.rs` 等）
+- `tests/test_git_ops.rs` 提供集成测试用的 Git 操作辅助
+
+运行集成测试时注意：需要 git 可用环境，部分测试会创建临时 git 仓库。
+
+---
+
+## i18n
+
+翻译文件在 `locales/`（`en.yml`、`zh-CN.yml`）。使用 `rust-i18n` crate，代码中用 `t!("key")` 宏引用。添加新的用户可见字符串时需同步更新两个语言文件。
 
 ---
 

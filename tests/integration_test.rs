@@ -74,6 +74,7 @@ index 1234567..abcdefg 100644
         custom_prompt: None,
         user_feedback: vec![],
         convention: None,
+        scope_info: None,
     };
 
     let (system, user) = build_commit_prompt_split(diff, &context, None, None);
@@ -177,6 +178,7 @@ fn test_user_feedback_accumulation() {
             "使用 feat 类型".to_string(),
         ],
         convention: None,
+        scope_info: None,
     };
 
     let (_, user) = build_commit_prompt_split("diff", &context, None, None);

@@ -446,3 +446,8 @@ hook.not_installed_by_gcop: "现有的 prepare-commit-msg hook 不是由 gcop-rs
 hook.uninstalled: "Hook 已从 %{path} 卸载"
 hook.generating: "正在生成提交消息..."
 hook.generated_success: "提交消息已生成。"
+
+# 工作区检测
+workspace.detected: "检测到 %{type} 工作区（%{count} 个包）"
+workspace.scope_suggestion: "Scope：%{scope}"
+workspace.detection_failed: "跳过工作区检测：%{error}"

@@ -28,3 +28,9 @@
 # [review]
 # custom_prompt = ""
 # min_severity = "warning"
+
+# --- Workspace (monorepo) ---
+# [workspace]
+# enabled = true
+# members = ["packages/*", "apps/*"]       # 覆盖自动检测
+# scope_mappings = { "packages/core" = "core", "packages/ui" = "ui" }

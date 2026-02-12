@@ -66,6 +66,10 @@ pub struct AppConfig {
     /// 文件配置
     #[serde(default)]
     pub file: FileConfig,
+
+    /// Workspace 配置（monorepo 支持）
+    #[serde(default)]
+    pub workspace: WorkspaceConfig,
 }
 
 /// LLM 配置
@@ -452,6 +456,47 @@ pub struct FileConfig {
 
 fn default_true() -> bool {
     true
+}
+
+/// Workspace 配置（monorepo 支持）
+///
+/// 控制 workspace 检测和 scope 推断行为。
+/// 默认自动检测，零配置即可使用；此段用于手动覆盖。
+///
+/// # 示例
+/// ```toml
+/// [workspace]
+/// enabled = true
+/// members = ["packages/*", "apps/*"]
+/// scope_mappings = { "packages/core" = "core", "packages/ui" = "ui" }
+/// ```
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct WorkspaceConfig {
+    /// 是否启用 workspace 检测（默认 true）
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+
+    /// 手动 scope 映射：包路径 → scope 名
+    ///
+    /// 覆盖自动推断的包短名。
+    #[serde(default)]
+    pub scope_mappings: HashMap<String, String>,
+
+    /// 手动指定 workspace member patterns
+    ///
+    /// 设置后跳过自动检测，直接使用此列表。
+    #[serde(default)]
+    pub members: Option<Vec<String>>,
+}
+
+impl Default for WorkspaceConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            scope_mappings: HashMap::new(),
+            members: None,
+        }
+    }
 }
 
 fn default_severity() -> String {

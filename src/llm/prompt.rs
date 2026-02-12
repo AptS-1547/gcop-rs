@@ -1,5 +1,5 @@
 use crate::config::{CommitConvention, ConventionStyle};
-use crate::llm::{CommitContext, ReviewType};
+use crate::llm::{CommitContext, ReviewType, ScopeInfo};
 
 /// 静态系统指令（可缓存）- 用于 system/user 分离模式
 const COMMIT_SYSTEM_PROMPT: &str = r#"You are a git commit message generator.
@@ -75,6 +75,39 @@ fn format_convention(convention: &CommitConvention) -> String {
     format!("\n\n## Convention:\n{}", parts.join("\n"))
 }
 
+/// 格式化 workspace scope 信息为 prompt 片段
+fn format_scope_info(scope: &ScopeInfo) -> String {
+    let mut parts = Vec::new();
+
+    if !scope.workspace_types.is_empty() {
+        parts.push(format!(
+            "Monorepo type: {}",
+            scope.workspace_types.join(", ")
+        ));
+    }
+
+    if !scope.packages.is_empty() {
+        parts.push(format!("Affected packages: {}", scope.packages.join(", ")));
+    }
+
+    if let Some(ref suggested) = scope.suggested_scope {
+        parts.push(format!(
+            "Suggested scope for commit message: \"{}\"",
+            suggested
+        ));
+    }
+
+    if scope.has_root_changes {
+        parts.push("Note: Some changes are in root-level files (outside any package)".to_string());
+    }
+
+    if parts.is_empty() {
+        return String::new();
+    }
+
+    format!("\n\n## Workspace:\n{}", parts.join("\n"))
+}
+
 /// 构建拆分的 commit prompt（system + user）
 ///
 /// 返回 (system_prompt, user_message)
@@ -101,13 +134,20 @@ pub fn build_commit_prompt_split(
         .map(|b| format!("\nBranch: {}", b))
         .unwrap_or_default();
 
+    let scope_section = context
+        .scope_info
+        .as_ref()
+        .map(format_scope_info)
+        .unwrap_or_default();
+
     let user = format!(
-        "## Diff:\n```\n{}\n```\n\n## Context:\nFiles: {}\nChanges: +{} -{}{}{}",
+        "## Diff:\n```\n{}\n```\n\n## Context:\nFiles: {}\nChanges: +{} -{}{}{}{}",
         diff,
         context.files_changed.join(", "),
         context.insertions,
         context.deletions,
         branch_info,
+        scope_section,
         format_feedbacks(&context.user_feedback)
     );
 
@@ -153,6 +193,7 @@ mod tests {
             custom_prompt: None,
             user_feedback: feedbacks.into_iter().map(String::from).collect(),
             convention: None,
+            scope_info: None,
         }
     }
 
@@ -284,5 +325,63 @@ mod tests {
         assert!(system.starts_with("Custom"));
         assert!(system.contains("JSON format"));
         assert!(system.contains("\"summary\""));
+    }
+
+    // === scope info 注入测试 ===
+
+    #[test]
+    fn test_commit_prompt_with_scope_info() {
+        let ctx = CommitContext {
+            files_changed: vec!["packages/core/src/lib.rs".into()],
+            insertions: 5,
+            deletions: 2,
+            branch_name: None,
+            custom_prompt: None,
+            user_feedback: vec![],
+            convention: None,
+            scope_info: Some(ScopeInfo {
+                workspace_types: vec!["cargo".into()],
+                packages: vec!["packages/core".into()],
+                suggested_scope: Some("core".into()),
+                has_root_changes: false,
+            }),
+        };
+        let (_, user) = build_commit_prompt_split("diff", &ctx, None, None);
+
+        assert!(user.contains("## Workspace:"));
+        assert!(user.contains("Monorepo type: cargo"));
+        assert!(user.contains("Affected packages: packages/core"));
+        assert!(user.contains("Suggested scope for commit message: \"core\""));
+        assert!(!user.contains("root-level"));
+    }
+
+    #[test]
+    fn test_commit_prompt_without_scope_info() {
+        let ctx = create_context(vec!["src/main.rs"], 1, 1, None, vec![]);
+        let (_, user) = build_commit_prompt_split("diff", &ctx, None, None);
+
+        assert!(!user.contains("## Workspace:"));
+    }
+
+    #[test]
+    fn test_commit_prompt_scope_with_root_changes() {
+        let ctx = CommitContext {
+            files_changed: vec!["packages/core/src/lib.rs".into(), "README.md".into()],
+            insertions: 3,
+            deletions: 1,
+            branch_name: None,
+            custom_prompt: None,
+            user_feedback: vec![],
+            convention: None,
+            scope_info: Some(ScopeInfo {
+                workspace_types: vec!["pnpm".into()],
+                packages: vec!["packages/core".into()],
+                suggested_scope: Some("core".into()),
+                has_root_changes: true,
+            }),
+        };
+        let (_, user) = build_commit_prompt_split("diff", &ctx, None, None);
+
+        assert!(user.contains("root-level"));
     }
 }
