@@ -1,5 +1,5 @@
 # gcop-rs 配置文件
-# 位置: ~/.config/gcop/config.toml (Linux) | ~/Library/Application Support/gcop/config.toml (macOS) | %APPDATA%\gcop\config.toml (Windows)
+# 位置: ~/.config/gcop/config.toml (Linux) | ~/Library/Application Support/gcop/config.toml (macOS) | %APPDATA%\gcop\config\config.toml (Windows)
 # 权限建议: chmod 600 (包含 API 密钥，请勿提交到 git)
 #
 # 完整配置文档: https://gcop.docs.esap.cc/zh/guide/configuration.html

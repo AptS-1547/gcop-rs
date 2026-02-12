@@ -34,10 +34,11 @@ members = ["crates/*", "apps/cli"]
     .unwrap();
 
     let info = workspace::detect_workspace(root).expect("should detect cargo workspace");
-    assert!(info
-        .workspace_types
-        .iter()
-        .any(|t| format!("{t}") == "cargo"));
+    assert!(
+        info.workspace_types
+            .iter()
+            .any(|t| format!("{t}") == "cargo")
+    );
     assert_eq!(info.members.len(), 2);
 
     // 单包 scope
@@ -94,10 +95,11 @@ fn test_e2e_pnpm_workspace() {
     .unwrap();
 
     let info = workspace::detect_workspace(root).expect("should detect pnpm workspace");
-    assert!(info
-        .workspace_types
-        .iter()
-        .any(|t| format!("{t}") == "pnpm"));
+    assert!(
+        info.workspace_types
+            .iter()
+            .any(|t| format!("{t}") == "pnpm")
+    );
     assert_eq!(info.members.len(), 2);
 
     // 双包 scope
@@ -125,10 +127,7 @@ fn test_e2e_npm_workspace_array() {
     .unwrap();
 
     let info = workspace::detect_workspace(root).expect("should detect npm workspace");
-    assert!(info
-        .workspace_types
-        .iter()
-        .any(|t| format!("{t}") == "npm"));
+    assert!(info.workspace_types.iter().any(|t| format!("{t}") == "npm"));
 
     let files = vec!["packages/utils/index.ts".into()];
     let scope = workspace::scope::infer_scope(&files, &info, None);
@@ -150,10 +149,7 @@ fn test_e2e_npm_workspace_yarn_style() {
     .unwrap();
 
     let info = workspace::detect_workspace(root).expect("should detect yarn-style workspace");
-    assert!(info
-        .workspace_types
-        .iter()
-        .any(|t| format!("{t}") == "npm"));
+    assert!(info.workspace_types.iter().any(|t| format!("{t}") == "npm"));
     assert_eq!(info.members.len(), 2);
 
     // 跨两个 workspace group
@@ -182,14 +178,8 @@ fn test_e2e_npm_with_nx() {
     std::fs::write(root.join("nx.json"), "{}").unwrap();
 
     let info = workspace::detect_workspace(root).expect("should detect npm+nx");
-    assert!(info
-        .workspace_types
-        .iter()
-        .any(|t| format!("{t}") == "npm"));
-    assert!(info
-        .workspace_types
-        .iter()
-        .any(|t| format!("{t}") == "nx"));
+    assert!(info.workspace_types.iter().any(|t| format!("{t}") == "npm"));
+    assert!(info.workspace_types.iter().any(|t| format!("{t}") == "nx"));
 
     let files = vec!["packages/feature-a/src/lib.ts".into()];
     let scope = workspace::scope::infer_scope(&files, &info, None);
@@ -212,14 +202,12 @@ fn test_e2e_npm_with_turbo() {
     std::fs::write(root.join("turbo.json"), r#"{"pipeline": {}}"#).unwrap();
 
     let info = workspace::detect_workspace(root).expect("should detect npm+turbo");
-    assert!(info
-        .workspace_types
-        .iter()
-        .any(|t| format!("{t}") == "npm"));
-    assert!(info
-        .workspace_types
-        .iter()
-        .any(|t| format!("{t}") == "turbo"));
+    assert!(info.workspace_types.iter().any(|t| format!("{t}") == "npm"));
+    assert!(
+        info.workspace_types
+            .iter()
+            .any(|t| format!("{t}") == "turbo")
+    );
 
     // 三包 scope
     let files = vec![
@@ -247,10 +235,11 @@ fn test_e2e_lerna_workspace() {
     .unwrap();
 
     let info = workspace::detect_workspace(root).expect("should detect lerna");
-    assert!(info
-        .workspace_types
-        .iter()
-        .any(|t| format!("{t}") == "lerna"));
+    assert!(
+        info.workspace_types
+            .iter()
+            .any(|t| format!("{t}") == "lerna")
+    );
     assert_eq!(info.members.len(), 2);
 
     // 三包 → 逗号分隔 scope

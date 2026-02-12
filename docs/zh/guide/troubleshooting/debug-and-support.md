@@ -9,14 +9,16 @@ gcop-rs -v review changes
 
 这会显示：
 - 配置加载过程
-- API 请求和响应
+- API 请求元信息与重试细节
+- 非流式请求下的 API 响应状态/响应体日志
 - 运行 `gcop-rs -v commit` 时的 commit prompt（system + user）
-- 响应解析过程
+- 响应解析诊断信息
 
-> **安全提示**: verbose 模式（`-v` 或 `RUST_LOG=debug`）会在日志中打印完整的 API 请求和响应，可能包含：
-> - 你的代码 diff 和变更内容
+> **安全提示**: verbose 模式（`-v` 或 `RUST_LOG=debug`）可能暴露敏感信息，包括：
+> - 代码 diff 与变更内容
+> - prompt 内容（尤其是 `gcop-rs -v commit`）
+> - API 响应体和生成的 commit message
 > - 错误信息中的部分 API key
-> - 生成的 commit message
 >
 > 不要公开分享这些日志或将其提交到版本控制中。
 
@@ -32,4 +34,3 @@ gcop-rs -v review changes
    - 运行的命令
    - 错误信息
    - `gcop-rs -v` 的输出（删除敏感信息）
-

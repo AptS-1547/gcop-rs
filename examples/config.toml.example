@@ -1,5 +1,5 @@
 # gcop-rs Configuration File
-# Location: ~/.config/gcop/config.toml (Linux) | ~/Library/Application Support/gcop/config.toml (macOS) | %APPDATA%\gcop\config.toml (Windows)
+# Location: ~/.config/gcop/config.toml (Linux) | ~/Library/Application Support/gcop/config.toml (macOS) | %APPDATA%\gcop\config\config.toml (Windows)
 # Permissions: chmod 600 recommended (contains API keys, DO NOT commit to git)
 #
 # Full documentation: https://gcop.docs.esap.cc/guide/configuration.html

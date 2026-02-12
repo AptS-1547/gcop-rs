@@ -121,6 +121,13 @@ show_diff_preview = true
 allow_edit = true
 max_retries = 10
 
+# 可选：提交规范引导（prompt 层）
+[commit.convention]
+style = "conventional"  # conventional | gitmoji | custom
+types = ["feat", "fix", "docs", "refactor", "test", "chore"]
+template = "{type}({scope}): {subject}"  # style = "custom" 时常用
+extra_prompt = "Commit subject should be in English"
+
 # Review 设置
 [review]
 min_severity = "info"  # critical | warning | info（仅 text 输出生效）
@@ -145,6 +152,12 @@ max_retry_delay_ms = 60000  # 最大重试延迟，也作为 Retry-After 头的�
 # 文件设置
 [file]
 max_size = 10485760      # `review file <PATH>` 可读取的最大文件大小（10MB）
+
+# Workspace 设置（monorepo scope 推断）
+[workspace]
+enabled = true
+members = ["packages/*", "apps/*"]  # 可选：覆盖自动检测
+scope_mappings = { "packages/core" = "core", "packages/ui" = "ui" }
 ```
 
 ## 配置选项
@@ -169,6 +182,7 @@ max_size = 10485760      # `review file <PATH>` 可读取的最大文件大小�
 | `model` | String | 是 | 模型名称 |
 | `temperature` | Float | 否 | 温度参数（0.0-2.0）。Claude/OpenAI/Gemini 风格默认 0.3；Ollama 未设置时使用模型默认值 |
 | `max_tokens` | Integer | 否 | 最大响应 token 数。Claude 风格默认 2000；OpenAI 风格仅在设置时发送；Ollama 当前会忽略该字段 |
+| `extra` | Object | 否 | 额外 provider 参数。未知键会保留；同时会兼容性读取其中的 `max_tokens` / `temperature` |
 
 ### Commit 设置
 
@@ -178,6 +192,18 @@ max_size = 10485760      # `review file <PATH>` 可读取的最大文件大小�
 | `allow_edit` | Boolean | `true` | 允许编辑生成的消息 |
 | `max_retries` | Integer | `10` | 最大生成尝试次数（包含首次生成） |
 | `custom_prompt` | String | 无 | 自定义 system prompt / 指令（用于提交信息生成） |
+| `convention` | Table | 无 | 可选的提交规范引导，见下方 `[commit.convention]` |
+
+### Commit 规范设置（`[commit.convention]`）
+
+这组配置属于 prompt 层引导，用于影响模型输出，不是硬性校验规则。
+
+| 选项 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `style` | String | `"conventional"` | 规范风格：`"conventional"`、`"gitmoji"` 或 `"custom"` |
+| `types` | Array | 无 | 允许的提交类型（主要用于 `conventional` / `custom`） |
+| `template` | String | 无 | 自定义模板提示（如 `{type}({scope}): {subject}`） |
+| `extra_prompt` | String | 无 | 追加到规范引导后的纯文本说明 |
 
 ### Review 设置
 
@@ -213,6 +239,18 @@ max_size = 10485760      # `review file <PATH>` 可读取的最大文件大小�
 | 选项 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `max_size` | Integer | `10485760` | 使用 `review file <PATH>` 时可读取的最大文件大小（字节，默认: 10MB） |
+
+### Workspace 设置
+
+Workspace 设置用于控制 monorepo 检测和 commit scope 推断行为。
+
+| 选项 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `enabled` | Boolean | `true` | 是否启用 workspace 检测与 scope 推断 |
+| `members` | Array | 无 | 可选的 member pattern 列表；设置后会跳过自动检测 |
+| `scope_mappings` | Object | `{}` | 可选的路径到 scope 重映射（例如 `"packages/core" = "core"`） |
+
+当前自动检测支持 Cargo workspace、pnpm workspace、npm/yarn workspaces、Lerna、Nx 和 Turborepo 结构。
 
 ## API Key 配置
 

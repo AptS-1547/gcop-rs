@@ -9,7 +9,7 @@
 | 选项 | 说明 |
 |------|------|
 | `--provider <NAME>`, `-p` | 为 LLM 命令（`commit` / `review`）覆盖默认 provider |
-| `--verbose`, `-v` | 启用详细日志（显示 API 请求和响应） |
+| `--verbose`, `-v` | 启用调试/详细输出（commit 还会打印生成的 prompt 细节） |
 | `--help`, `-h` | 显示帮助信息 |
 | `--version`, `-V` | 显示版本信息 |
 

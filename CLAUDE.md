@@ -115,10 +115,15 @@ src/
 │   ├── repository.rs           # git2 实现
 │   ├── diff.rs                 # diff 统计解析
 │   └── commit.rs               # 执行 commit
+├── workspace/
+│   ├── mod.rs                  # WorkspaceInfo / PackageScope / detect_workspace()
+│   ├── detector.rs             # 检测 Cargo/Pnpm/Npm/Lerna/Nx/Turbo workspace
+│   ├── matcher.rs              # changed files → package 映射
+│   └── scope.rs                # commit scope 推断（1 包→短名, 2-3→逗号, 4+→None）
 ├── llm/
-│   ├── mod.rs                  # LLMProvider trait / StreamChunk / ProgressReporter
+│   ├── mod.rs                  # LLMProvider trait / StreamChunk / ProgressReporter / ScopeInfo
 │   ├── message.rs              # LLM 消息结构
-│   ├── prompt.rs               # prompt 组装
+│   ├── prompt.rs               # prompt 组装（含 workspace scope 注入）
 │   └── provider/
 │       ├── claude.rs
 │       ├── openai.rs
@@ -176,6 +181,21 @@ src/
 
 `mockall` 隐藏在 `test-utils` feature flag 后面。dev-dependencies 中已通过 `gcop-rs = { path = ".", features = ["test-utils"] }` 启用。编写需要 mock trait 的测试时，相关 mock 类型只在该 feature 下可用。
 
+### 7) Monorepo workspace 支持
+
+自动检测 6 种 monorepo 类型：Cargo、Pnpm、Npm、Lerna、Nx、Turbo。
+
+**流程**：`detect_workspace()` → `map_files_to_packages()` → `infer_scope()` → 注入 LLM prompt。
+
+- 检测逻辑在 `src/workspace/detector.rs`，按优先级扫描仓库根目录的配置文件
+- Scope 推断规则：1 包→包短名，2-3 包→逗号分隔，4+ 包→None（让 LLM 自行判断）
+- Scope 信息注入 prompt 的 user message（`## Workspace:` 段），不改 system prompt
+- 所有检测错误非致命：`tracing::warn!` + 返回 None，不影响正常流程
+- `-v` 模式下输出检测结果（`tracing::debug!`），默认静默
+- 支持配置覆盖：`[workspace]` 段可手动指定 `members` 和 `scope_mappings`
+- `CommitContext` 通过 `scope_info: Option<ScopeInfo>` 携带 workspace 信息
+- 集成测试：`tests/workspace_e2e_test.rs`（14 个端到端测试覆盖所有类型）
+
 ---
 
 ## Configuration
@@ -219,8 +239,9 @@ PR 合入 master 前需通过以下检查（`.github/workflows/ci.yml`）：
 ## Tests
 
 - 单元测试：`#[cfg(test)] mod tests` 在各模块内
-- 集成测试：`tests/` 目录，按功能组织（`commit_integration_test.rs`、`review_command_test.rs` 等）
+- 集成测试：`tests/` 目录，按功能组织（`commit_integration_test.rs`、`review_command_test.rs`、`workspace_e2e_test.rs` 等）
 - `tests/test_git_ops.rs` 提供集成测试用的 Git 操作辅助
+- `tests/workspace_e2e_test.rs` 覆盖 6 种 monorepo 类型的端到端检测 + scope 推断
 
 运行集成测试时注意：需要 git 可用环境，部分测试会创建临时 git 仓库。
 

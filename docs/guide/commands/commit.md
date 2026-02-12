@@ -9,7 +9,7 @@ gcop-rs commit [OPTIONS] [FEEDBACK...]
 
 **Description**:
 
-Analyzes your staged changes, generates a conventional commit message using AI, and creates a git commit after your approval.
+Analyzes your staged changes, generates an AI commit message (conventional by default, configurable via `commit.convention`), and creates a git commit after your approval.
 
 **Options**:
 

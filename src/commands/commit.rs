@@ -603,10 +603,7 @@ fn compute_scope_info(files_changed: &[String], config: &AppConfig) -> Option<Sc
     });
 
     if let Some(ref s) = suggested {
-        tracing::debug!(
-            "{}",
-            rust_i18n::t!("workspace.scope_suggestion", scope = s)
-        );
+        tracing::debug!("{}", rust_i18n::t!("workspace.scope_suggestion", scope = s));
     }
 
     Some(ScopeInfo {

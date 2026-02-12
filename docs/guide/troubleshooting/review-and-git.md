@@ -6,10 +6,12 @@
 
 **Solution**:
 
-1. **Use verbose mode** to see raw response:
+1. **Use verbose mode** to enable debug logs:
    ```bash
    gcop-rs -v review changes
    ```
+
+   This helps surface parsing context in logs (for example response preview in errors), even though full prompt/response bodies are not printed for review.
 
 2. **Check your custom prompt** (if using one):
    - Ensure it explicitly requests JSON format

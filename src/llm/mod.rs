@@ -128,7 +128,7 @@ pub struct StreamHandle {
 pub trait LLMProvider: Send + Sync {
     /// 生成 commit message
     ///
-    /// 基于 diff 内容和可选的上下文信息，生成符合 Conventional Commits 规范的 commit message。
+    /// 基于 diff 内容和可选上下文生成 commit message（默认按 Conventional 风格，可通过配置引导）。
     ///
     /// # 参数
     /// - `diff`: Git diff 内容（通过 `git diff --staged` 获取）

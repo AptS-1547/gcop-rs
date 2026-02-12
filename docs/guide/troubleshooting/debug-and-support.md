@@ -9,14 +9,16 @@ gcop-rs -v review changes
 
 This shows:
 - Configuration loading
-- API requests and responses
+- API request metadata and retry details
+- API response status/body logs for non-streaming requests
 - Commit prompts (system + user) when running `gcop-rs -v commit`
-- Response parsing
+- Response parsing diagnostics
 
-> **Security Notice**: Verbose mode (`-v` or `RUST_LOG=debug`) logs full API requests and responses, which may include:
-> - Your code diffs and changes
+> **Security Notice**: Verbose mode (`-v` or `RUST_LOG=debug`) may expose sensitive data, including:
+> - Code diffs and change content
+> - Prompt content (especially in `gcop-rs -v commit`)
+> - API response bodies and generated commit messages
 > - Partial API keys in error messages
-> - Generated commit messages
 >
 > Do not share verbose logs publicly or commit them to version control.
 
@@ -32,4 +34,3 @@ If you encounter an issue not listed here:
    - Command you ran
    - Error message
    - Output from `gcop-rs -v` (remove sensitive info)
-

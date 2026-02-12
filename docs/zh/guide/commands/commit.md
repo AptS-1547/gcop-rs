@@ -9,7 +9,7 @@ gcop-rs commit [OPTIONS] [FEEDBACK...]
 
 **说明**:
 
-分析暂存的变更，使用 AI 生成符合规范的提交信息，并在你批准后创建 git 提交。
+分析暂存的变更，使用 AI 生成提交信息（默认按 conventional，可通过 `commit.convention` 配置），并在你批准后创建 git 提交。
 
 **选项**:
 

@@ -5,7 +5,7 @@
 //! 这是原 Python 项目 [gcop](https://github.com/Undertone0809/gcop) 的 Rust 重写版本。
 //!
 //! ## 功能
-//! - **Commit message 生成**：基于 staged changes 自动生成符合 Conventional Commits 规范的 commit message
+//! - **Commit message 生成**：基于 staged changes 自动生成提交信息（默认 Conventional，可通过配置调整）
 //! - **代码审查**：分析代码变更，识别潜在问题和改进建议
 //! - **多 Provider 支持**：Claude, OpenAI, Gemini, Ollama（本地模型）
 //! - **高可用**：Fallback 机制，主 provider 失败时自动切换

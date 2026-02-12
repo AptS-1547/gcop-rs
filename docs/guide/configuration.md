@@ -121,6 +121,13 @@ show_diff_preview = true
 allow_edit = true
 max_retries = 10
 
+# Optional commit convention guidance (prompt-level)
+[commit.convention]
+style = "conventional"  # conventional | gitmoji | custom
+types = ["feat", "fix", "docs", "refactor", "test", "chore"]
+template = "{type}({scope}): {subject}"  # useful with style = "custom"
+extra_prompt = "Commit subject should be in English"
+
 # Review Settings
 [review]
 min_severity = "info"  # critical | warning | info (applies to text output)
@@ -145,6 +152,12 @@ max_retry_delay_ms = 60000  # Max retry delay; also limits Retry-After header
 # File Settings
 [file]
 max_size = 10485760      # Max file size for `review file <PATH>` (10MB)
+
+# Workspace Settings (monorepo scope inference)
+[workspace]
+enabled = true
+members = ["packages/*", "apps/*"]  # Optional: override auto-detection
+scope_mappings = { "packages/core" = "core", "packages/ui" = "ui" }
 ```
 
 ## Configuration Options
@@ -169,6 +182,7 @@ Each provider under `[llm.providers.<name>]` supports:
 | `model` | String | Yes | Model name |
 | `temperature` | Float | No | Temperature (0.0-2.0). Claude/OpenAI/Gemini-style defaults to 0.3; Ollama uses provider default when omitted |
 | `max_tokens` | Integer | No | Max response tokens. Claude-style defaults to 2000; OpenAI-style sends only if set; Ollama currently ignores this field |
+| `extra` | Object | No | Additional provider-specific keys. Unknown keys are preserved; `max_tokens`/`temperature` are also read from here as a compatibility fallback |
 
 ### Commit Settings
 
@@ -178,6 +192,18 @@ Each provider under `[llm.providers.<name>]` supports:
 | `allow_edit` | Boolean | `true` | Allow editing generated message |
 | `max_retries` | Integer | `10` | Max generation attempts (including the first generation) |
 | `custom_prompt` | String | No | Custom system prompt / instructions for commit generation |
+| `convention` | Table | No | Optional prompt-level convention guidance; see `[commit.convention]` below |
+
+### Commit Convention Settings (`[commit.convention]`)
+
+These settings are prompt-level guidance for commit generation. They influence model output but are not hard validation rules.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `style` | String | `"conventional"` | Convention style: `"conventional"`, `"gitmoji"`, or `"custom"` |
+| `types` | Array | No | Allowed commit types (mainly for `conventional` / `custom`) |
+| `template` | String | No | Custom template hint (for example `{type}({scope}): {subject}`) |
+| `extra_prompt` | String | No | Additional plain-text instruction appended to convention guidance |
 
 ### Review Settings
 
@@ -213,6 +239,18 @@ Each provider under `[llm.providers.<name>]` supports:
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `max_size` | Integer | `10485760` | Max file size in bytes when using `review file <PATH>` (default: 10MB) |
+
+### Workspace Settings
+
+Workspace settings control monorepo detection and commit scope inference.
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enabled` | Boolean | `true` | Enable workspace detection and scope inference |
+| `members` | Array | No | Optional member patterns to use directly (skips auto-detection when set) |
+| `scope_mappings` | Object | `{}` | Optional path-to-scope remap (for example `"packages/core" = "core"`) |
+
+Auto-detection currently recognizes Cargo workspace, pnpm workspace, npm/yarn workspaces, Lerna, Nx, and Turborepo structures.
 
 ## API Key Configuration
 
