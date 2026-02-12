@@ -3,7 +3,7 @@ use crate::error::{GcopError, Result};
 use crate::llm::provider::create_provider;
 use crate::ui;
 use colored::Colorize;
-use dialoguer::{Editor, Select};
+use dialoguer::Select;
 
 /// 编辑后用户可选的操作
 enum EditAction {
@@ -58,10 +58,8 @@ fn edit(colored: bool) -> Result<()> {
             )
         );
 
-        // 使用 dialoguer Editor 编辑（自动选择 $VISUAL > $EDITOR > platform default）
-        let edited = Editor::new()
-            .edit(&content)?
-            .unwrap_or_else(|| content.clone()); // 用户取消则保持原内容
+        // 使用 edit crate 打开编辑器（自动 fallback：$VISUAL > $EDITOR > 平台预设列表）
+        let edited = edit::edit(&content)?;
 
         // 校验配置（通过 config crate 反序列化，与 load_config 一致的路径）
         let validation: std::result::Result<crate::config::AppConfig, _> =
