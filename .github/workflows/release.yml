@@ -114,6 +114,7 @@ jobs:
       - name: Upload binary to release
         uses: softprops/action-gh-release@v1
         with:
+          draft: true
           files: target/${{ matrix.target }}/release/gcop-rs-v${{ needs.create-release.outputs.version }}-${{ matrix.platform }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
