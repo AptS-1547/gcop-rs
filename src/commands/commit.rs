@@ -398,20 +398,7 @@ async fn generate_message(
             context.custom_prompt.as_deref(),
             context.convention.as_ref(),
         );
-        println!(
-            "\n{}",
-            rust_i18n::t!("commit.verbose.generated_prompt")
-                .cyan()
-                .bold()
-        );
-        println!("{}", rust_i18n::t!("commit.verbose.system_prompt").cyan());
-        println!("{}", system);
-        println!("{}", rust_i18n::t!("commit.verbose.user_message").cyan());
-        println!("{}", user);
-        println!(
-            "{}\n",
-            rust_i18n::t!("commit.verbose.divider").cyan().bold()
-        );
+        print_verbose_prompt(&system, &user, false, true);
     }
 
     // Decide whether to use streaming mode.
@@ -523,12 +510,8 @@ async fn generate_message_no_streaming(
             context.custom_prompt.as_deref(),
             context.convention.as_ref(),
         );
-        eprintln!("\n{}", rust_i18n::t!("commit.verbose.generated_prompt"));
-        eprintln!("{}", rust_i18n::t!("commit.verbose.system_prompt"));
-        eprintln!("{}", system);
-        eprintln!("{}", rust_i18n::t!("commit.verbose.user_message"));
-        eprintln!("{}", user);
-        eprintln!("{}\n", rust_i18n::t!("commit.verbose.divider"));
+        // JSON mode: output to stderr (stdout reserved for JSON), no color
+        print_verbose_prompt(&system, &user, true, false);
     }
 
     // Use the non-streaming API directly
@@ -550,6 +533,46 @@ fn output_json_success(message: &str, stats: &DiffStats, committed: bool) -> Res
     };
     println!("{}", serde_json::to_string_pretty(&output)?);
     Ok(())
+}
+
+/// Display prompt details in verbose mode.
+///
+/// `to_stderr`: use stderr (for JSON mode where stdout is reserved)
+/// `colored`: apply color formatting
+fn print_verbose_prompt(system: &str, user: &str, to_stderr: bool, colored: bool) {
+    macro_rules! vprintln {
+        ($($arg:tt)*) => {
+            if to_stderr {
+                eprintln!($($arg)*);
+            } else {
+                println!($($arg)*);
+            }
+        };
+    }
+
+    if colored {
+        vprintln!(
+            "\n{}",
+            rust_i18n::t!("commit.verbose.generated_prompt")
+                .cyan()
+                .bold()
+        );
+        vprintln!("{}", rust_i18n::t!("commit.verbose.system_prompt").cyan());
+        vprintln!("{}", system);
+        vprintln!("{}", rust_i18n::t!("commit.verbose.user_message").cyan());
+        vprintln!("{}", user);
+        vprintln!(
+            "{}\n",
+            rust_i18n::t!("commit.verbose.divider").cyan().bold()
+        );
+    } else {
+        vprintln!("\n{}", rust_i18n::t!("commit.verbose.generated_prompt"));
+        vprintln!("{}", rust_i18n::t!("commit.verbose.system_prompt"));
+        vprintln!("{}", system);
+        vprintln!("{}", rust_i18n::t!("commit.verbose.user_message"));
+        vprintln!("{}", user);
+        vprintln!("{}\n", rust_i18n::t!("commit.verbose.divider"));
+    }
 }
 
 /// Calculate workspace scope information

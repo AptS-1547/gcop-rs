@@ -1,6 +1,6 @@
 [package]
 name = "gcop-rs"
-version = "0.12.2"
+version = "0.12.3"
 edition = "2024"
 rust-version = "1.88.0"
 license = "MIT"
@@ -53,7 +53,7 @@ futures-util = { version = "0.3", default-features = false, features = ["std"] }
 git2 = {version = "0.20", default-features = false }
 httpdate = "1.0"
 indicatif = "0.18.4"
-reqwest = { version = "0.13", default-features = false, features = ["json", "rustls-no-provider", "socks", "stream"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls-no-provider", "socks", "stream", "system-proxy"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "logging", "std", "tls12"] }
 rust-i18n = "3.1"
 serde = { version = "1.0", features = ["derive"] }

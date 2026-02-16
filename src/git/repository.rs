@@ -221,13 +221,10 @@ impl GitOperations for GitRepository {
                 .timestamp_opt(git_time.seconds(), 0)
                 .single()
                 .unwrap_or_else(|| {
-                    eprintln!(
-                        "{}",
-                        rust_i18n::t!(
-                            "git.invalid_timestamp_warning",
-                            timestamp = git_time.seconds(),
-                            commit = commit.id().to_string()
-                        )
+                    tracing::warn!(
+                        "Invalid git timestamp {} for commit {}",
+                        git_time.seconds(),
+                        commit.id()
                     );
                     Local::now()
                 });

@@ -153,12 +153,18 @@ where
                         return Err(e);
                     }
 
-                    // Update spinner to show retry progress
+                    // Update spinner to show retry progress with reason
                     if let Some(p) = progress {
+                        let reason = match &e {
+                            GcopError::LlmTimeout { .. } => "timeout",
+                            GcopError::LlmConnectionFailed { .. } => "connection failed",
+                            _ => "network error",
+                        };
                         p.append_suffix(&rust_i18n::t!(
-                            "provider.retrying_suffix",
+                            "provider.retrying_reason_suffix",
                             attempt = attempt,
-                            max = max_retries
+                            max = max_retries,
+                            reason = reason
                         ));
                     }
 
@@ -189,22 +195,13 @@ where
                 .and_then(|v| {
                     let result = parse_retry_after(v);
                     if result.is_none() {
-                        eprintln!(
-                            "{}",
-                            rust_i18n::t!("provider.warning.invalid_retry_after", value = v)
-                        );
+                        tracing::warn!("Invalid Retry-After header value: {}", v);
                     }
                     result
                 });
 
             let body = response.text().await.unwrap_or_else(|e| {
-                eprintln!(
-                    "{}",
-                    rust_i18n::t!(
-                        "provider.warning.read_429_body_failed",
-                        error = e.to_string()
-                    )
-                );
+                tracing::warn!("Failed to read 429 response body: {}", e);
                 format!("<body read error: {}>", e)
             });
 
@@ -225,9 +222,10 @@ where
             // Update spinner to show retry progress
             if let Some(p) = progress {
                 p.append_suffix(&rust_i18n::t!(
-                    "provider.retrying_suffix",
+                    "provider.retrying_reason_suffix",
                     attempt = attempt,
-                    max = max_retries
+                    max = max_retries,
+                    reason = "429 rate limited"
                 ));
             }
 
@@ -236,13 +234,10 @@ where
                 let retry_after_ms = secs.saturating_mul(1000);
                 if retry_after_ms > max_retry_delay_ms {
                     // Retry-After exceeds the limit and returns an error directly.
-                    eprintln!(
-                        "{}",
-                        rust_i18n::t!(
-                            "provider.warning.retry_after_exceeds_max",
-                            seconds = secs,
-                            max_ms = max_retry_delay_ms
-                        )
+                    tracing::warn!(
+                        "Retry-After ({} seconds) exceeds max retry delay ({}ms)",
+                        secs,
+                        max_retry_delay_ms
                     );
                     return Err(GcopError::Llm(
                         rust_i18n::t!("provider.rate_limited_exceeds_limit", seconds = secs)
@@ -283,9 +278,10 @@ where
 
             if let Some(p) = progress {
                 p.append_suffix(&rust_i18n::t!(
-                    "provider.retrying_suffix",
+                    "provider.retrying_reason_suffix",
                     attempt = attempt,
-                    max = max_retries
+                    max = max_retries,
+                    reason = status.as_u16().to_string()
                 ));
             }
 

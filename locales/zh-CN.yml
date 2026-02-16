@@ -382,6 +382,7 @@ stream.error: "流式输出错误：%{error}"
 
 # Provider 消息
 provider.retrying_suffix: "（重试 %{attempt}/%{max}）"
+provider.retrying_reason_suffix: "（重试 %{attempt}/%{max}: %{reason}）"
 provider.fallback_suffix: "（回退到：%{provider}）"
 provider.warning.invalid_retry_after: "警告：无效的 Retry-After 头值 '%{value}'，将回退到指数退避"
 provider.warning.read_429_body_failed: "警告：读取 429 响应体失败：%{error}"

@@ -382,6 +382,7 @@ stream.error: "Stream error: %{error}"
 
 # Provider messages
 provider.retrying_suffix: "(Retrying %{attempt}/%{max})"
+provider.retrying_reason_suffix: "(Retrying %{attempt}/%{max}: %{reason})"
 provider.fallback_suffix: "(fallback: %{provider})"
 provider.warning.invalid_retry_after: "Warning: Invalid Retry-After header value: '%{value}', falling back to exponential backoff"
 provider.warning.read_429_body_failed: "Warning: Failed to read 429 response body: %{error}"
