@@ -5,33 +5,28 @@
 [![Downloads](https://img.shields.io/crates/d/gcop-rs)](https://crates.io/crates/gcop-rs)
 [![CI](https://github.com/AptS-1547/gcop-rs/workflows/CI/badge.svg)](https://github.com/AptS-1547/gcop-rs/actions)
 
-AI-powered Git commit message generator and code reviewer, written in Rust.
+AI-powered Git CLI — generate commit messages, review code, manage workflows, all from your terminal. Written in Rust.
 
-> **Note**: This project is a Rust rewrite inspired by [gcop](https://github.com/Undertone0809/gcop), the original Python implementation by [Undertone0809](https://github.com/Undertone0809). The Rust version aims to build upon that foundation with improved performance and reliability.
+> Rust rewrite inspired by [gcop](https://github.com/Undertone0809/gcop) by [Undertone0809](https://github.com/Undertone0809).
 
-**[中文文档](README_ZH.md)** | **[Documentation](docs/guide/)**
+**[中文文档](README_ZH.md)** | **[Documentation](https://gcop.docs.esap.cc/)**
 
 ## Features
 
-- 🤖 **AI Commit Messages** - Generate conventional commit messages using Claude, OpenAI, or Ollama
-- 🔍 **Code Review** - Get AI-powered code reviews with security and performance insights
-- 🎯 **Git Aliases** - Convenient shortcuts like `git c`, `git r`, `git acp` for streamlined workflow
-- 🚀 **Easy Setup** - Interactive `init` command for quick configuration
-- 🔧 **Custom Providers** - Support any OpenAI/Claude compatible API (DeepSeek, custom endpoints, etc.)
-- 📝 **Custom Prompts** - Customize generation and review prompts with template variables
-- ⚙️  **Flexible Config** - Configure via file or environment variables
-- 🎨 **Beautiful CLI** - Spinner animations, colored output, and interactive prompts
-- 🐛 **Debug Mode** - Verbose logging with full request/response inspection
-- 🔐 **GPG Signing** - Full support for GPG commit signing via native git
-
-## Requirements
-
-- **Rust 1.92.0 or later** (Rust 2024 edition)
-- **Git 2.0 or later**
+- **AI Commit Messages** — Generate conventional commits via Claude, OpenAI, Gemini, or Ollama
+- **Code Review** — AI-powered review with security & performance insights
+- **Monorepo Support** — Auto-detect Cargo, Pnpm, Npm, Lerna, Nx, Turbo workspaces and infer commit scope
+- **Git Aliases** — Shortcuts like `git c`, `git r`, `git acp` for streamlined workflow
+- **Git Hook** — `prepare-commit-msg` hook for seamless editor integration
+- **Custom Providers** — Any OpenAI/Claude-compatible API (DeepSeek, custom endpoints, etc.)
+- **Custom Prompts** — Template variables for commit & review prompt customization
+- **Project Config** — Per-repo `.gcop/config.toml` overrides user config
+- **GPG Signing** — Full support via native git
+- **Beautiful CLI** — Spinner animations, streaming output, colored text, interactive menus
 
 ## Quick Start
 
-### 1. Installation
+### 1. Install
 
 ```bash
 # Homebrew (macOS/Linux)
@@ -41,34 +36,24 @@ brew install gcop-rs
 # pipx (Python users)
 pipx install gcop-rs
 
-# cargo-binstall (no compilation required)
+# cargo-binstall (prebuilt binary, no compilation)
 cargo binstall gcop-rs
 
 # cargo install (from source)
 cargo install gcop-rs
 ```
 
-For other installation methods, see [docs/guide/installation.md](docs/guide/installation.md).
+See [Installation Guide](https://gcop.docs.esap.cc/guide/installation) for more options.
 
 ### 2. Configure
-
-**Option 1: Quick setup (recommended)**
 
 ```bash
 gcop-rs init
 ```
 
-This interactive wizard will:
-- Create config directory and file at the platform-specific location
-- Set secure file permissions (Unix/Linux/macOS)
-- Optionally install convenient git aliases
+The interactive wizard creates your config file and optionally installs git aliases.
 
-**Option 2: Manual setup**
-
-Use `gcop-rs config edit` to open config file in your system editor, or create manually at:
-- **Linux**: `~/.config/gcop/config.toml`
-- **macOS**: `~/Library/Application Support/gcop/config.toml`
-- **Windows**: `%APPDATA%\gcop\config\config.toml`
+Or set up manually — use `gcop-rs config edit` to open your config in the system editor:
 
 ```toml
 [llm]
@@ -79,318 +64,83 @@ api_key = "sk-ant-your-key-here"
 model = "claude-sonnet-4-5-20250929"
 ```
 
-Or set values via `GCOP__*` overrides (for example: `GCOP__LLM__PROVIDERS__CLAUDE__API_KEY`).
+Config locations: `~/.config/gcop/` (Linux), `~/Library/Application Support/gcop/` (macOS), `%APPDATA%\gcop\config\` (Windows).
 
-See [docs/guide/configuration.md](docs/guide/configuration.md) for all options.
+Environment overrides: `GCOP__LLM__PROVIDERS__CLAUDE__API_KEY`, etc. See [Configuration Guide](https://gcop.docs.esap.cc/guide/configuration).
 
 ### 3. Use
 
 ```bash
-# Generate commit message
 git add .
-gcop-rs commit
-# Or use the alias: git c
+gcop-rs commit            # Generate AI commit message → review → commit
+gcop-rs review changes    # AI review of working tree changes
 
-# Review unstaged working tree changes
-gcop-rs review changes
-# Or use the alias: git r
-
-# Complete workflow
-git acp  # Add all, commit with AI, and push
-
-# Use different provider
-gcop-rs --provider openai commit
+# Or with aliases (after gcop-rs alias):
+git c                     # = gcop-rs commit
+git acp                   # Add all → AI commit → push
 ```
 
-## Git Aliases
-
-gcop-rs provides convenient git aliases for streamlined workflow.
-
-### Installation
-
-```bash
-# Install all aliases
-gcop-rs alias
-
-# Or during initial setup
-gcop-rs init  # Will prompt to install aliases
-```
-
-### Usage
-
-After installation, you can use these shortcuts:
-
-```bash
-git c          # AI commit message and commit
-git r          # AI review unstaged working tree changes
-git s          # Show repository statistics
-git ac         # Add all changes and commit with AI
-git cp         # Commit with AI and push
-git acp        # Add all, commit with AI, and push
-git gconfig    # Edit gcop-rs configuration
-git p          # Push to remote
-git pf         # Force push (safer with --force-with-lease)
-git undo       # Undo last commit (keep changes staged)
-```
-
-### Management
-
-```bash
-# List all available aliases
-gcop-rs alias --list
-
-# Reinstall (overwrite conflicts)
-gcop-rs alias --force
-
-# Remove all gcop-rs aliases
-gcop-rs alias --remove --force
-```
-
-See [docs/guide/aliases.md](docs/guide/aliases.md) for detailed information on each alias.
+The commit workflow is interactive — after generation, you can **accept**, **edit**, **retry**, or **retry with feedback** (e.g. "use Chinese", "be more concise") to refine the result.
 
 ## Commands
 
-### `gcop-rs init`
+| Command | Description |
+|---------|-------------|
+| `gcop-rs commit` | Generate AI commit message for staged changes |
+| `gcop-rs review <target>` | Review `changes` / `commit <hash>` / `range <a..b>` / `file <path>` |
+| `gcop-rs init` | Interactive configuration setup |
+| `gcop-rs config edit` | Edit config with post-save validation |
+| `gcop-rs config validate` | Validate config & test provider connection |
+| `gcop-rs alias` | Install / list / remove git aliases |
+| `gcop-rs stats` | Repository commit statistics |
+| `gcop-rs hook install` | Install `prepare-commit-msg` hook |
+| `gcop-rs hook uninstall` | Remove the hook |
 
-Initialize gcop-rs configuration.
+Global flags: `-v` verbose, `--provider <name>` override, `--format text|json|markdown`, `--dry-run`.
 
-```bash
-gcop-rs init
-```
+See [Command Reference](https://gcop.docs.esap.cc/guide/commands) for full details.
 
-Interactive setup wizard that:
-- Creates config directory
-- Copies example configuration
-- Sets secure file permissions
-- Optionally installs git aliases
+## Git Aliases
 
----
+Install with `gcop-rs alias` or during `gcop-rs init`.
 
-### `gcop-rs commit`
+| Alias | Action |
+|-------|--------|
+| `git c` | AI commit |
+| `git r` | AI review changes |
+| `git s` | Repository stats |
+| `git ac` | Add all + AI commit |
+| `git cp` | AI commit + push |
+| `git acp` | Add all + AI commit + push |
+| `git gconfig` | Edit gcop-rs config |
+| `git p` | Push |
+| `git pf` | Force push (`--force-with-lease`) |
+| `git undo` | Undo last commit (keep staged) |
 
-Generate AI-powered commit message for staged changes.
-
-```bash
-gcop-rs commit              # Generate, review, and commit
-gcop-rs commit --no-edit    # Skip editor
-gcop-rs commit --yes        # Skip confirmation
-gcop-rs commit --dry-run    # Only print message, do not commit
-gcop-rs -v commit           # Verbose mode
-```
-
-**Interactive workflow**:
-
-After generating a commit message, you can choose:
-- **Accept** - Use the generated message
-- **Edit** - Open editor to manually modify (returns to menu after editing)
-- **Retry** - Regenerate without feedback
-- **Retry with feedback** - Provide custom instructions (e.g., "use Chinese", "be more concise"). Feedback accumulates across retries for refined results
-- **Quit** - Cancel commit
-
-Example:
-```bash
-$ git add .
-$ gcop-rs commit
-
-ℹ Generated commit message:
-feat(auth): implement JWT token validation
-
-Choose next action:
-> Accept
-  Edit
-  Retry
-  Retry with feedback
-  Quit
-```
-
----
-
-### `gcop-rs review`
-
-Review code changes with AI.
-
-```bash
-gcop-rs review changes                 # Review unstaged working tree changes
-gcop-rs review commit <hash>           # Review a commit
-gcop-rs review range main..dev         # Review commit range
-gcop-rs review file src/main.rs        # Review a file
-gcop-rs review --format json changes   # JSON output for automation
-```
-
-**Output formats**: `--format text|json|markdown`
-
----
-
-### `gcop-rs config`
-
-Manage configuration.
-
-```bash
-# Edit config file in your default editor (with validation)
-gcop-rs config edit
-
-# Validate configuration and test provider connection
-gcop-rs config validate
-
-```
-
-`config edit` validates your config after saving (like `visudo`) and works even when config is corrupted.
-
-> **Tip**: Always use `gcop-rs config edit` instead of editing the config file directly to avoid syntax errors.
-
----
-
-### `gcop-rs alias`
-
-Manage git aliases.
-
-```bash
-gcop-rs alias                       # Install all aliases
-gcop-rs alias --list                # List available aliases
-gcop-rs alias --force               # Overwrite conflicts
-gcop-rs alias --remove --force      # Remove all aliases
-```
-
-Provides convenient shortcuts like `git c`, `git r`, `git acp`, etc.
-
-See [docs/guide/aliases.md](docs/guide/aliases.md) for details.
-
----
-
-### `gcop-rs stats`
-
-Show repository commit statistics.
-
-```bash
-gcop-rs stats                       # Show statistics (text format)
-gcop-rs stats --format json         # Output as JSON
-gcop-rs stats --format markdown     # Output as Markdown
-gcop-rs stats --author "name"       # Filter by author
-```
-
-Displays:
-- Total commits and contributors
-- Repository time span
-- Top contributors with commit counts
-- Recent activity (last 4 weeks) with ASCII bar chart
-
-## Configuration
-
-Config file location (platform-specific):
-- **Linux**: `~/.config/gcop/config.toml`
-- **macOS**: `~/Library/Application Support/gcop/config.toml`
-- **Windows**: `%APPDATA%\gcop\config\config.toml`
-
-Example configuration with Claude API:
-
-```toml
-[llm]
-default_provider = "claude"
-
-[llm.providers.claude]
-api_key = "sk-ant-your-key"
-model = "claude-sonnet-4-5-20250929"
-temperature = 0.3
-
-[commit]
-show_diff_preview = true
-allow_edit = true
-
-[review]
-min_severity = "info"
-
-[ui]
-colored = true
-```
-
-For complete configuration reference, see [docs/guide/configuration.md](docs/guide/configuration.md).
-
-## Advanced Features
-
-### Custom Providers
-
-Add any OpenAI or Claude compatible API:
-
-```toml
-[llm.providers.deepseek]
-api_style = "openai"
-api_key = "sk-your-deepseek-key"
-endpoint = "https://api.deepseek.com/v1/chat/completions"
-model = "deepseek-chat"
-```
-
-See [docs/guide/providers.md](docs/guide/providers.md) for more examples.
-
-### Custom Prompts
-
-Customize commit message or review prompts:
-
-```toml
-[commit]
-custom_prompt = """
-Generate a commit message in Chinese for:
-{diff}
-
-Files: {files_changed}
-Stats: +{insertions} -{deletions}
-"""
-```
-
-See [docs/guide/prompts.md](docs/guide/prompts.md) for template variables and examples.
-
-### Debug Mode
-
-Use `--verbose` to see detailed logs:
-
-```bash
-gcop-rs -v commit  # Shows API requests, responses, and prompts
-```
-
-> **Security Notice**: Verbose mode (`-v` or `RUST_LOG=debug`) logs full API requests and responses, which may include:
-> - Your code diffs and changes
-> - Partial API keys in error messages
-> - Generated commit messages
->
-> Do not share verbose logs publicly or commit them to version control.
+Manage: `--list`, `--force`, `--remove --force`. See [Aliases Guide](https://gcop.docs.esap.cc/guide/aliases).
 
 ## Documentation
 
-- **[Installation Guide](docs/guide/installation.md)** - Detailed installation instructions
-- **[Git Aliases Guide](docs/guide/aliases.md)** - Complete guide to git aliases
-- **[Command Reference](docs/guide/commands.md)** - Detailed command documentation
-- **[Configuration Reference](docs/guide/configuration.md)** - Complete configuration guide
-- **[Provider Setup](docs/guide/providers.md)** - Configure LLM providers
-- **[Custom Prompts](docs/guide/prompts.md)** - Customize AI prompts
-- **[Troubleshooting](docs/guide/troubleshooting.md)** - Common issues and solutions
+- [Installation](https://gcop.docs.esap.cc/guide/installation) — All installation methods
+- [Configuration](https://gcop.docs.esap.cc/guide/configuration) — Complete config reference
+- [Commands](https://gcop.docs.esap.cc/guide/commands) — Detailed command docs
+- [Providers](https://gcop.docs.esap.cc/guide/providers) — Provider setup (Claude, OpenAI, Gemini, Ollama, custom)
+- [Custom Prompts](https://gcop.docs.esap.cc/guide/prompts) — Template variables and examples
+- [Git Aliases](https://gcop.docs.esap.cc/guide/aliases) — Full aliases reference
+- [Troubleshooting](https://gcop.docs.esap.cc/guide/troubleshooting) — Common issues and solutions
 
 ## Requirements
 
-- Rust 1.70 or higher
-- Git
-- API key for at least one provider (Claude, OpenAI, or local Ollama)
+- **Git** 2.0+
+- **API key** for at least one provider (Claude, OpenAI, Gemini), or local [Ollama](https://ollama.ai)
+- **Rust** 1.88.0+ (only if building from source)
 
 ## License
 
-MIT License - see LICENSE file for details.
+MIT — see [LICENSE](LICENSE).
 
 ## Credits
 
-### Original Author
+This project is a Rust rewrite inspired by [gcop](https://github.com/Undertone0809/gcop) by **[Undertone0809](https://github.com/Undertone0809)**. The core concept of AI-powered commit message generation originated from that project.
 
-**[Undertone0809](https://github.com/Undertone0809)** - Creator of [gcop](https://github.com/Undertone0809/gcop) (Python)
-
-### Rust Rewrite
-
-**AptS:1547** (Yuhan Bian / 卞雨涵) <apts-1547@esaps.net>
-
-## Acknowledgments
-
-This project would not exist without the original [gcop](https://github.com/Undertone0809/gcop) by [Undertone0809](https://github.com/Undertone0809). The core concept of using AI to generate meaningful commit messages originated from that project.
-
-Special thanks to:
-- **Undertone0809** for creating gcop and pioneering the AI-powered commit message workflow
-- The gcop community for proving the value of this tool
-
----
-
-**Tip**: Run `gcop-rs --help` to see all commands, or use `git c` after installing aliases for quick commits!
+**Authors**: [AptS-1547](https://github.com/AptS-1547), [AptS-1738](https://github.com/AptS-1738), [uaih3k9x](https://github.com/uaih3k9x)
