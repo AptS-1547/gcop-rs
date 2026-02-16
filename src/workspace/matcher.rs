@@ -1,12 +1,12 @@
-//! Changed files → package 映射
+//! Changed files → package mapping
 
 use std::collections::BTreeMap;
 
 use super::WorkspaceMember;
 
-/// 将单个文件匹配到所属 package
+/// Match a single file to the package it belongs to
 ///
-/// 返回包路径（如 `"packages/core"`），不匹配则返回 None。
+/// Returns the package path (such as `"packages/core"`), or None if there is no match.
 pub fn match_file_to_package(file_path: &str, members: &[WorkspaceMember]) -> Option<String> {
     for member in members {
         if member.prefix.is_empty() {
@@ -17,9 +17,9 @@ pub fn match_file_to_package(file_path: &str, members: &[WorkspaceMember]) -> Op
             let is_glob = member.pattern.contains('*') || member.pattern.contains('?');
 
             if is_glob {
-                // Glob pattern（如 packages/*）: rest 中必须有子目录
-                // packages/core/src/lib.rs → rest = "core/src/lib.rs" → 包 "packages/core"
-                // packages/README.md → rest = "README.md" → 不匹配（不在子包里）
+                // Glob pattern (such as packages/*): there must be subdirectories in rest
+                // packages/core/src/lib.rs → rest = "core/src/lib.rs" → package "packages/core"
+                // packages/README.md → rest = "README.md" → does not match (not in sub-package)
                 if let Some(slash_pos) = rest.find('/') {
                     let package_dir = &rest[..slash_pos];
                     if !package_dir.is_empty() {
@@ -28,7 +28,7 @@ pub fn match_file_to_package(file_path: &str, members: &[WorkspaceMember]) -> Op
                     }
                 }
             } else {
-                // 精确路径（如 apps/cli）: 文件直接属于此包
+                // Exact path (e.g. apps/cli): the file belongs directly to this package
                 let prefix_base = member.prefix.trim_end_matches('/');
                 return Some(prefix_base.to_string());
             }
@@ -37,9 +37,9 @@ pub fn match_file_to_package(file_path: &str, members: &[WorkspaceMember]) -> Op
     None
 }
 
-/// 将所有 changed files 映射到对应的 package
+/// Map all changed files to corresponding packages
 ///
-/// 返回 (package → files 映射, root-level files)
+/// return (package → files map, root-level files)
 pub fn map_files_to_packages(
     files: &[String],
     members: &[WorkspaceMember],
@@ -111,14 +111,14 @@ mod tests {
 
     #[test]
     fn test_match_file_directly_in_prefix() {
-        // 文件直接在 glob prefix 下（如 packages/README.md），没有子目录 → 不算任何包
+        // The file is directly under the glob prefix (such as packages/README.md), without subdirectories → does not count any packages
         let members = make_members();
         assert_eq!(match_file_to_package("packages/README.md", &members), None);
     }
 
     #[test]
     fn test_match_exact_path_member() {
-        // 精确路径成员（无 glob），文件直接属于该包
+        // Exact path member (no glob), the file belongs directly to the package
         let members = vec![WorkspaceMember {
             pattern: "apps/cli".into(),
             prefix: "apps/cli/".into(),

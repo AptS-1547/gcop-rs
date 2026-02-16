@@ -2,7 +2,7 @@
 name = "gcop-rs"
 version = "0.12.2"
 edition = "2024"
-rust-version = "1.93.0"
+rust-version = "1.88.0"
 license = "MIT"
 description = "AI-powered Git commit message generator and code reviewer"
 authors = [

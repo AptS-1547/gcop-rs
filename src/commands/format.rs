@@ -1,13 +1,16 @@
 use std::str::FromStr;
 
-/// 输出格式枚举
+/// Output format enum
 ///
-/// 统一处理 CLI 中的 `--format` 和 `--json` 参数
+/// Unified processing of `--format` and `--json` parameters in CLI
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum OutputFormat {
+    /// Human-readable terminal output.
     #[default]
     Text,
+    /// Machine-readable JSON output.
     Json,
+    /// Markdown report output.
     Markdown,
 }
 
@@ -24,9 +27,9 @@ impl FromStr for OutputFormat {
 }
 
 impl OutputFormat {
-    /// 从 CLI 参数解析输出格式
+    /// Parse output format from CLI parameters
     ///
-    /// `--json` 优先于 `--format`
+    /// `--json` takes precedence over `--format`
     pub fn from_cli(format: &str, json: bool) -> Self {
         if json {
             Self::Json
@@ -35,19 +38,19 @@ impl OutputFormat {
         }
     }
 
-    /// 是否为 JSON 格式
+    /// Is it in JSON format?
     pub fn is_json(&self) -> bool {
         matches!(self, Self::Json)
     }
 
-    /// 是否为机器可读格式（JSON / Markdown）
+    /// Is it in a machine-readable format (JSON/Markdown)
     ///
-    /// 用于决定是否跳过交互式 UI 元素（spinner、step 提示等）。
+    /// Used to decide whether to skip interactive UI elements (spinner, step prompt, etc.).
     pub fn is_machine_readable(&self) -> bool {
         matches!(self, Self::Json | Self::Markdown)
     }
 
-    /// 获取有效的 colored 设置（机器可读格式禁用颜色）
+    /// Get the effective colored setting (color disabled in machine-readable format)
     pub fn effective_colored(&self, config_colored: bool) -> bool {
         if self.is_machine_readable() {
             false

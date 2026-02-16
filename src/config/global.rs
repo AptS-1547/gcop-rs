@@ -1,6 +1,6 @@
-// 全局配置单例管理
+// Global configuration singleton management
 //
-// 使用 OnceLock + ArcSwap 实现线程安全的全局配置单例。
+// Use OnceLock + ArcSwap to implement thread-safe global configuration singleton.
 
 use arc_swap::ArcSwap;
 use std::sync::{Arc, OnceLock};
@@ -11,10 +11,10 @@ use crate::error::Result;
 
 static CONFIG: OnceLock<ArcSwap<AppConfig>> = OnceLock::new();
 
-/// 初始化全局配置（启动时调用一次）
+/// Initialize global configuration (called once at startup)
 ///
-/// 加载配置并初始化全局单例。此函数只会执行一次，
-/// 后续调用会被忽略（幂等性）。
+/// Load configuration and initialize global singleton. This function will only be executed once,
+/// Subsequent calls are ignored (idempotence).
 pub fn init_config() -> Result<()> {
     tracing::debug!("Initializing global configuration...");
     let config = loader::load_config()?;
@@ -25,9 +25,9 @@ pub fn init_config() -> Result<()> {
     Ok(())
 }
 
-/// 获取全局配置（返回 Arc，cheap clone）
+/// Get global configuration (return Arc, cheap clone)
 ///
-/// 如果配置未初始化（即未调用 `init_config()`），返回错误。
+/// If the configuration has not been initialized (i.e. `init_config()` has not been called), an error is returned.
 pub fn get_config() -> Result<Arc<AppConfig>> {
     CONFIG.get().map(|c| c.load_full()).ok_or_else(|| {
         crate::error::GcopError::Config(
@@ -44,7 +44,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_init_config_succeeds() {
-        // 测试配置初始化
+        // Test configuration initialization
         let result = init_config();
         assert!(result.is_ok());
     }
@@ -52,21 +52,21 @@ mod tests {
     #[test]
     #[serial]
     fn test_get_config_after_init() {
-        // 初始化配置
+        // Initial configuration
         init_config().unwrap();
 
-        // 获取配置
+        // Get configuration
         let config1 = get_config().unwrap();
         let config2 = get_config().unwrap();
 
-        // 验证返回的是同一个 Arc（指针相等）
+        // Verify that the same Arc is returned (pointers are equal)
         assert!(Arc::ptr_eq(&config1, &config2));
     }
 
     #[test]
     #[serial]
     fn test_init_config_idempotent() {
-        // 多次初始化应该是幂等的
+        // Multiple initialization should be idempotent
         init_config().unwrap();
         init_config().unwrap();
         init_config().unwrap();

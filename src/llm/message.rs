@@ -1,17 +1,20 @@
 use serde::Serialize;
 
-/// Claude API system block 结构（支持 prompt caching）
+/// Claude API system block structure (supports prompt caching)
 #[derive(Debug, Clone, Serialize)]
 pub struct SystemBlock {
     #[serde(rename = "type")]
+    /// Claude block type, usually `"text"`.
     pub block_type: String,
+    /// System prompt text content.
     pub text: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// Optional prompt-caching policy.
     pub cache_control: Option<CacheControl>,
 }
 
 impl SystemBlock {
-    /// 创建普通 system block
+    /// Create a common system block
     #[allow(dead_code)]
     pub fn text(content: impl Into<String>) -> Self {
         Self {
@@ -21,7 +24,7 @@ impl SystemBlock {
         }
     }
 
-    /// 创建带 cache_control 的 system block（ephemeral = 5 分钟缓存）
+    /// Create system block with cache_control (ephemeral = 5 minute cache)
     pub fn cached(content: impl Into<String>) -> Self {
         Self {
             block_type: "text".to_string(),
@@ -31,15 +34,16 @@ impl SystemBlock {
     }
 }
 
-/// Claude prompt caching 控制
+/// Claude prompt caching control
 #[derive(Debug, Clone, Serialize)]
 pub struct CacheControl {
     #[serde(rename = "type")]
+    /// Cache control strategy identifier (e.g. `"ephemeral"`).
     pub control_type: String,
 }
 
 impl CacheControl {
-    /// 创建 ephemeral 缓存控制（5 分钟缓存）
+    /// Create ephemeral cache control (5 minute cache)
     pub fn ephemeral() -> Self {
         Self {
             control_type: "ephemeral".to_string(),

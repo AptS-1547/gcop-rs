@@ -1,6 +1,6 @@
-//! Provider 工具函数
+//! Provider utility functions
 //!
-//! 包含 URL 处理、endpoint 补全等通用功能
+//! Contains common functions such as URL processing and endpoint completion
 
 /// Claude API endpoint suffix
 pub const CLAUDE_API_SUFFIX: &str = "/v1/messages";
@@ -11,26 +11,26 @@ pub const OPENAI_API_SUFFIX: &str = "/v1/chat/completions";
 /// Ollama API endpoint suffix
 pub const OLLAMA_API_SUFFIX: &str = "/api/generate";
 
-/// Claude 默认 base URL
+/// Claude default base URL
 pub const DEFAULT_CLAUDE_BASE: &str = "https://api.anthropic.com";
 
-/// OpenAI 默认 base URL
+/// OpenAI default base URL
 pub const DEFAULT_OPENAI_BASE: &str = "https://api.openai.com";
 
-/// Ollama 默认 base URL
+/// Ollama default base URL
 pub const DEFAULT_OLLAMA_BASE: &str = "http://localhost:11434";
 
-/// Gemini 默认 base URL
+/// Gemini default base URL
 pub const DEFAULT_GEMINI_BASE: &str = "https://generativelanguage.googleapis.com";
 
-/// 智能补全 API endpoint
+/// Smart completion API endpoint
 ///
-/// # 行为
-/// 1. 移除 trailing slashes
-/// 2. 检测 URL 是否已包含完整路径
-/// 3. 如果不完整，自动补全 suffix
+/// # Behavior
+/// 1. Remove trailing slashes
+/// 2. Check whether the URL contains the full path
+/// 3. If incomplete, automatically complete suffix
 ///
-/// # 示例
+/// # Example
 /// ```
 /// use gcop_rs::llm::provider::utils::complete_endpoint;
 ///
@@ -50,25 +50,25 @@ pub const DEFAULT_GEMINI_BASE: &str = "https://generativelanguage.googleapis.com
 /// );
 /// ```
 pub fn complete_endpoint(base_url: &str, expected_suffix: &str) -> String {
-    // 1. 清理 URL: 移除尾部斜杠
+    // 1. Clean URLs: Remove trailing slashes
     let url = base_url.trim_end_matches('/');
     let suffix = expected_suffix.trim_start_matches('/');
 
-    // 2. 如果已经包含期望的 suffix，直接返回
+    // 2. If the expected suffix is ​​already included, return directly
     if url.ends_with(suffix) {
         return url.to_string();
     }
 
-    // 3. 检测 URL 是否包含 suffix 的部分前缀
-    // 例如: url 是 "https://api.com/v1", suffix 是 "v1/chat/completions"
-    // 那么我们应该只补全 "/chat/completions"
+    // 3. Check whether the URL contains the partial prefix of suffix
+    // For example: url is "https://api.com/v1", suffix is ​​"v1/chat/completions"
+    // Then we should only complete "/chat/completions"
     let suffix_parts: Vec<&str> = suffix.split('/').collect();
 
-    // 从后往前检查，看 URL 是否已经包含 suffix 的前缀
+    // Check from back to front to see if the URL already contains the suffix prefix
     for i in 0..suffix_parts.len() {
         let partial_suffix = suffix_parts[..=i].join("/");
         if url.ends_with(&partial_suffix) {
-            // URL 已经包含了部分 suffix，只补全剩余部分
+            // The URL already contains part of the suffix, only the remaining part is completed.
             let remaining_suffix = &suffix_parts[i + 1..].join("/");
             if remaining_suffix.is_empty() {
                 return url.to_string();
@@ -77,22 +77,22 @@ pub fn complete_endpoint(base_url: &str, expected_suffix: &str) -> String {
         }
     }
 
-    // 4. 检测是否是自定义的完整 API 路径
+    // 4. Check whether it is a customized complete API path
     if is_complete_api_path(url) {
         return url.to_string();
     }
 
-    // 5. 补全完整 suffix
+    // 5. Complete the complete suffix
     format!("{}/{}", url, suffix)
 }
 
-/// 检测 URL 是否已经是完整的 API 路径
+/// Check if the URL is already a full API path
 ///
-/// 启发式规则:
-/// - 路径深度 >= 2 认为是完整路径 (如 /v1/chat, /api/generate)
-/// - 这允许用户使用完全自定义的 endpoint
+/// Heuristic rules:
+/// - Path depth >= 2 is considered a complete path (such as /v1/chat, /api/generate)
+/// - This allows users to use fully customized endpoints
 fn is_complete_api_path(url: &str) -> bool {
-    // 提取路径部分 (去掉协议和域名)
+    // Extract the path part (remove the protocol and domain name)
     let path = url
         .strip_prefix("http://")
         .or_else(|| url.strip_prefix("https://"))
@@ -104,20 +104,20 @@ fn is_complete_api_path(url: &str) -> bool {
         return false;
     }
 
-    // 统计非空路径段
+    // Count non-empty path segments
     let segment_count = path.split('/').filter(|s| !s.is_empty()).count();
 
-    // 路径深度 >= 2 认为是用户自定义的完整路径
+    // Path depth >= 2 is considered a user-defined complete path
     segment_count >= 2
 }
 
-/// 掩码 API key，防止日志泄露
+/// Mask API key to prevent log leaks
 ///
-/// # 规则
-/// - 长度 > 8：显示前 4 字符 + `...` + 后 4 字符
-/// - 长度 <= 8：显示 `****`
+/// # rule
+/// - length > 8: display first 4 characters + `...` + last 4 characters
+/// - length <= 8: display `****`
 ///
-/// # 示例
+/// # Example
 /// ```
 /// use gcop_rs::llm::provider::utils::mask_api_key;
 ///
@@ -139,24 +139,24 @@ mod tests {
 
     #[test]
     fn test_mask_api_key() {
-        // 长 key：前4 + ... + 后4
+        // Long key: first 4 + ... + last 4
         assert_eq!(mask_api_key("sk-ant-api03-abcdefgh"), "sk-a...efgh");
         assert_eq!(mask_api_key("AIzaSyD-1234567890abcdef"), "AIza...cdef");
 
-        // 短 key
+        // short key
         assert_eq!(mask_api_key("12345678"), "****");
         assert_eq!(mask_api_key("short"), "****");
 
-        // 空
+        // null
         assert_eq!(mask_api_key(""), "****");
 
-        // 刚好 9 字符
+        // Exactly 9 characters
         assert_eq!(mask_api_key("123456789"), "1234...6789");
     }
 
     #[test]
     fn test_complete_endpoint_basic() {
-        // 基本补全
+        // Basic completion
         assert_eq!(
             complete_endpoint("https://api.deepseek.com", "/v1/chat/completions"),
             "https://api.deepseek.com/v1/chat/completions"
@@ -165,7 +165,7 @@ mod tests {
 
     #[test]
     fn test_complete_endpoint_with_trailing_slash() {
-        // 带尾部斜杠
+        // with trailing slash
         assert_eq!(
             complete_endpoint("https://api.deepseek.com/", "/v1/chat/completions"),
             "https://api.deepseek.com/v1/chat/completions"
@@ -174,7 +174,7 @@ mod tests {
 
     #[test]
     fn test_complete_endpoint_already_complete() {
-        // 已经完整
+        // Already complete
         assert_eq!(
             complete_endpoint(
                 "https://api.deepseek.com/v1/chat/completions",
@@ -186,7 +186,7 @@ mod tests {
 
     #[test]
     fn test_complete_endpoint_with_version_only() {
-        // 只有版本号，需要补全
+        // Only the version number needs to be completed
         assert_eq!(
             complete_endpoint("https://api.deepseek.com/v1", "/v1/chat/completions"),
             "https://api.deepseek.com/v1/chat/completions"
@@ -195,7 +195,7 @@ mod tests {
 
     #[test]
     fn test_complete_endpoint_custom_path() {
-        // 自定义完整路径，保持原样
+        // Customize the full path and keep it as is
         assert_eq!(
             complete_endpoint("https://custom.com/my/custom/path", "/v1/chat/completions"),
             "https://custom.com/my/custom/path"
@@ -204,11 +204,11 @@ mod tests {
 
     #[test]
     fn test_is_complete_api_path() {
-        // 完整路径
+        // full path
         assert!(is_complete_api_path("https://api.com/v1/chat"));
         assert!(is_complete_api_path("http://localhost:11434/api/generate"));
 
-        // 不完整路径
+        // Incomplete path
         assert!(!is_complete_api_path("https://api.com"));
         assert!(!is_complete_api_path("https://api.com/"));
         assert!(!is_complete_api_path("https://api.com/v1"));
@@ -216,7 +216,7 @@ mod tests {
 
     #[test]
     fn test_ollama_localhost() {
-        // Ollama 本地地址
+        // Ollama local address
         assert_eq!(
             complete_endpoint("http://localhost:11434", "/api/generate"),
             "http://localhost:11434/api/generate"
@@ -231,7 +231,7 @@ mod tests {
             "https://api.anthropic.com/v1/messages"
         );
 
-        // Claude 代理
+        // Claude Agent
         assert_eq!(
             complete_endpoint("https://cc.autobits.cc", "/v1/messages"),
             "https://cc.autobits.cc/v1/messages"
@@ -240,13 +240,13 @@ mod tests {
 
     #[test]
     fn test_suffix_variations() {
-        // suffix 带前导斜杠
+        // suffix with leading slash
         assert_eq!(
             complete_endpoint("https://api.com", "/v1/test"),
             "https://api.com/v1/test"
         );
 
-        // suffix 不带前导斜杠
+        // suffix without leading slash
         assert_eq!(
             complete_endpoint("https://api.com", "v1/test"),
             "https://api.com/v1/test"

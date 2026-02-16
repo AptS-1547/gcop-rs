@@ -1,31 +1,36 @@
-//! 用户界面工具
+//! Terminal UI utilities.
 //!
-//! 提供终端交互相关的工具函数和组件。
+//! Provides reusable components for terminal interaction.
 //!
-//! # 模块
-//! - [`colors`] - 彩色输出工具
-//! - [`editor`] - 外部编辑器集成
-//! - [`prompt`] - 交互式 prompt（确认、选择菜单等）
-//! - [`spinner`] - 加载动画
-//! - [`streaming`] - 流式文本输出（打字机效果）
+//! # Modules
+//! - `colors` - Colored output helpers.
+//! - `editor` - External editor integration.
+//! - `prompt` - Interactive prompts (confirm/menu/input).
+//! - `spinner` - Progress spinner.
+//! - `streaming` - Streaming text renderer (typewriter effect).
 //!
-//! # 示例
+//! # Example
 //! ```ignore
 //! use gcop_rs::ui::{Spinner, success};
 //!
-//! // 显示 spinner
+//! // Show a spinner.
 //! let spinner = Spinner::new("Generating commit message...", true);
 //! spinner.set_message("Almost done...");
-//! // spinner 在 drop 时自动清理
+//! // The spinner is cleaned up automatically on drop.
 //!
-//! // 彩色输出
+//! // Colored output.
 //! success("Commit successful!", true);
 //! ```
 
+/// Colored terminal message helpers.
 pub mod colors;
+/// External editor integration utilities.
 pub mod editor;
+/// Interactive prompt helpers for commit/review flows.
 pub mod prompt;
+/// Spinner/progress indicator implementation.
 pub mod spinner;
+/// Streaming text output helpers.
 pub mod streaming;
 
 pub use colors::*;

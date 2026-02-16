@@ -1,22 +1,22 @@
-//! Provider 验证辅助函数
+//! Provider validation helper function
 //!
-//! 提供通用的 API 验证逻辑，减少 provider 实现中的重复代码。
+//! Provide common API verification logic to reduce duplicate code in provider implementation.
 
 use reqwest::Client;
 use serde::Serialize;
 
 use crate::error::{GcopError, Result};
 
-/// 验证 API key 是否为空
+/// Verify API key is empty
 ///
-/// # 参数
-/// - `api_key` - 要验证的 API key
+/// # Parameters
+/// - `api_key` - API key to verify
 ///
-/// # 返回
-/// - 如果 API key 为空，返回 `GcopError::Config` 错误
-/// - 否则返回 `Ok(())`
+/// # Returns
+/// - If API key is empty, return `GcopError::Config` error
+/// - Otherwise return `Ok(())`
 ///
-/// # 示例
+/// # Example
 /// ```
 /// use gcop_rs::llm::provider::base::validation::validate_api_key;
 ///
@@ -32,29 +32,29 @@ pub fn validate_api_key(api_key: &str) -> Result<()> {
     Ok(())
 }
 
-/// 发送测试请求以验证 API 端点
+/// Send a test request to verify the API endpoint
 ///
-/// 向 LLM provider API 发送一个最小的测试请求，验证：
-/// - 网络连接是否正常
-/// - API key 是否有效
-/// - 端点配置是否正确
+/// Send a minimal test request to the LLM provider API to verify:
+/// - Is the network connection normal?
+/// - Is the API key valid?
+/// - Is the endpoint configuration correct?
 ///
-/// # 类型参数
-/// - `T` - 请求体类型（必须实现 `Serialize`）
+/// #Type parameters
+/// - `T` - request body type (must implement `Serialize`)
 ///
-/// # 参数
-/// - `client` - HTTP 客户端
-/// - `endpoint` - API 端点 URL
-/// - `headers` - HTTP headers（如 Authorization, x-api-key 等）
-/// - `test_request` - 测试请求体（通常设置 `max_tokens=1` 以最小化 API 成本）
-/// - `provider_name` - Provider 名称（用于日志和错误消息）
+/// # Parameters
+/// - `client` - HTTP client
+/// - `endpoint` - API endpoint URL
+/// - `headers` - HTTP headers (such as Authorization, x-api-key, etc.)
+/// - `test_request` - Test request body (usually set `max_tokens=1` to minimize API cost)
+/// - `provider_name` - Provider name (used for log and error messages)
 ///
-/// # 返回
-/// - 如果验证成功，返回 `Ok(())`
-/// - 如果请求失败，返回 `GcopError::Network` 错误
-/// - 如果 API 返回错误状态码，返回 `GcopError::LlmApi` 错误
+/// # Returns
+/// - If verification is successful, return `Ok(())`
+/// - If the request fails, return `GcopError::Network` error
+/// - If the API returns an error status code, return the `GcopError::LlmApi` error
 ///
-/// # 示例
+/// # Example
 /// ```ignore
 /// use gcop_rs::llm::provider::base::validation::validate_http_endpoint;
 /// use reqwest::Client;
@@ -92,24 +92,24 @@ pub async fn validate_http_endpoint<T: Serialize>(
 ) -> Result<()> {
     tracing::debug!("Validating {} API connection...", provider_name);
 
-    // 构建请求
+    // Build request
     let mut request_builder = client
         .post(endpoint)
         .header("Content-Type", "application/json");
 
-    // 添加自定义 headers
+    // Add custom headers
     for (key, value) in headers {
         request_builder = request_builder.header(*key, *value);
     }
 
-    // 发送请求
+    // Send request
     let response = request_builder
         .json(test_request)
         .send()
         .await
         .map_err(GcopError::Network)?;
 
-    // 检查状态码
+    // Check status code
     let status = response.status();
     if !status.is_success() {
         let body = response.text().await.unwrap_or_default();

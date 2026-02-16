@@ -1,8 +1,13 @@
 pub mod base;
+/// Anthropic Claude provider implementation.
 pub mod claude;
+/// Multi-provider fallback wrapper.
 pub mod fallback;
+/// Google Gemini provider implementation.
 pub mod gemini;
+/// Ollama provider implementation for local models.
 pub mod ollama;
+/// OpenAI-compatible provider implementation.
 pub mod openai;
 pub mod streaming;
 pub mod utils;
@@ -19,18 +24,18 @@ use crate::config::{ApiStyle, AppConfig, NetworkConfig, ProviderConfig};
 use crate::error::{GcopError, Result};
 use crate::llm::LLMProvider;
 
-/// 全局 HTTP 客户端（共享连接池）
+/// Global HTTP client (shared connection pool)
 static HTTP_CLIENT: OnceLock<Client> = OnceLock::new();
 
-/// 全局 HTTP 客户端初始化错误信息
+/// Global HTTP client initialization error message
 ///
-/// 如果第一次创建失败，保存错误字符串以避免后续重复创建与潜在 panic。
+/// If the first creation fails, save the error string to avoid subsequent repeated creations and potential panics.
 static HTTP_CLIENT_ERROR: OnceLock<String> = OnceLock::new();
 
-/// 获取或创建全局 HTTP 客户端
+/// Get or create a global HTTP client
 ///
-/// 使用 OnceLock 确保只创建一次，所有 provider 共享同一个连接池。
-/// 第一次调用时的 NetworkConfig 决定 timeout 配置。
+/// Use OnceLock to ensure it is created only once and all providers share the same connection pool.
+/// The first call to NetworkConfig determines the timeout configuration.
 pub(crate) fn create_http_client(network_config: &NetworkConfig) -> Result<Client> {
     if let Some(client) = HTTP_CLIENT.get() {
         return Ok(client.clone());
@@ -73,10 +78,10 @@ pub(crate) fn create_http_client(network_config: &NetworkConfig) -> Result<Clien
     }
 }
 
-/// 根据配置创建 LLM Provider
+/// Create LLM Provider based on configuration
 ///
-/// 如果配置了 fallback_providers，会创建一个 FallbackProvider 包装多个 provider。
-/// 当主 provider 失败时，会自动尝试 fallback 列表中的 provider。
+/// If fallback_providers is configured, a FallbackProvider will be created to wrap multiple providers.
+/// When the main provider fails, providers in the fallback list are automatically tried.
 pub fn create_provider(
     config: &AppConfig,
     provider_name: Option<&str>,
@@ -84,7 +89,7 @@ pub fn create_provider(
     fallback::FallbackProvider::from_config(config, provider_name)
 }
 
-/// 创建单个 Provider
+/// Create a single Provider
 pub fn create_single_provider(
     config: &AppConfig,
     name: &str,
@@ -97,15 +102,15 @@ pub fn create_single_provider(
     create_provider_from_config(provider_config, name, &config.network, colored)
 }
 
-/// 根据配置创建具体的 Provider 实现
+/// Create specific Provider implementation based on configuration
 fn create_provider_from_config(
     provider_config: &ProviderConfig,
     name: &str,
     network_config: &NetworkConfig,
     colored: bool,
 ) -> Result<Arc<dyn LLMProvider>> {
-    // 决定使用哪种 API 风格
-    // 优先使用 api_style 字段，否则从 provider 名称推断（向后兼容）
+    // Decide which API style to use
+    // Prefer using api_style field, otherwise infer from provider name (backward compatibility)
     let api_style = match provider_config.api_style {
         Some(style) => style,
         None => name.parse::<ApiStyle>().map_err(|_| {
@@ -120,7 +125,7 @@ fn create_provider_from_config(
         })?,
     };
 
-    // 根据 API 风格创建对应的 Provider 实现（穷尽匹配）
+    // Create corresponding Provider implementation according to API style (exhaustive matching)
     match api_style {
         ApiStyle::Claude => {
             let provider =

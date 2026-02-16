@@ -1,16 +1,16 @@
 use crate::error::Result;
 use crate::git::DiffStats;
 
-/// 单个文件的 diff 信息
+/// diff information for a single file
 #[derive(Debug, Clone)]
 pub struct FileDiff {
-    /// 文件名（相对于仓库根目录）
+    /// Filename (relative to repository root)
     pub filename: String,
-    /// 该文件的完整 diff patch（从 "diff --git" 到下一个文件边界）
+    /// A complete diff patch of this file (from "diff --git" to the next file boundary)
     pub content: String,
-    /// 新增行数
+    /// Number of new rows
     pub insertions: usize,
-    /// 删除行数
+    /// Number of rows to delete
     pub deletions: usize,
 }
 
@@ -22,14 +22,14 @@ fn extract_filename_from_diff_header(line: &str) -> Option<String> {
 
     let rest = &line[PREFIX.len()..];
 
-    // 通过 " b/" 分隔符定位 a/ 和 b/ 的边界，避免空格路径被截断。
+    // Position the boundaries of a/ and b/ via the " b/" delimiter to avoid whitespace paths being truncated.
     if let Some(b_pos) = rest.find(" b/") {
         return rest[..b_pos]
             .strip_prefix("a/")
             .map(|filename| filename.to_string());
     }
 
-    // 处理带引号的路径：diff --git "a/path with spaces.rs" "b/path with spaces.rs"
+    // Handle quoted paths: diff --git "a/path with spaces.rs" "b/path with spaces.rs"
     if let Some(stripped) = rest.strip_prefix('"')
         && let Some(end) = stripped.find('"')
     {
@@ -38,14 +38,14 @@ fn extract_filename_from_diff_header(line: &str) -> Option<String> {
             .map(|filename| filename.to_string());
     }
 
-    // Fallback：保持兼容性
+    // Fallback: Maintain compatibility
     rest.split_whitespace()
         .next()
         .and_then(|s| s.strip_prefix("a/"))
         .map(|s| s.to_string())
 }
 
-/// 从 diff 文本中提取统计信息
+/// Extract statistics from diff text
 pub fn parse_diff_stats(diff: &str) -> Result<DiffStats> {
     let mut files_changed = Vec::new();
     let mut insertions = 0;
@@ -70,10 +70,10 @@ pub fn parse_diff_stats(diff: &str) -> Result<DiffStats> {
     })
 }
 
-/// 将原始 diff 文本按文件边界拆分为 `Vec<FileDiff>`
+/// Split raw diff text into `Vec<FileDiff>` on file boundaries
 ///
-/// 每个 `FileDiff` 包含一个文件的完整 diff patch 及其统计信息。
-/// 保持原始文件顺序。
+/// Each `FileDiff` contains a complete diff patch of a file and its statistics.
+/// Keep the original file order.
 pub fn split_diff_by_file(diff: &str) -> Vec<FileDiff> {
     if diff.is_empty() {
         return Vec::new();
@@ -87,7 +87,7 @@ pub fn split_diff_by_file(diff: &str) -> Vec<FileDiff> {
 
     for line in diff.lines() {
         if line.starts_with("diff --git") {
-            // 遇到新文件边界，保存上一个文件
+            // New file boundary encountered, save previous file
             if let Some(filename) = current_filename.take() {
                 let content = current_lines.join("\n");
                 files.push(FileDiff {
@@ -114,7 +114,7 @@ pub fn split_diff_by_file(diff: &str) -> Vec<FileDiff> {
         }
     }
 
-    // 保存最后一个文件
+    // save last file
     if let Some(filename) = current_filename {
         let content = current_lines.join("\n");
         files.push(FileDiff {
@@ -152,7 +152,7 @@ index 1234567..abcdefg 100644
         assert_eq!(stats.deletions, 1);
     }
 
-    // === 新增边界用例 ===
+    // === Added edge use cases ===
 
     #[test]
     fn test_parse_diff_stats_empty_diff() {
@@ -243,18 +243,18 @@ diff --git a/Cargo.toml b/Cargo.toml
 
     #[test]
     fn test_parse_diff_stats_binary_file() {
-        // 二进制文件 diff 格式
+        // Binary file diff format
         let diff = r#"diff --git a/image.png b/image.png
 Binary files a/image.png and b/image.png differ
 "#;
         let stats = parse_diff_stats(diff).unwrap();
         assert_eq!(stats.files_changed, vec!["image.png".to_string()]);
-        // 二进制文件没有 +/- 行
+        // Binaries don't have +/- lines
         assert_eq!(stats.insertions, 0);
         assert_eq!(stats.deletions, 0);
     }
 
-    // === split_diff_by_file 测试 ===
+    // === split_diff_by_file test ===
 
     #[test]
     fn test_split_diff_by_file_empty() {

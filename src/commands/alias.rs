@@ -5,7 +5,7 @@ use crate::ui;
 use std::process::Command;
 use which::which;
 
-// 完整的 git alias 列表（14 个，基于原项目 + review）
+// Complete list of git aliases (14, based on original project + review)
 const GCOP_ALIASES: &[(&str, &str, &str)] = &[
     ("cop", "!gcop-rs", "alias.desc.cop"),
     ("gcommit", "!gcop-rs commit", "alias.desc.gcommit"),
@@ -27,7 +27,7 @@ const GCOP_ALIASES: &[(&str, &str, &str)] = &[
     ("undo", "!git reset --soft HEAD^", "alias.desc.undo"),
 ];
 
-/// 管理 git aliases
+/// Managing git aliases
 pub fn run(force: bool, list: bool, remove: bool, colored: bool) -> Result<()> {
     if list {
         return list_aliases(colored);
@@ -37,13 +37,13 @@ pub fn run(force: bool, list: bool, remove: bool, colored: bool) -> Result<()> {
         return remove_aliases(force, colored);
     }
 
-    // 默认：批量安装所有 alias
+    // Default: Install all aliases in batches
     install_all(force, colored)
 }
 
-/// 批量安装所有 git aliases（公开，供 init 调用）
+/// Install all git aliases in batches (public, for init calls)
 pub fn install_all(force: bool, colored: bool) -> Result<()> {
-    // 1. 检测 gcop-rs 命令
+    // 1. Detect gcop-rs command
     if !is_gcop_in_path() {
         ui::error(&rust_i18n::t!("alias.not_found"), colored);
         println!();
@@ -65,7 +65,7 @@ pub fn install_all(force: bool, colored: bool) -> Result<()> {
     let mut skipped = 0;
     let mut failed: Vec<String> = Vec::new();
 
-    // 2. 逐个安装 alias
+    // 2. Install alias one by one
     for (name, command, description) in GCOP_ALIASES {
         match install_single_alias(name, command, description, force, colored) {
             Ok(true) => installed += 1,
@@ -76,7 +76,7 @@ pub fn install_all(force: bool, colored: bool) -> Result<()> {
         }
     }
 
-    // 3. 显示摘要
+    // 3. Show summary
     println!();
     if installed > 0 {
         ui::success(
@@ -116,7 +116,7 @@ pub fn install_all(force: bool, colored: bool) -> Result<()> {
     Ok(())
 }
 
-/// 安装单个 alias
+/// Install a single alias
 fn install_single_alias(
     name: &str,
     command: &str,
@@ -202,7 +202,7 @@ fn install_single_alias(
     }
 }
 
-/// 添加 git alias
+/// Add git alias
 fn add_git_alias(name: &str, command: &str) -> Result<()> {
     let status = Command::new("git")
         .args(["config", "--global", &format!("alias.{}", name), command])
@@ -217,7 +217,7 @@ fn add_git_alias(name: &str, command: &str) -> Result<()> {
     Ok(())
 }
 
-/// 列出所有可用的 aliases 及其状态
+/// List all available aliases and their status
 fn list_aliases(colored: bool) -> Result<()> {
     println!("{}", ui::info(&rust_i18n::t!("alias.available"), colored));
     println!();
@@ -266,7 +266,7 @@ fn list_aliases(colored: bool) -> Result<()> {
     Ok(())
 }
 
-/// 移除所有 gcop-related aliases
+/// Remove all gcop-related aliases
 fn remove_aliases(force: bool, colored: bool) -> Result<()> {
     if !force {
         ui::warning(&rust_i18n::t!("alias.remove_warning"), colored);
@@ -329,12 +329,12 @@ fn remove_aliases(force: bool, colored: bool) -> Result<()> {
     Ok(())
 }
 
-/// 检查 gcop-rs 命令是否在 PATH 中
+/// Check if gcop-rs command is in PATH
 fn is_gcop_in_path() -> bool {
     which("gcop-rs").is_ok()
 }
 
-/// 获取 git alias 的值
+/// Get the value of git alias
 fn get_git_alias(name: &str) -> Result<Option<String>> {
     let output = Command::new("git")
         .args(["config", "--global", &format!("alias.{}", name)])

@@ -6,19 +6,20 @@ use crate::config::FileConfig;
 use crate::error::{GcopError, Result};
 use crate::git::{CommitInfo, DiffStats, GitOperations};
 
-/// 默认最大文件大小（10MB）
+/// Default maximum file size (10MB)
 const DEFAULT_MAX_FILE_SIZE: u64 = 10 * 1024 * 1024;
 
+/// `git2`-based repository implementation used by gcop-rs.
 pub struct GitRepository {
     repo: Repository,
     max_file_size: u64,
 }
 
 impl GitRepository {
-    /// 打开当前目录的 git 仓库
+    /// Open the git repository of the current directory
     ///
     /// # Arguments
-    /// * `file_config` - 可选的文件配置，None 则使用默认值
+    /// * `file_config` - optional file configuration, None uses default value
     pub fn open(file_config: Option<&FileConfig>) -> Result<Self> {
         let repo = Repository::discover(".")?;
         let max_file_size = file_config
@@ -30,14 +31,14 @@ impl GitRepository {
         })
     }
 
-    /// 将 git2::Diff 转换为字符串
+    /// Convert git2::Diff to string
     fn diff_to_string(&self, diff: &git2::Diff) -> Result<String> {
         let mut output = Vec::new();
         diff.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
-            // 获取行的类型标记（origin）
+            // Get the type tag (origin) of the row
             let origin = line.origin();
 
-            // 如果 origin 是可打印字符（+、-、空格等），先写入它
+            // If origin is a printable character (+, -, space, etc.), write it first
             match origin {
                 '+' | '-' | ' ' => {
                     let _ = output.write_all(&[origin as u8]);
@@ -45,7 +46,7 @@ impl GitRepository {
                 _ => {}
             }
 
-            // 再写入行内容
+            // Then write the row content
             let _ = output.write_all(line.content());
             true
         })?;
@@ -55,10 +56,10 @@ impl GitRepository {
 
 impl GitOperations for GitRepository {
     fn get_staged_diff(&self) -> Result<String> {
-        // 获取 index
+        // Read index.
         let index = self.repo.index()?;
 
-        // 空仓库时，对比 empty tree (None) 和 index
+        // For an empty repository, compare empty tree (None) against the index.
         if self.is_empty()? {
             let mut opts = DiffOptions::new();
             let diff = self
@@ -67,11 +68,11 @@ impl GitOperations for GitRepository {
             return self.diff_to_string(&diff);
         }
 
-        // 获取 HEAD tree
+        // Read HEAD tree.
         let head = self.repo.head()?;
         let head_tree = head.peel_to_tree()?;
 
-        // 创建 diff（HEAD tree vs index）
+        // Create diff (HEAD tree vs index)
         let mut opts = DiffOptions::new();
         let diff = self
             .repo
@@ -81,10 +82,10 @@ impl GitOperations for GitRepository {
     }
 
     fn get_uncommitted_diff(&self) -> Result<String> {
-        // 获取 index
+        // Read index.
         let index = self.repo.index()?;
 
-        // 创建 diff（index vs workdir）
+        // Create diff (index vs workdir)
         let mut opts = DiffOptions::new();
         let diff = self
             .repo
@@ -94,7 +95,7 @@ impl GitOperations for GitRepository {
     }
 
     fn get_commit_diff(&self, commit_hash: &str) -> Result<String> {
-        // 查找 commit
+        // Find commit
         let commit = self
             .repo
             .find_commit(git2::Oid::from_str(commit_hash).map_err(|_| {
@@ -105,14 +106,14 @@ impl GitOperations for GitRepository {
 
         let commit_tree = commit.tree()?;
 
-        // 获取 parent commit（如果有）
+        // Get the parent commit (if any)
         let parent_tree = if commit.parent_count() > 0 {
             Some(commit.parent(0)?.tree()?)
         } else {
             None
         };
 
-        // 创建 diff
+        // Build diff.
         let mut opts = DiffOptions::new();
         let diff = self.repo.diff_tree_to_tree(
             parent_tree.as_ref(),
@@ -124,7 +125,7 @@ impl GitOperations for GitRepository {
     }
 
     fn get_range_diff(&self, range: &str) -> Result<String> {
-        // 解析范围（如 "main..feature"）
+        // Parse range expression (for example "main..feature").
         let parts: Vec<&str> = range.split("..").collect();
         if parts.len() != 2 {
             return Err(GcopError::InvalidInput(
@@ -168,7 +169,7 @@ impl GitOperations for GitRepository {
     }
 
     fn get_current_branch(&self) -> Result<Option<String>> {
-        // Unborn branch 没有真正的分支信息
+        // Unborn branch has no real branch information
         if self.is_empty()? {
             return Ok(None);
         }
@@ -176,11 +177,11 @@ impl GitOperations for GitRepository {
         let head = self.repo.head()?;
 
         if head.is_branch() {
-            // 获取分支名
+            // Read branch name.
             let branch_name = head.shorthand().map(|s| s.to_string());
             Ok(branch_name)
         } else {
-            // HEAD 处于 detached 状态
+            // HEAD is in detached state
             Ok(None)
         }
     }
@@ -195,7 +196,7 @@ impl GitOperations for GitRepository {
     }
 
     fn get_commit_history(&self) -> Result<Vec<CommitInfo>> {
-        // 空仓库没有历史记录
+        // Empty repository has no history.
         if self.is_empty()? {
             return Ok(Vec::new());
         }
@@ -214,7 +215,7 @@ impl GitOperations for GitRepository {
             let author_name = author.name().unwrap_or("Unknown").to_string();
             let author_email = author.email().unwrap_or("").to_string();
 
-            // 转换 git2::Time 到 chrono::DateTime<Local>
+            // Convert git2::Time to chrono::DateTime<Local>
             let git_time = commit.time();
             let timestamp: DateTime<Local> = Local
                 .timestamp_opt(git_time.seconds(), 0)
@@ -251,7 +252,7 @@ impl GitOperations for GitRepository {
     }
 
     fn is_empty(&self) -> Result<bool> {
-        // 检测 unborn branch：尝试获取 HEAD，如果失败且错误码是 UnbornBranch，则为空仓库
+        // Detect unborn branch: if `head()` fails with `UnbornBranch`, the repository is empty.
         match self.repo.head() {
             Ok(_) => Ok(false),
             Err(e) if e.code() == git2::ErrorCode::UnbornBranch => Ok(true),
@@ -267,12 +268,12 @@ mod tests {
     use std::path::Path;
     use tempfile::TempDir;
 
-    /// 创建临时 git 仓库用于测试
+    /// Create a temporary git repository for testing
     fn create_test_repo() -> (TempDir, GitRepository) {
         let dir = TempDir::new().unwrap();
         let repo = Repository::init(dir.path()).unwrap();
 
-        // 设置用户信息
+        // Set user information
         let mut config = repo.config().unwrap();
         config.set_str("user.name", "Test User").unwrap();
         config.set_str("user.email", "test@example.com").unwrap();
@@ -285,20 +286,20 @@ mod tests {
         (dir, git_repo)
     }
 
-    /// 在仓库中创建文件
+    /// Create files in the repository
     fn create_file(dir: &Path, name: &str, content: &str) {
         let file_path = dir.join(name);
         fs::write(&file_path, content).unwrap();
     }
 
-    /// 暂存文件
+    /// Temporary files
     fn stage_file(repo: &Repository, name: &str) {
         let mut index = repo.index().unwrap();
         index.add_path(Path::new(name)).unwrap();
         index.write().unwrap();
     }
 
-    /// 创建 commit
+    /// Create commit
     fn create_commit(repo: &Repository, message: &str) {
         let mut index = repo.index().unwrap();
         let oid = index.write_tree().unwrap();
@@ -316,7 +317,7 @@ mod tests {
         }
     }
 
-    // === 测试 is_empty ===
+    // === Test is_empty ===
 
     #[test]
     fn test_is_empty_true_for_new_repo() {
@@ -334,7 +335,7 @@ mod tests {
         assert!(!git_repo.is_empty().unwrap());
     }
 
-    // === 测试 get_current_branch ===
+    // === Test get_current_branch ===
 
     #[test]
     fn test_get_current_branch_empty_repo() {
@@ -351,7 +352,7 @@ mod tests {
 
         let branch = git_repo.get_current_branch().unwrap();
         assert!(branch.is_some());
-        // 默认分支是 master 或 main
+        // The default branch is master or main
         let branch_name = branch.unwrap();
         assert!(branch_name == "master" || branch_name == "main");
     }
@@ -363,7 +364,7 @@ mod tests {
         stage_file(&git_repo.repo, "test.txt");
         create_commit(&git_repo.repo, "Initial commit");
 
-        // 获取 commit hash 并 checkout 到 detached HEAD
+        // Get commit hash and checkout to detached HEAD
         let head = git_repo.repo.head().unwrap();
         let commit = head.peel_to_commit().unwrap();
         git_repo.repo.set_head_detached(commit.id()).unwrap();
@@ -371,7 +372,7 @@ mod tests {
         assert_eq!(git_repo.get_current_branch().unwrap(), None);
     }
 
-    // === 测试 has_staged_changes ===
+    // === Test has_staged_changes ===
 
     #[test]
     fn test_has_staged_changes_false_empty_repo() {
@@ -398,7 +399,7 @@ mod tests {
         assert!(!git_repo.has_staged_changes().unwrap());
     }
 
-    // === 测试 get_staged_diff ===
+    // === Test get_staged_diff ===
 
     #[test]
     fn test_get_staged_diff_empty_repo() {
@@ -418,7 +419,7 @@ mod tests {
         stage_file(&git_repo.repo, "test.txt");
         create_commit(&git_repo.repo, "Initial commit");
 
-        // 修改文件并暂存
+        // Modify files and save temporarily
         create_file(dir.path(), "test.txt", "hello world");
         stage_file(&git_repo.repo, "test.txt");
 
@@ -427,7 +428,7 @@ mod tests {
         assert!(diff.contains("+hello world"));
     }
 
-    // === 测试 get_uncommitted_diff ===
+    // === Test get_uncommitted_diff ===
 
     #[test]
     fn test_get_uncommitted_diff() {
@@ -436,7 +437,7 @@ mod tests {
         stage_file(&git_repo.repo, "test.txt");
         create_commit(&git_repo.repo, "Initial commit");
 
-        // 修改文件但不暂存
+        // Modify files but don't stage them
         create_file(dir.path(), "test.txt", "hello world");
 
         let diff = git_repo.get_uncommitted_diff().unwrap();
@@ -444,7 +445,7 @@ mod tests {
         assert!(diff.contains("+hello world"));
     }
 
-    // === 测试 get_commit_diff ===
+    // === Test get_commit_diff ===
 
     #[test]
     fn test_get_commit_diff_initial_commit() {
@@ -468,7 +469,7 @@ mod tests {
         stage_file(&git_repo.repo, "test.txt");
         create_commit(&git_repo.repo, "Initial commit");
 
-        // 第二次提交
+        // Second submission
         create_file(dir.path(), "test.txt", "hello world");
         stage_file(&git_repo.repo, "test.txt");
         create_commit(&git_repo.repo, "Second commit");
@@ -489,7 +490,7 @@ mod tests {
         assert!(result.is_err());
     }
 
-    // === 测试 get_range_diff ===
+    // === Test get_range_diff ===
 
     #[test]
     fn test_get_range_diff() {
@@ -524,7 +525,7 @@ mod tests {
         assert!(result.is_err());
     }
 
-    // === 测试 get_file_content ===
+    // === Test get_file_content ===
 
     #[test]
     fn test_get_file_content() {
@@ -543,7 +544,7 @@ mod tests {
         let (dir, git_repo) = create_test_repo();
         let file_path = dir.path().join("large.txt");
 
-        // 创建超过 max_file_size 的文件
+        // Create files larger than max_file_size
         let large_content = "x".repeat((DEFAULT_MAX_FILE_SIZE + 1) as usize);
         fs::write(&file_path, large_content).unwrap();
 
@@ -551,7 +552,7 @@ mod tests {
         assert!(result.is_err());
     }
 
-    // === 测试 get_commit_history ===
+    // === Test get_commit_history ===
 
     #[test]
     fn test_get_commit_history_empty_repo() {
@@ -580,7 +581,7 @@ mod tests {
         assert_eq!(commits[0].author_email, "test@example.com");
     }
 
-    // === 测试 get_diff_stats ===
+    // === Test get_diff_stats ===
 
     #[test]
     fn test_get_diff_stats() {

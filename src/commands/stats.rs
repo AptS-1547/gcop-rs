@@ -12,32 +12,44 @@ use crate::error::Result;
 use crate::git::{CommitInfo, GitOperations, repository::GitRepository};
 use crate::ui;
 
-/// 作者统计
+/// Author statistics
 #[derive(Debug, Clone, Serialize)]
 pub struct AuthorStats {
+    /// Author display name from commit metadata.
     pub name: String,
+    /// Author email from commit metadata.
     pub email: String,
+    /// Number of commits attributed to this author.
     pub commits: usize,
 }
 
-/// 仓库统计
+/// Repository statistics
 #[derive(Debug, Clone, Serialize)]
 pub struct RepoStats {
+    /// Total number of commits in the selected scope.
     pub total_commits: usize,
+    /// Number of unique contributing authors.
     pub total_authors: usize,
+    /// Timestamp of the oldest commit in scope.
     pub first_commit_date: Option<DateTime<Local>>,
+    /// Timestamp of the newest commit in scope.
     pub last_commit_date: Option<DateTime<Local>>,
+    /// Per-author contribution statistics.
     pub authors: Vec<AuthorStats>,
+    /// Commits grouped by ISO week key (`YYYY-Www`).
     pub commits_by_week: BTreeMap<String, usize>,
+    /// Commits grouped by date (`YYYY-MM-DD`) for recent activity.
     pub commits_by_day: BTreeMap<String, usize>,
+    /// Current consecutive-day commit streak.
     pub current_streak: usize,
+    /// Longest historical consecutive-day commit streak.
     pub longest_streak: usize,
 }
 
 impl RepoStats {
-    /// 从 commit 历史计算统计数据
+    /// Calculate statistics from commit history
     pub fn from_commits(commits: &[CommitInfo], author_filter: Option<&str>) -> Self {
-        // 过滤 commits
+        // Filter commits
         let filtered: Vec<&CommitInfo> = if let Some(filter) = author_filter {
             let filter_lower = filter.to_lowercase();
             commits
@@ -51,14 +63,14 @@ impl RepoStats {
             commits.iter().collect()
         };
 
-        // 基础统计
+        // basic statistics
         let total_commits = filtered.len();
 
-        // 时间范围（commits 按时间降序，第一个是最新的）
+        // Time range (commits are in descending order of time, the first one is the latest)
         let last_commit_date = filtered.first().map(|c| c.timestamp);
         let first_commit_date = filtered.last().map(|c| c.timestamp);
 
-        // 作者统计
+        // Author statistics
         let mut author_map: HashMap<String, AuthorStats> = HashMap::new();
         for commit in &filtered {
             let key = format!("{} <{}>", commit.author_name, commit.author_email);
@@ -76,19 +88,19 @@ impl RepoStats {
         authors.sort_by(|a, b| b.commits.cmp(&a.commits));
         let total_authors = authors.len();
 
-        // 最近 4 周的统计
+        // Statistics for the last 4 weeks
         let now = Local::now();
         let four_weeks_ago = now - Duration::days(28);
         let mut commits_by_week: BTreeMap<String, usize> = BTreeMap::new();
 
-        // 初始化最近 4 周
+        // Initialize last 4 weeks
         for i in 0..4 {
             let week_start = now - Duration::days((i * 7) as i64);
             let week_key = format_week(&week_start);
             commits_by_week.insert(week_key, 0);
         }
 
-        // 统计每周 commit 数
+        // Count the number of commits per week
         for commit in &filtered {
             if commit.timestamp >= four_weeks_ago {
                 let week_key = format_week(&commit.timestamp);
@@ -96,31 +108,31 @@ impl RepoStats {
             }
         }
 
-        // 最近 30 天每日 commit 统计
+        // Daily commit statistics for the last 30 days
         let today = now.date_naive();
         let mut commits_by_day: BTreeMap<String, usize> = BTreeMap::new();
 
-        // 初始化最近 30 天（包含今天）
+        // Initialize the last 30 days (including today)
         for i in 0..30 {
             let date = today - Duration::days(i);
             commits_by_day.insert(date.format("%Y-%m-%d").to_string(), 0);
         }
 
-        // 收集所有 commit 日期（用于 streak 计算）
+        // Collect all commit dates (for streak calculation)
         let mut all_commit_dates: std::collections::BTreeSet<NaiveDate> =
             std::collections::BTreeSet::new();
 
         for commit in &filtered {
             let date = commit.timestamp.date_naive();
             let date_key = date.format("%Y-%m-%d").to_string();
-            // 统计最近 30 天
+            // Statistics for the last 30 days
             if let Some(count) = commits_by_day.get_mut(&date_key) {
                 *count += 1;
             }
             all_commit_dates.insert(date);
         }
 
-        // 计算 current streak：从今天（或昨天）开始往回数连续有 commit 的天数
+        // Calculate current streak: count the number of consecutive days with commits starting from today (or yesterday)
         let current_streak = {
             let start = if all_commit_dates.contains(&today) {
                 today
@@ -136,7 +148,7 @@ impl RepoStats {
             streak
         };
 
-        // 计算 longest streak：遍历所有日期找最长连续天数
+        // Calculate longest streak: traverse all dates to find the longest consecutive number of days
         let longest_streak = {
             let mut longest = 0usize;
             let mut current = 0usize;
@@ -172,7 +184,7 @@ impl RepoStats {
         }
     }
 
-    /// 计算时间跨度（天数）
+    /// Calculation time span (number of days)
     pub fn days_span(&self) -> Option<i64> {
         match (self.first_commit_date, self.last_commit_date) {
             (Some(first), Some(last)) => Some((last - first).num_days()),
@@ -181,13 +193,13 @@ impl RepoStats {
     }
 }
 
-/// 格式化周标识 (e.g., "2025-W51")
+/// Format week ID (e.g., "2025-W51")
 fn format_week(dt: &DateTime<Local>) -> String {
     let week: IsoWeek = dt.iso_week();
     format!("{}-W{:02}", week.year(), week.week())
 }
 
-/// 生成热力图单个字符（GitHub 风格）
+/// Generate heatmap single characters (GitHub style)
 fn render_heatmap_char(count: usize, max_count: usize, colored: bool) -> String {
     if count == 0 {
         if colored {
@@ -197,7 +209,7 @@ fn render_heatmap_char(count: usize, max_count: usize, colored: bool) -> String 
         }
     }
 
-    // 分 4 个等级
+    // Divided into 4 levels
     let ratio = count as f64 / max_count as f64;
     let level = if ratio <= 0.25 {
         0
@@ -210,7 +222,7 @@ fn render_heatmap_char(count: usize, max_count: usize, colored: bool) -> String 
     };
 
     if colored {
-        // GitHub 绿色色阶
+        // GitHub green color scale
         let block = "█";
         match level {
             0 => block.truecolor(14, 68, 41).to_string(),
@@ -219,7 +231,7 @@ fn render_heatmap_char(count: usize, max_count: usize, colored: bool) -> String 
             _ => block.truecolor(57, 211, 83).to_string(),
         }
     } else {
-        // 无颜色回退：Unicode 方块字符
+        // No color fallback: Unicode block characters
         match level {
             0 => "▂".to_string(),
             1 => "▄".to_string(),
@@ -229,7 +241,7 @@ fn render_heatmap_char(count: usize, max_count: usize, colored: bool) -> String 
     }
 }
 
-/// 渲染小节标题
+/// Render section title
 fn section_header(title: &str, colored: bool) {
     if colored {
         println!("  {} {}", "▸".truecolor(100, 100, 100), title.bold());
@@ -238,14 +250,14 @@ fn section_header(title: &str, colored: bool) {
     }
 }
 
-/// 按显示宽度右填充（CJK 字符占 2 列）
+/// Right padding to display width (2 columns for CJK characters)
 fn pad_display(s: &str, target_width: usize) -> String {
     let display_width: usize = s.chars().map(|c| if c.is_ascii() { 1 } else { 2 }).sum();
     let padding = target_width.saturating_sub(display_width);
     format!("{}{}", s, " ".repeat(padding))
 }
 
-/// 生成 ASCII 柱状图（带颜色）
+/// Generate ASCII histogram (with color)
 fn render_bar(count: usize, max_count: usize, max_width: usize, colored: bool) -> String {
     if max_count == 0 || count == 0 {
         return String::new();
@@ -268,7 +280,7 @@ fn render_bar(count: usize, max_count: usize, max_width: usize, colored: bool) -
     }
 }
 
-/// 运行 stats 命令
+/// Run the stats command
 pub fn run(options: &StatsOptions<'_>, colored: bool) -> Result<()> {
     let result = run_internal(options, colored);
     if let Err(ref e) = result
@@ -305,7 +317,7 @@ fn run_internal(options: &StatsOptions<'_>, colored: bool) -> Result<()> {
     }
     let stats = RepoStats::from_commits(&commits, options.author);
 
-    // 输出
+    // output
     match options.format {
         OutputFormat::Json => output_json(&stats)?,
         OutputFormat::Markdown => output_markdown(&stats, effective_colored),
@@ -315,7 +327,7 @@ fn run_internal(options: &StatsOptions<'_>, colored: bool) -> Result<()> {
     Ok(())
 }
 
-/// 文本格式输出
+/// Text format output
 fn output_text(stats: &RepoStats, colored: bool) {
     println!();
     println!("{}", ui::info(&rust_i18n::t!("stats.title"), colored));
@@ -385,7 +397,7 @@ fn output_text(stats: &RepoStats, colored: bool) {
 
         let max_count = *stats.commits_by_week.values().max().unwrap_or(&0);
 
-        // 按周倒序显示
+        // Show by week in descending order
         let mut weeks: Vec<_> = stats.commits_by_week.iter().collect();
         weeks.sort_by(|a, b| b.0.cmp(a.0));
 
@@ -395,14 +407,14 @@ fn output_text(stats: &RepoStats, colored: bool) {
         }
     }
 
-    // Commit Activity (last 30 days) - 横向热力图
+    // Commit Activity (last 30 days) - Horizontal heat map
     if !stats.commits_by_day.is_empty() {
         println!();
         section_header(&rust_i18n::t!("stats.commit_activity"), colored);
 
         let max_count = *stats.commits_by_day.values().max().unwrap_or(&0);
 
-        // 按日期正序排列
+        // Sort by date
         let mut days: Vec<_> = stats.commits_by_day.iter().collect();
         days.sort_by(|a, b| a.0.cmp(b.0));
 
@@ -417,7 +429,7 @@ fn output_text(stats: &RepoStats, colored: bool) {
             }
         };
 
-        // 生成热力图行
+        // Generate heat map rows
         let heatmap: String = days
             .iter()
             .map(|(_, count)| render_heatmap_char(**count, max_count, colored))
@@ -451,7 +463,7 @@ fn output_text(stats: &RepoStats, colored: bool) {
     println!();
 }
 
-/// Markdown 格式输出
+/// Markdown format output
 fn output_markdown(stats: &RepoStats, _colored: bool) {
     println!("{}\n", rust_i18n::t!("stats.md_title"));
 
@@ -579,7 +591,7 @@ fn output_markdown(stats: &RepoStats, _colored: bool) {
     );
 }
 
-/// JSON 格式输出
+/// JSON format output
 fn output_json(stats: &RepoStats) -> Result<()> {
     let output = JsonOutput {
         success: true,

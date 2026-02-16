@@ -1,7 +1,7 @@
 use crate::config::{CommitConvention, ConventionStyle};
 use crate::llm::{CommitContext, ReviewType, ScopeInfo};
 
-/// 静态系统指令（可缓存）- 用于 system/user 分离模式
+/// Static system directives (cacheable) - for use in system/user split mode
 const COMMIT_SYSTEM_PROMPT: &str = r#"You are a git commit message generator.
 
 Rules:
@@ -10,7 +10,7 @@ Rules:
 - Common types: feat, fix, docs, style, refactor, test, chore
 - Output ONLY the commit message, no explanation"#;
 
-/// Review 基础系统指令（可被自定义覆盖）
+/// Review basic system commands (can be overridden by customization)
 const REVIEW_SYSTEM_PROMPT_BASE: &str = r#"You are an expert code reviewer.
 
 Review criteria:
@@ -20,7 +20,7 @@ Review criteria:
 4. Maintainability: readability
 5. Best practices"#;
 
-/// JSON 格式约束（始终追加）
+/// JSON format constraints (always appended)
 const REVIEW_JSON_CONSTRAINT: &str = r#"
 
 Output JSON format:
@@ -30,7 +30,7 @@ Output JSON format:
   "suggestions": ["..."]
 }"#;
 
-/// 格式化用户反馈列表
+/// Format user feedback list
 fn format_feedbacks(feedbacks: &[String]) -> String {
     if feedbacks.is_empty() {
         return String::new();
@@ -42,7 +42,7 @@ fn format_feedbacks(feedbacks: &[String]) -> String {
     result
 }
 
-/// 格式化 convention 约束为 prompt 片段
+/// Formatting convention constraint to prompt fragment
 fn format_convention(convention: &CommitConvention) -> String {
     let mut parts = Vec::new();
 
@@ -75,7 +75,7 @@ fn format_convention(convention: &CommitConvention) -> String {
     format!("\n\n## Convention:\n{}", parts.join("\n"))
 }
 
-/// 格式化 workspace scope 信息为 prompt 片段
+/// Format workspace scope information into prompt fragment
 fn format_scope_info(scope: &ScopeInfo) -> String {
     let mut parts = Vec::new();
 
@@ -108,26 +108,26 @@ fn format_scope_info(scope: &ScopeInfo) -> String {
     format!("\n\n## Workspace:\n{}", parts.join("\n"))
 }
 
-/// 构建拆分的 commit prompt（system + user）
+/// Build split commit prompt (system + user)
 ///
-/// 返回 (system_prompt, user_message)
-/// - system_prompt: 静态指令，可被 LLM 缓存
-/// - user_message: 动态内容（diff + context + feedback）
+/// Return (system_prompt, user_message)
+/// - system_prompt: static command, can be cached by LLM
+/// - user_message: dynamic content (diff + context + feedback)
 pub fn build_commit_prompt_split(
     diff: &str,
     context: &CommitContext,
     custom_template: Option<&str>,
     convention: Option<&CommitConvention>,
 ) -> (String, String) {
-    // 自定义模板用作 system prompt
+    // Custom template used as system prompt
     let mut system = custom_template.unwrap_or(COMMIT_SYSTEM_PROMPT).to_string();
 
-    // 追加 convention 约束
+    // Add convention constraints
     if let Some(conv) = convention {
         system.push_str(&format_convention(conv));
     }
 
-    // user message 包含动态内容
+    // user message contains dynamic content
     let branch_info = context
         .branch_name
         .as_ref()
@@ -154,17 +154,17 @@ pub fn build_commit_prompt_split(
     (system, user)
 }
 
-/// 构建拆分的 review prompt（system + user）
+/// Build split review prompt (system + user)
 ///
-/// 返回 (system_prompt, user_message)
-/// - system_prompt: 自定义模板（或默认） + JSON 格式约束（始终追加）
-/// - user_message: 待审查的代码
+/// Return (system_prompt, user_message)
+/// - system_prompt: custom template (or default) + JSON format constraints (always appended)
+/// - user_message: Code to be reviewed
 pub fn build_review_prompt_split(
     diff: &str,
     _review_type: &ReviewType,
     custom_template: Option<&str>,
 ) -> (String, String) {
-    // 自定义模板用作基础 system prompt，始终追加 JSON 约束
+    // Custom template used as base system prompt, always appended with JSON constraints
     let base = custom_template.unwrap_or(REVIEW_SYSTEM_PROMPT_BASE);
     let system = format!("{}{}", base, REVIEW_JSON_CONSTRAINT);
 
@@ -197,18 +197,18 @@ mod tests {
         }
     }
 
-    // === build_commit_prompt_split 测试 ===
+    // === build_commit_prompt_split test ===
 
     #[test]
     fn test_commit_prompt_split_default() {
         let ctx = create_context(vec!["foo.rs"], 10, 5, None, vec![]);
         let (system, user) = build_commit_prompt_split("diff content", &ctx, None, None);
 
-        // system 应该包含角色定义和规则
+        // system should contain role definitions and rules
         assert!(system.contains("git commit message generator"));
         assert!(system.contains("conventional commits"));
 
-        // user 应该包含 diff 和 context
+        // user should contain diff and context
         assert!(user.contains("diff content"));
         assert!(user.contains("foo.rs"));
         assert!(user.contains("+10 -5"));
@@ -244,11 +244,11 @@ mod tests {
         let (system, _) =
             build_commit_prompt_split("diff", &ctx, Some("Custom system prompt"), None);
 
-        // 自定义模板应该用作 system prompt
+        // Custom template should be used as system prompt
         assert_eq!(system, "Custom system prompt");
     }
 
-    // === convention 注入测试 ===
+    // === convention injection test ===
 
     #[test]
     fn test_commit_prompt_split_with_conventional_convention() {
@@ -296,22 +296,22 @@ mod tests {
     fn test_commit_prompt_split_no_convention() {
         let ctx = create_context(vec!["a.rs"], 1, 1, None, vec![]);
         let (system_with, _) = build_commit_prompt_split("diff", &ctx, None, None);
-        // 无 convention 时不应包含 Convention 段
+        // The Convention section should not be included when there is no convention
         assert!(!system_with.contains("## Convention:"));
     }
 
-    // === build_review_prompt_split 测试 ===
+    // === build_review_prompt_split test ===
 
     #[test]
     fn test_review_prompt_split_default() {
         let (system, user) =
             build_review_prompt_split("code diff", &ReviewType::UncommittedChanges, None);
 
-        // system 应该包含审查规则和 JSON 格式
+        // system should contain review rules and JSON format
         assert!(system.contains("code reviewer"));
         assert!(system.contains("JSON format"));
 
-        // user 应该包含代码
+        // user should contain code
         assert!(user.contains("code diff"));
         assert!(user.contains("Code to Review"));
     }
@@ -321,13 +321,13 @@ mod tests {
         let (system, _) =
             build_review_prompt_split("diff", &ReviewType::UncommittedChanges, Some("Custom"));
 
-        // 自定义模板 + JSON 约束始终追加
+        // Custom template + JSON constraints are always appended
         assert!(system.starts_with("Custom"));
         assert!(system.contains("JSON format"));
         assert!(system.contains("\"summary\""));
     }
 
-    // === scope info 注入测试 ===
+    // === scope info injection test ===
 
     #[test]
     fn test_commit_prompt_with_scope_info() {

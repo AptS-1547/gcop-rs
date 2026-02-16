@@ -1,5 +1,13 @@
+//! Git abstractions and repository operations.
+//!
+//! Provides the `GitOperations` trait, common data types, and helpers used by
+//! command flows.
+
+/// Commit writing helpers.
 pub mod commit;
+/// Diff parsing and per-file statistics helpers.
 pub mod diff;
+/// `git2`-backed repository implementation of [`GitOperations`].
 pub mod repository;
 
 use std::path::PathBuf;
@@ -11,35 +19,40 @@ use serde::Serialize;
 #[cfg(any(test, feature = "test-utils"))]
 use mockall::automock;
 
-/// Git commit 信息
+/// Git commit metadata.
 ///
-/// 包含 commit 的作者、时间和消息。
+/// Contains author information, timestamp, and message summary.
 ///
-/// # 字段
-/// - `author_name`: 提交者名称
-/// - `author_email`: 提交者邮箱
-/// - `timestamp`: 提交时间（本地时区）
-/// - `message`: Commit 消息内容
+/// # Fields
+/// - `author_name`: author name
+/// - `author_email`: author email address
+/// - `timestamp`: commit timestamp (local timezone)
+/// - `message`: commit message content
 #[derive(Debug, Clone)]
 pub struct CommitInfo {
+    /// Commit author name.
     pub author_name: String,
+    /// Commit author email.
     pub author_email: String,
+    /// Commit timestamp in local timezone.
     pub timestamp: DateTime<Local>,
-    #[allow(dead_code)] // 预留字段，未来可用于 commit message 统计
+    /// First line of the commit message.
+    #[allow(dead_code)]
+    // Reserved for future commit-message analytics.
     pub message: String,
 }
 
-/// Git 操作的统一接口
+/// Unified interface for Git operations.
 ///
-/// 该 trait 抽象了所有 Git 仓库操作，便于测试和扩展。
-/// 主要实现：[`GitRepository`](repository::GitRepository)
+/// This trait abstracts all Git repository operations, making it easier to test and extend.
+/// Main implementation: [`GitRepository`](repository::GitRepository).
 ///
-/// # 设计理念
-/// - 纯 Rust 接口，不依赖具体实现
-/// - 支持 mock 测试（通过 `mockall`）
-/// - 错误处理统一使用 [`GcopError`](crate::error::GcopError)
+/// # Design
+/// - Pure Rust interface, independent of concrete backend implementation.
+/// - Supports mocking in tests (via `mockall`).
+/// - Uses unified error handling via [`GcopError`](crate::error::GcopError).
 ///
-/// # 示例
+/// # Example
 /// ```no_run
 /// use gcop_rs::git::{GitOperations, repository::GitRepository};
 ///
@@ -52,99 +65,99 @@ pub struct CommitInfo {
 /// ```
 #[cfg_attr(any(test, feature = "test-utils"), automock)]
 pub trait GitOperations {
-    /// 获取 staged changes 的 diff
+    /// Returns the diff for staged changes.
     ///
-    /// 等价于 `git diff --cached --unified=3`。
+    /// Equivalent to `git diff --cached --unified=3`.
     ///
-    /// # 返回
-    /// - `Ok(diff)` - diff 内容（可能为空字符串）
-    /// - `Err(_)` - Git 操作失败
+    /// # Returns
+    /// - `Ok(diff)` - diff text (possibly empty)
+    /// - `Err(_)` - git operation failed
     ///
-    /// # 错误
-    /// - 仓库未初始化
-    /// - 权限不足
+    /// # Errors
+    /// - Repository is not initialized
+    /// - Insufficient permissions
     fn get_staged_diff(&self) -> Result<String>;
 
-    /// 获取未提交变更（未暂存部分）的 diff
+    /// Returns the diff for unstaged changes.
     ///
-    /// 仅包含 index -> workdir 的变更（unstaged），
-    /// 等价于 `git diff`（不含 `--cached`）。
+    /// Contains only `index -> workdir` changes (unstaged),
+    /// equivalent to `git diff` (without `--cached`).
     ///
-    /// # 返回
-    /// - `Ok(diff)` - diff 内容（可能为空字符串）
-    /// - `Err(_)` - Git 操作失败
+    /// # Returns
+    /// - `Ok(diff)` - diff text (possibly empty)
+    /// - `Err(_)` - git operation failed
     fn get_uncommitted_diff(&self) -> Result<String>;
 
-    /// 获取指定 commit 的 diff
+    /// Returns the diff for a specific commit.
     ///
-    /// 等价于 `git diff <commit_hash>^!`（仅返回 diff 内容）。
+    /// Equivalent to `git diff <commit_hash>^!` (returns only the diff content).
     ///
-    /// # 参数
-    /// - `commit_hash`: commit SHA（支持短 hash）
+    /// # Parameters
+    /// - `commit_hash`: commit SHA (supports short hash)
     ///
-    /// # 返回
-    /// - `Ok(diff)` - diff 内容
-    /// - `Err(_)` - commit 不存在或 Git 操作失败
+    /// # Returns
+    /// - `Ok(diff)` - diff text
+    /// - `Err(_)` - commit does not exist or git operation failed
     fn get_commit_diff(&self, commit_hash: &str) -> Result<String>;
 
-    /// 获取 commit 范围的 diff
+    /// Returns the diff for a commit range.
     ///
-    /// 支持多种格式：
-    /// - `HEAD~3..HEAD` - 最近 3 个 commit
-    /// - `main..feature` - 分支间的差异
-    /// - `abc123..def456` - 两个 commit 间的差异
+    /// Supports multiple formats:
+    /// - `HEAD~3..HEAD` - last 3 commits
+    /// - `main..feature` - difference between branches
+    /// - `abc123..def456` - difference between two commits
     ///
-    /// # 参数
-    /// - `range`: Git range 表达式
+    /// # Parameters
+    /// - `range`: Git range expression
     ///
-    /// # 返回
-    /// - `Ok(diff)` - diff 内容
-    /// - `Err(_)` - range 无效或 Git 操作失败
+    /// # Returns
+    /// - `Ok(diff)` - diff text
+    /// - `Err(_)` - invalid range or git operation failed
     fn get_range_diff(&self, range: &str) -> Result<String>;
 
-    /// 获取文件的完整内容
+    /// Reads the complete content of a file.
     ///
-    /// 读取工作区中的文件内容（不是 Git 对象）。
+    /// Reads file contents from the working tree (not from git objects).
     ///
-    /// # 参数
-    /// - `path`: 文件路径（相对于当前工作目录或绝对路径）
+    /// # Parameters
+    /// - `path`: file path (relative to the current working directory or absolute path)
     ///
-    /// # 返回
-    /// - `Ok(content)` - 文件内容
-    /// - `Err(_)` - 文件不存在、不是普通文件或读取失败
+    /// # Returns
+    /// - `Ok(content)` - file contents
+    /// - `Err(_)` - file does not exist, is not a regular file, or read failed
     fn get_file_content(&self, path: &str) -> Result<String>;
 
-    /// 执行 git commit
+    /// Executes `git commit`.
     ///
-    /// 将 staged changes 提交到仓库。调用前需要确保有 staged changes。
+    /// Commits staged changes to the repository.
     ///
-    /// # 参数
-    /// - `message`: commit 消息（支持多行）
+    /// # Parameters
+    /// - `message`: commit message (supports multiple lines)
     ///
-    /// # 返回
-    /// - `Ok(())` - commit 成功
-    /// - `Err(_)` - 无 staged changes、hook 失败、或其他 Git 错误
+    /// # Returns
+    /// - `Ok(())` - commit succeeded
+    /// - `Err(_)` - no staged changes, hook failure, or another git error
     ///
-    /// # 错误
-    /// - [`GcopError::GitCommand`] - 无 staged changes
-    /// - [`GcopError::Git`] - libgit2 错误
+    /// # Errors
+    /// - [`GcopError::GitCommand`] - no staged changes
+    /// - [`GcopError::Git`] - libgit2 error
     ///
-    /// # 注意
-    /// - 会触发 pre-commit 和 commit-msg hooks
-    /// - 使用 git config 中配置的用户名和邮箱
+    /// # Notes
+    /// - Triggers pre-commit and commit-msg hooks.
+    /// - Uses name/email configured in git config.
     ///
     /// [`GcopError::GitCommand`]: crate::error::GcopError::GitCommand
     /// [`GcopError::Git`]: crate::error::GcopError::Git
     fn commit(&self, message: &str) -> Result<()>;
 
-    /// 获取当前分支名
+    /// Returns the current branch name.
     ///
-    /// # 返回
-    /// - `Ok(Some(name))` - 当前分支名（如 "main"）
-    /// - `Ok(None)` - detached HEAD 状态
-    /// - `Err(_)` - Git 操作失败
+    /// # Returns
+    /// - `Ok(Some(name))` - current branch name (for example `"main"`)
+    /// - `Ok(None)` - detached HEAD
+    /// - `Err(_)` - git operation failed
     ///
-    /// # 示例
+    /// # Example
     /// ```no_run
     /// # use gcop_rs::git::{GitOperations, repository::GitRepository};
     /// # fn main() -> anyhow::Result<()> {
@@ -159,18 +172,18 @@ pub trait GitOperations {
     /// ```
     fn get_current_branch(&self) -> Result<Option<String>>;
 
-    /// 获取变更统计
+    /// Calculates diff statistics.
     ///
-    /// 解析 diff 内容，提取文件列表和增删行数。
+    /// Parses diff text and extracts changed files plus insert/delete counts.
     ///
-    /// # 参数
-    /// - `diff`: diff 内容（来自 `get_*_diff()` 方法）
+    /// # Parameters
+    /// - `diff`: diff text (from `get_*_diff()` methods)
     ///
-    /// # 返回
-    /// - `Ok(stats)` - 统计信息
-    /// - `Err(_)` - diff 格式无效
+    /// # Returns
+    /// - `Ok(stats)` - parsed statistics
+    /// - `Err(_)` - invalid diff format
     ///
-    /// # 示例
+    /// # Example
     /// ```no_run
     /// # use gcop_rs::git::{GitOperations, repository::GitRepository};
     /// # fn main() -> anyhow::Result<()> {
@@ -184,48 +197,48 @@ pub trait GitOperations {
     /// ```
     fn get_diff_stats(&self, diff: &str) -> Result<DiffStats>;
 
-    /// 检查是否有 staged changes
+    /// Checks whether the index contains staged changes.
     ///
-    /// 快速检查是否有文件被 `git add` 到暂存区。
+    /// Fast check for files added to the index with `git add`.
     ///
-    /// # 返回
-    /// - `Ok(true)` - 有 staged changes
-    /// - `Ok(false)` - 暂存区为空
-    /// - `Err(_)` - Git 操作失败
+    /// # Returns
+    /// - `Ok(true)` - staged changes exist
+    /// - `Ok(false)` - staging area is empty
+    /// - `Err(_)` - git operation failed
     fn has_staged_changes(&self) -> Result<bool>;
 
-    /// 获取 commit 历史
+    /// Returns commit history for the current branch.
     ///
-    /// 返回当前分支的所有 commit 信息（按时间倒序）。
+    /// Returns commit entries in reverse chronological order.
     ///
-    /// # 返回
-    /// - `Ok(history)` - commit 列表（最新的在前）
-    /// - `Err(_)` - Git 操作失败
+    /// # Returns
+    /// - `Ok(history)` - commit list (newest first)
+    /// - `Err(_)` - git operation failed
     ///
-    /// # 注意
-    /// - 仅返回当前分支的历史
-    /// - 空仓库返回空列表
+    /// # Notes
+    /// - Only includes history reachable from the current branch HEAD.
+    /// - Empty repositories return an empty list.
     fn get_commit_history(&self) -> Result<Vec<CommitInfo>>;
 
-    /// 检查仓库是否为空（无任何提交）
+    /// Checks whether the repository has no commits.
     ///
-    /// # 返回
-    /// - `Ok(true)` - 仓库为空（未初始化任何 commit）
-    /// - `Ok(false)` - 仓库有提交
-    /// - `Err(_)` - Git 操作失败
+    /// # Returns
+    /// - `Ok(true)` - repository is empty (no commits yet)
+    /// - `Ok(false)` - repository has at least one commit
+    /// - `Err(_)` - git operation failed
     fn is_empty(&self) -> Result<bool>;
 }
 
-/// Diff 统计信息
+/// Diff statistics.
 ///
-/// 包含文件变更列表和增删行数统计。
+/// Contains changed files and insert/delete counts.
 ///
-/// # 字段
-/// - `files_changed`: 变更的文件路径列表（相对于仓库根目录）
-/// - `insertions`: 新增行数
-/// - `deletions`: 删除行数
+/// # Fields
+/// - `files_changed`: changed file paths (relative to repository root)
+/// - `insertions`: number of inserted lines
+/// - `deletions`: number of deleted lines
 ///
-/// # 示例
+/// # Example
 /// ```
 /// use gcop_rs::git::DiffStats;
 ///
@@ -238,15 +251,19 @@ pub trait GitOperations {
 /// ```
 #[derive(Debug, Clone, Serialize)]
 pub struct DiffStats {
+    /// Paths of files changed in the diff.
     pub files_changed: Vec<String>,
+    /// Number of inserted lines.
     pub insertions: usize,
+    /// Number of deleted lines.
     pub deletions: usize,
 }
 
-/// 从当前工作目录向上查找 git 仓库根目录
+/// Finds the git repository root by walking upward from the current directory.
 ///
-/// 等价于 `git rev-parse --show-toplevel`。
-/// 检查每一级目录是否存在 `.git`（目录或文件，兼容 submodule/worktree）。
+/// Equivalent to `git rev-parse --show-toplevel`.
+/// Checks whether `.git` (directory or file, for submodule/worktree compatibility)
+/// exists at each level.
 pub fn find_git_root() -> Option<PathBuf> {
     let mut dir = std::env::current_dir().ok()?;
     loop {

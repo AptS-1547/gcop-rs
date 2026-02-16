@@ -1,44 +1,44 @@
-//! Commit 流程状态机
+//! Commit process state machine
 //!
-//! 纯函数式状态机，管理 commit message 生成和用户交互流程。
+//! Purely functional state machine manages commit message generation and user interaction processes.
 //!
-//! # 状态转换图
+//! # State transition diagram
 //! ```text
 //! Generating ──────────> WaitingForAction ──────────> Accepted
 //!     │                        │                           │
-//!     │                        ├──> Generating (retry)     └──> 执行 commit
+//!     │ ├──> Generating (retry) └──> Execute commit
 //!     │                        └──> Cancelled
 //!     └──> MaxRetriesExceeded ──> Cancelled
 //! ```
 //!
-//! # 设计理念
-//! - 状态转换是纯函数（无副作用）
-//! - IO 操作由外部处理（`commands/commit.rs`）
-//! - 便于测试和推理
+//! # Design
+//! - State transitions are pure functions (no side effects)
+//! - IO operations are handled externally (`commands/commit.rs`)
+//! - Easy to test and reason about
 //!
-//! # 使用示例
+//! # Usage example
 //! ```no_run
 //! use gcop_rs::commands::commit_state_machine::{
 //!     CommitState, UserAction, GenerationResult
 //! };
 //!
 //! # fn main() -> anyhow::Result<()> {
-//! // 1. 初始状态
+//! // 1. Initial state
 //! let state = CommitState::Generating {
 //!     attempt: 0,
 //!     feedbacks: vec![],
 //! };
 //!
-//! // 2. 处理生成结果
+//! // 2. Process the generated results
 //! let state = state.handle_generation(
 //!     GenerationResult::Success("feat: add login".to_string()),
-//!     false, // 非 auto-accept
+//!     false, // not auto-accept
 //! )?;
 //!
-//! // 3. 处理用户动作
+//! // 3. Process user actions
 //! let state = state.handle_action(UserAction::Accept);
 //!
-//! // 4. 检查最终状态
+//! // 4. Check the final status
 //! if let CommitState::Accepted { message } = state {
 //!     println!("Ready to commit: {}", message);
 //! }
@@ -48,15 +48,15 @@
 
 use crate::error::{GcopError, Result};
 
-/// Commit 流程的状态
+/// Commit process status
 ///
-/// 状态机的四种状态，每种状态对应一个用户可见的阶段。
+/// There are four states of the state machine, each state corresponds to a user-visible stage.
 ///
-/// # 变体
-/// - [`Generating`] - 正在生成 commit message
-/// - [`WaitingForAction`] - 等待用户操作
-/// - [`Accepted`] - 用户接受 message
-/// - [`Cancelled`] - 用户取消或达到最大重试次数
+/// # Variants
+/// - [`Generating`] - Generating commit message
+/// - [`WaitingForAction`] - Waiting for user action
+/// - [`Accepted`] - The user accepted the message
+/// - [`Cancelled`] - User canceled or maximum retries reached
 ///
 /// [`Generating`]: CommitState::Generating
 /// [`WaitingForAction`]: CommitState::WaitingForAction
@@ -64,54 +64,62 @@ use crate::error::{GcopError, Result};
 /// [`Cancelled`]: CommitState::Cancelled
 #[derive(Debug, Clone, PartialEq)]
 pub enum CommitState {
-    /// 正在生成 commit message
+    /// Generating commit message
     ///
-    /// 初始状态或用户选择 Retry 后的状态。
+    /// The initial state or the state after the user selects Retry.
     ///
-    /// # 字段
-    /// - `attempt`: 当前尝试次数（从 0 开始）
-    /// - `feedbacks`: 用户提供的反馈列表（用于重新生成）
+    /// # Fields
+    /// - `attempt`: current number of attempts (starting from 0)
+    /// - `feedbacks`: list of user-provided feedback (used for regeneration)
     Generating {
+        /// Zero-based attempt counter used for max-retry checks.
         attempt: usize,
+        /// Collected user feedback messages from previous retries.
         feedbacks: Vec<String>,
     },
-    /// 等待用户操作
+    /// Wait for user action
     ///
-    /// 显示生成的 message，等待用户选择：Accept/Edit/Retry/Quit。
+    /// Display the generated message and wait for the user to select: Accept/Edit/Retry/Quit.
     ///
-    /// # 字段
-    /// - `message`: 生成的 commit message
-    /// - `attempt`: 当前尝试次数
-    /// - `feedbacks`: 历史反馈列表
+    /// # Fields
+    /// - `message`: generated commit message
+    /// - `attempt`: current number of attempts
+    /// - `feedbacks`: historical feedback list
     WaitingForAction {
+        /// Latest generated commit message shown to the user.
         message: String,
+        /// Attempt counter carried from the generating phase.
         attempt: usize,
+        /// Feedback history carried into future retries.
         feedbacks: Vec<String>,
     },
-    /// 用户接受 message
+    /// User accepts message
     ///
-    /// 终止状态，准备执行 commit。
+    /// Termination status, ready to commit.
     ///
-    /// # 字段
-    /// - `message`: 确认的 commit message
-    Accepted { message: String },
-    /// 用户取消或达到最大重试次数
+    /// # Fields
+    /// - `message`: confirmed commit message
+    Accepted {
+        /// Commit message accepted by the user.
+        message: String,
+    },
+    /// User cancels or maximum retries reached
     ///
-    /// 终止状态，不执行 commit。
+    /// Termination status, no commit is performed.
     Cancelled,
 }
 
-/// 用户操作
+/// User operations
 ///
-/// 在 [`CommitState::WaitingForAction`] 状态下，用户可以选择的操作。
+/// In the [`CommitState::WaitingForAction`] state, the user can choose the action.
 ///
-/// # 变体
-/// - [`Accept`] - 接受当前 message 并提交
-/// - [`Edit`] - 编辑 message
-/// - [`EditCancelled`] - 编辑被取消（ESC 或关闭编辑器）
-/// - [`Retry`] - 重新生成（不提供反馈）
-/// - [`RetryWithFeedback`] - 重新生成并提供反馈
-/// - [`Quit`] - 退出（不提交）
+/// # Variants
+/// - [`Accept`] - accept the current message and submit it
+/// - [`Edit`] - edit message
+/// - [`EditCancelled`] - Editing was canceled (ESC or close the editor)
+/// - [`Retry`] - regenerate (no feedback)
+/// - [`RetryWithFeedback`] - Regenerate with feedback
+/// - [`Quit`] - Quit (without committing)
 ///
 /// [`Accept`]: UserAction::Accept
 /// [`Edit`]: UserAction::Edit
@@ -121,89 +129,95 @@ pub enum CommitState {
 /// [`Quit`]: UserAction::Quit
 #[derive(Debug, Clone, PartialEq)]
 pub enum UserAction {
-    /// 接受当前 message 并提交
+    /// Accept the current message and submit it
     Accept,
-    /// 编辑 message
+    /// edit message
     ///
-    /// # 字段
-    /// - `new_message`: 编辑后的 commit message
-    Edit { new_message: String },
-    /// 编辑被取消（ESC 或关闭编辑器）
+    /// # Fields
+    /// - `new_message`: edited commit message
+    Edit {
+        /// Commit message content returned by the editor.
+        new_message: String,
+    },
+    /// Editing canceled (ESC or close editor)
     EditCancelled,
-    /// 重新生成（不提供反馈）
+    /// Retry (no feedback provided)
     Retry,
-    /// 重新生成并提供反馈
+    /// Regenerate and provide feedback
     ///
-    /// # 字段
-    /// - `feedback`: 用户提供的反馈（可选）
-    RetryWithFeedback { feedback: Option<String> },
-    /// 退出（不提交）
+    /// # Fields
+    /// - `feedback`: feedback provided by the user (optional)
+    RetryWithFeedback {
+        /// Optional free-form feedback passed back to the model.
+        feedback: Option<String>,
+    },
+    /// Exit (without submitting)
     Quit,
 }
 
-/// 生成结果抽象
+/// Generate result abstraction
 ///
-/// LLM 生成 commit message 的结果。
+/// LLM generates the result of commit message.
 ///
-/// # 变体
-/// - [`Success`] - 生成成功
-/// - [`MaxRetriesExceeded`] - 达到最大重试次数
+/// # Variants
+/// - [`Success`] - generated successfully
+/// - [`MaxRetriesExceeded`] - Maximum number of retries reached
 ///
 /// [`Success`]: GenerationResult::Success
 /// [`MaxRetriesExceeded`]: GenerationResult::MaxRetriesExceeded
 #[derive(Debug, Clone)]
 pub enum GenerationResult {
-    /// 生成成功
+    /// Generated successfully
     ///
-    /// # 字段
-    /// - 生成的 commit message
+    /// # Fields
+    /// - Generated commit message
     Success(String),
-    /// 达到最大重试次数
+    /// Maximum number of retries reached
     MaxRetriesExceeded,
 }
 
 impl CommitState {
-    /// 检查是否达到最大重试次数
+    /// Check if the maximum number of retries has been reached
     ///
-    /// # 参数
-    /// - `max_retries`: 配置的最大重试次数
+    /// # Parameters
+    /// - `max_retries`: configured maximum number of retries
     ///
-    /// # 返回
-    /// - `true`: 已达到最大重试次数
-    /// - `false`: 还可以继续重试
+    /// # Returns
+    /// - `true`: The maximum number of retries has been reached
+    /// - `false`: You can continue to try again
     ///
-    /// # 示例
+    /// # Example
     /// ```
     /// # use gcop_rs::commands::commit_state_machine::CommitState;
     /// let state = CommitState::Generating { attempt: 5, feedbacks: vec![] };
-    /// assert!(state.is_at_max_retries(5));  // attempt 5 = 第 6 次尝试
+    /// assert!(state.is_at_max_retries(5)); // attempt 5 = 6th attempt
     /// assert!(!state.is_at_max_retries(10));
     /// ```
     pub fn is_at_max_retries(&self, max_retries: usize) -> bool {
         matches!(self, CommitState::Generating { attempt, .. } if *attempt >= max_retries)
     }
 
-    /// 处理生成结果（纯函数）
+    /// Process generated results (pure function)
     ///
-    /// 将 [`CommitState::Generating`] 状态转换为下一个状态。
+    /// Convert the [`CommitState::Generating`] state to the next state.
     ///
-    /// # 参数
-    /// - `result`: LLM 生成结果
-    /// - `auto_accept`: 是否自动接受（`--yes` flag）
+    /// # Parameters
+    /// - `result`: LLM generated results
+    /// - `auto_accept`: whether to automatically accept (`--yes` flag)
     ///
-    /// # 返回
-    /// - `Ok(next_state)` - 转换成功
-    /// - `Err(_)` - 达到最大重试次数或状态不匹配
+    /// # Returns
+    /// - `Ok(next_state)` - Conversion successful
+    /// - `Err(_)` - Maximum number of retries reached or status mismatch
     ///
-    /// # 状态转换
+    /// #State transition
     /// - `Success` + `auto_accept=false` → `WaitingForAction`
     /// - `Success` + `auto_accept=true` → `Accepted`
     /// - `MaxRetriesExceeded` → `Err(MaxRetriesExceeded)`
     ///
-    /// # 错误
-    /// - 在非 `Generating` 状态调用此方法会返回 [`GcopError::InvalidInput`]
+    /// # Errors
+    /// - Calling this method in a non-`Generating` state will return [`GcopError::InvalidInput`]
     ///
-    /// # 示例
+    /// # Example
     /// ```
     /// # use gcop_rs::commands::commit_state_machine::{CommitState, GenerationResult};
     /// # fn main() -> anyhow::Result<()> {
@@ -239,30 +253,30 @@ impl CommitState {
         }
     }
 
-    /// 处理用户动作（纯函数）
+    /// Handle user actions (pure function)
     ///
-    /// 将 [`CommitState::WaitingForAction`] 状态转换为下一个状态。
+    /// Transition the [`CommitState::WaitingForAction`] state to the next state.
     ///
-    /// # 参数
-    /// - `action`: 用户选择的动作
+    /// # Parameters
+    /// - `action`: the action selected by the user
     ///
-    /// # 返回
-    /// 下一个状态（总是成功）
+    /// # Returns
+    /// next state (always successful)
     ///
-    /// # 状态转换
+    /// #State transition
     /// - `Accept` → `Accepted`
-    /// - `Edit { new_message }` → `WaitingForAction`（保留 attempt 和 feedbacks）
-    /// - `EditCancelled` → `WaitingForAction`（保留原 message）
-    /// - `Retry` → `Generating`（attempt + 1，保留 feedbacks）
-    /// - `RetryWithFeedback { feedback }` → `Generating`（attempt + 1，追加 feedback）
+    /// - `Edit { new_message }` → `WaitingForAction` (keep attempt and feedbacks)
+    /// - `EditCancelled` → `WaitingForAction` (retain original message)
+    /// - `Retry` → `Generating` (attempt + 1, retain feedbacks)
+    /// - `RetryWithFeedback { feedback }` → `Generating` (attempt + 1, append feedback)
     /// - `Quit` → `Cancelled`
     ///
-    /// # 错误处理
-    /// 在非 `WaitingForAction` 状态调用此方法会：
-    /// - 记录错误日志
-    /// - 返回 `Cancelled` 状态（防御性处理）
+    /// # Error handling
+    /// Calling this method in a non-`WaitingForAction` state will:
+    /// - Record error log
+    /// - Return `Cancelled` status (defensive handling)
     ///
-    /// # 示例
+    /// # Example
     /// ```
     /// # use gcop_rs::commands::commit_state_machine::{CommitState, UserAction};
     /// let state = CommitState::WaitingForAction {
@@ -326,7 +340,7 @@ mod tests {
     use super::*;
     use pretty_assertions::assert_eq;
 
-    // === 初始状态测试 ===
+    // === Initial state test ===
 
     #[test]
     fn test_initial_state() {
@@ -352,7 +366,7 @@ mod tests {
         assert!(!state_before_limit.is_at_max_retries(10));
     }
 
-    // === Generating 状态转换测试 ===
+    // === Generating state transition test ===
 
     #[test]
     fn test_generating_success_no_auto_accept() {
@@ -432,7 +446,7 @@ mod tests {
         }
     }
 
-    // === WaitingForAction 状态转换测试 ===
+    // === WaitingForAction state transition test ===
 
     #[test]
     fn test_waiting_accept() {

@@ -15,9 +15,9 @@ use crate::llm::{StreamChunk, StreamHandle};
 
 /// Google Gemini API provider
 ///
-/// 使用 Google Gemini API 生成 commit message 和代码审查。
+/// Generate commit messages and code reviews using the Google Gemini API.
 ///
-/// # 配置示例
+/// # Configuration example
 /// ```toml
 /// [llm]
 /// default_provider = "gemini"
@@ -25,15 +25,15 @@ use crate::llm::{StreamChunk, StreamHandle};
 /// [llm.providers.gemini]
 /// api_key = "AIza..."
 /// model = "gemini-3-flash-preview"
-/// endpoint = "https://generativelanguage.googleapis.com"  # 可选
-/// max_tokens = 2000  # 可选
-/// temperature = 0.3  # 可选
+/// endpoint = "https://generativelanguage.googleapis.com" # Optional
+/// max_tokens = 2000 # optional
+/// temperature = 0.3 # optional
 /// ```
 ///
-/// # 特性
-/// - 支持流式响应（SSE）
-/// - 自动重试（指数退避）
-/// - 自定义端点
+/// # Features
+/// - Supports streaming responses (SSE)
+/// - Automatic retry (exponential backoff)
+/// - Custom endpoints
 pub struct GeminiProvider {
     name: String,
     client: Client,
@@ -49,7 +49,7 @@ pub struct GeminiProvider {
 }
 
 // ============================================================================
-// 请求/响应结构体
+// Request/response structure
 // ============================================================================
 
 #[derive(Serialize)]
@@ -105,10 +105,11 @@ struct GeminiResponsePart {
 }
 
 // ============================================================================
-// 实现
+// accomplish
 // ============================================================================
 
 impl GeminiProvider {
+    /// Builds a Gemini provider from runtime configuration.
     pub fn new(
         config: &ProviderConfig,
         provider_name: &str,
@@ -141,7 +142,7 @@ impl GeminiProvider {
         })
     }
 
-    /// 非流式 endpoint: /v1beta/models/{model}:generateContent
+    /// Non-streaming endpoint: /v1beta/models/{model}:generateContent
     fn generate_content_url(&self) -> String {
         format!(
             "{}/v1beta/models/{}:generateContent",
@@ -149,7 +150,7 @@ impl GeminiProvider {
         )
     }
 
-    /// 流式 endpoint: /v1beta/models/{model}:streamGenerateContent?alt=sse
+    /// Streaming endpoint: /v1beta/models/{model}:streamGenerateContent?alt=sse
     fn stream_generate_content_url(&self) -> String {
         format!(
             "{}/v1beta/models/{}:streamGenerateContent?alt=sse",
@@ -223,7 +224,7 @@ impl ApiBackend for GeminiProvider {
                 GcopError::Llm(rust_i18n::t!("provider.gemini_no_candidates").to_string())
             })?;
 
-        // 检查非正常结束原因（SAFETY、RECITATION 等）
+        // Check the reasons for abnormal end (SAFETY, RECITATION, etc.)
         if let Some(reason) = &candidate.finish_reason {
             match reason.as_str() {
                 "STOP" => {}

@@ -1,20 +1,20 @@
-//! Provider 公共抽象和辅助函数
+//! Provider public abstractions and helper functions
 //!
-//! 提取各 Provider 的通用逻辑，减少重复代码。
+//! Extract the common logic of each Provider to reduce duplicate code.
 //!
-//! 模块结构：
-//! - `config` - 配置提取工具函数
-//! - `response` - 响应处理和 JSON 清理
-//! - `retry` - HTTP 请求发送与重试逻辑
-//! - `validation` - API 验证辅助函数
-//! - `ApiBackend` trait - 各 provider 只需实现独有部分，通用逻辑由 blanket impl 提供
+//! Module structure:
+//! - `config` - configure extraction tool function
+//! - `response` - response handling and JSON sanitization
+//! - `retry` - HTTP request sending and retry logic
+//! - `validation` - API validation helper function
+//! - `ApiBackend` trait - each provider only needs to implement its unique part, and the common logic is provided by blanket impl
 
 pub mod config;
 pub mod response;
 pub mod retry;
 pub mod validation;
 
-// 重新导出常用函数，保持向后兼容
+// Re-export commonly used functions to maintain backward compatibility
 pub use config::*;
 pub use response::*;
 pub use retry::send_llm_request;
@@ -27,16 +27,16 @@ use crate::llm::{
     CommitContext, LLMProvider, ProgressReporter, ReviewResult, ReviewType, StreamHandle,
 };
 
-/// 内部 trait：每个 provider 只需实现自己独有的部分
+/// Internal traits: Each provider only needs to implement its own unique part
 ///
-/// 通过 blanket impl 自动为所有 `ApiBackend` 实现者提供 `LLMProvider`。
-/// `FallbackProvider` 不实现此 trait，直接实现 `LLMProvider`。
+/// `LLMProvider` is automatically provided to all `ApiBackend` implementers via blanket impl.
+/// `FallbackProvider` does not implement this trait and directly implements `LLMProvider`.
 #[async_trait]
 pub(crate) trait ApiBackend: Send + Sync {
-    /// Provider 名称
+    /// Provider name
     fn name(&self) -> &str;
 
-    /// 非流式 API 调用
+    /// Non-streaming API calls
     async fn call_api(
         &self,
         system: &str,
@@ -44,17 +44,17 @@ pub(crate) trait ApiBackend: Send + Sync {
         progress: Option<&dyn ProgressReporter>,
     ) -> Result<String>;
 
-    /// 是否支持流式响应
+    /// Whether to support streaming response
     fn supports_streaming(&self) -> bool {
         false
     }
 
-    /// 流式 API 调用
+    /// Streaming API calls
     async fn call_api_streaming(&self, _system: &str, _user_message: &str) -> Result<StreamHandle> {
         Err(GcopError::Llm("Streaming not supported".into()))
     }
 
-    /// 验证配置
+    /// Verify configuration
     async fn validate(&self) -> Result<()>;
 }
 
@@ -118,7 +118,7 @@ impl<T: ApiBackend> LLMProvider for T {
         context: Option<CommitContext>,
     ) -> Result<StreamHandle> {
         if !ApiBackend::supports_streaming(self) {
-            // 不支持流式，使用 LLMProvider trait 的默认 fallback 逻辑
+            // Streaming is not supported, and the default fallback logic of the LLMProvider trait is used.
             let (tx, rx) = tokio::sync::mpsc::channel(32);
             let result = self.generate_commit_message(diff, context, None).await;
             match result {

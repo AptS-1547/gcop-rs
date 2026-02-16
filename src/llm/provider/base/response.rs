@@ -1,45 +1,45 @@
-//! 响应处理和 JSON 清理
+//! Response handling and JSON cleaning
 //!
-//! 处理 LLM API 响应，包括 JSON 清理、解析和预览
+//! Handle LLM API responses, including JSON cleaning, parsing, and previewing
 
 use crate::error::{GcopError, Result};
 use crate::llm::ReviewResult;
 
-/// 错误预览最大长度
+/// Error preview maximum length
 const ERROR_PREVIEW_LENGTH: usize = 500;
 
-/// 清理 JSON 响应（移除 markdown 代码块标记）
+/// Clean JSON response (remove markdown code block tags)
 pub fn clean_json_response(response: &str) -> &str {
     let trimmed = response.trim();
 
-    // 提取 { 到 } 之间的内容
+    // Extract content between { to }
     if let (Some(start), Some(end)) = (trimmed.find('{'), trimmed.rfind('}'))
         && start < end
     {
         return &trimmed[start..=end];
     }
 
-    // Backup: 回退到移除 markdown 代码块标记
+    // Backup: Fallback to removing markdown code block tags
     let without_prefix = trimmed
         .strip_prefix("```json")
         .or_else(|| trimmed.strip_prefix("```JSON"))
         .or_else(|| trimmed.strip_prefix("```"))
-        .map(|s| s.trim_start()) // 移除前缀后的换行符
+        .map(|s| s.trim_start()) // Remove newline character after prefix
         .unwrap_or(trimmed);
 
     without_prefix
         .strip_suffix("```")
-        .map(|s| s.trim_end()) // 移除后缀前的换行符
+        .map(|s| s.trim_end()) // Remove newline character before suffix
         .unwrap_or(without_prefix)
         .trim()
 }
 
-/// 截断字符串用于错误预览（安全处理多字节字符）
+/// Truncate string for error preview (safe handling of multibyte characters)
 pub fn truncate_for_preview(s: &str) -> String {
     if s.len() <= ERROR_PREVIEW_LENGTH {
         return s.to_string();
     }
-    // 找到不超过 max_len 的最后一个 char boundary
+    // Find the last char boundary that does not exceed max_len
     let boundary = s
         .char_indices()
         .map(|(i, _)| i)
@@ -49,7 +49,7 @@ pub fn truncate_for_preview(s: &str) -> String {
     format!("{}...", &s[..boundary])
 }
 
-/// 解析 review 响应 JSON
+/// Parse review response JSON
 pub fn parse_review_response(response: &str) -> Result<ReviewResult> {
     let cleaned = clean_json_response(response);
     serde_json::from_str(cleaned).map_err(|e| {
@@ -65,13 +65,13 @@ pub fn parse_review_response(response: &str) -> Result<ReviewResult> {
     })
 }
 
-/// 处理 commit message 响应并记录日志
+/// Process commit message response and log
 pub fn process_commit_response(response: String) -> String {
     tracing::debug!("Generated commit message: {}", response);
     response
 }
 
-/// 处理 review 响应并记录日志
+/// Process review responses and log them
 pub fn process_review_response(response: &str) -> Result<ReviewResult> {
     tracing::debug!("LLM review response: {}", response);
     parse_review_response(response)
@@ -83,7 +83,7 @@ mod tests {
     use crate::llm::IssueSeverity;
     use pretty_assertions::assert_eq;
 
-    // === clean_json_response 测试 ===
+    // === clean_json_response test ===
 
     #[test]
     fn test_clean_json_plain() {
@@ -147,7 +147,7 @@ mod tests {
         assert_eq!(clean_json_response(input), "Just some text without JSON");
     }
 
-    // === truncate_for_preview 测试 ===
+    // === truncate_for_preview test ===
 
     #[test]
     fn test_truncate_short_string() {
@@ -167,24 +167,24 @@ mod tests {
 
     #[test]
     fn test_truncate_multibyte_chars() {
-        // 每个中文字符 3 字节，200 个 = 600 字节 > 500
+        // 3 bytes per Chinese character, 200 = 600 bytes > 500
         let chinese = "你".repeat(200);
         let result = truncate_for_preview(&chinese);
         assert!(result.ends_with("..."));
-        // 确保截断在 char boundary 上，不会 panic
-        // 500 / 3 = 166 个完整字符 = 498 字节
+        // Make sure to truncate on the char boundary without panic
+        // 500 / 3 = 166 complete characters = 498 bytes
         assert!(result.len() <= ERROR_PREVIEW_LENGTH + 3 + 3);
     }
 
     #[test]
     fn test_truncate_emoji() {
-        // emoji 4 字节，150 个 = 600 字节 > 500
+        // emoji 4 bytes, 150 = 600 bytes > 500
         let emoji = "🎉".repeat(150);
         let result = truncate_for_preview(&emoji);
         assert!(result.ends_with("..."));
     }
 
-    // === parse_review_response 测试 ===
+    // === parse_review_response test ===
 
     #[test]
     fn test_parse_review_valid_json() {
@@ -245,7 +245,7 @@ mod tests {
         assert_eq!(result.suggestions.len(), 1);
     }
 
-    // === 额外的边界测试 ===
+    // === Additional boundary testing ===
 
     #[test]
     fn test_clean_json_with_whitespace() {
@@ -264,7 +264,7 @@ mod tests {
 Let me know if you need more."#;
 
         let result = clean_json_response(input);
-        // 应该能正确解析
+        // should be able to parse correctly
         let parsed: serde_json::Value = serde_json::from_str(result).unwrap();
         assert_eq!(parsed["summary"], "Test");
     }

@@ -1,28 +1,28 @@
 use crate::error::{GcopError, Result};
 
-/// 调用系统编辑器编辑文本
+/// Call the system editor to edit text
 ///
-/// 使用 `edit` crate，自动按优先级选择编辑器：
-/// $VISUAL > $EDITOR > 平台预设列表（nano/vim/vi/emacs/...）
-/// 若环境变量指向的编辑器不存在，会自动回退到下一个可用编辑器。
+/// Use the `edit` crate to automatically select editors by priority:
+/// $VISUAL > $EDITOR > Platform default list (nano/vim/vi/emacs/...)
+/// If the editor pointed to by the environment variable does not exist, it will automatically fall back to the next available editor.
 ///
 /// # Arguments
-/// * `initial_content` - 初始内容
+/// * `initial_content` - initial content
 ///
 /// # Returns
-/// * `Ok(String)` - 编辑后的内容
-/// * `Err(GcopError::UserCancelled)` - 用户清空了内容
-/// * `Err(_)` - 其他错误
+/// * `Ok(String)` - edited content
+/// * `Err(GcopError::UserCancelled)` - The user cleared the content
+/// * `Err(_)` - other errors
 pub fn edit_text(initial_content: &str) -> Result<String> {
     let edited = edit::edit(initial_content)?;
 
-    // 移除前后空白，检查是否为空
+    // Remove leading and trailing whitespace and check if it is empty
     let trimmed = edited.trim();
 
     if trimmed.is_empty() {
         return Err(GcopError::UserCancelled);
     }
 
-    // 返回编辑后的内容（保留用户的格式）
+    // Returns the edited content (preserving the user's formatting)
     Ok(edited)
 }

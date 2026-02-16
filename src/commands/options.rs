@@ -1,13 +1,13 @@
-//! 命令选项结构体
+//! command option structure
 //!
-//! 为各命令提供统一的参数传递方式，从 CLI 参数解析后构造。
+//! Provide a unified parameter passing method for each command, which is constructed from CLI parameter parsing.
 //!
-//! # 设计理念
-//! - 使用引用避免 clone（性能优化）
-//! - 统一的 `effective_colored()` 方法处理输出格式
-//! - 集中管理所有命令的选项，便于维护
+//! # Design
+//! - Use references to avoid clones (performance optimization)
+//! - Unified `effective_colored()` method to handle output format
+//! - Centrally manage all command options for easy maintenance
 //!
-//! # 示例
+//! # Example
 //! ```no_run
 //! use gcop_rs::commands::options::CommitOptions;
 //! use gcop_rs::commands::format::OutputFormat;
@@ -27,27 +27,27 @@ use super::format::OutputFormat;
 use crate::cli::{Cli, ReviewTarget};
 use crate::config::AppConfig;
 
-/// Commit 命令选项
+/// Commit command options
 ///
-/// 从 CLI 参数构造后传递给 `commands::commit::run()`。
+/// Constructed from CLI parameters and passed to `commands::commit::run()`.
 ///
-/// # 字段说明
-/// - `no_edit`: 跳过编辑器交互（直接使用生成的 message）
-/// - `yes`: 自动接受生成的 message（跳过确认）
-/// - `dry_run`: 只生成 message，不执行 commit
-/// - `format`: 输出格式（Text/JSON）
-/// - `feedback`: 初始反馈/指令（如 "use Chinese", "be concise"）
-/// - `verbose`: 详细模式（显示 API 请求/响应）
-/// - `provider_override`: 覆盖配置中的 provider（如 `--provider openai`）
+/// # Field description
+/// - `no_edit`: skip editor interaction (use the generated message directly)
+/// - `yes`: automatically accept the generated message (skip confirmation)
+/// - `dry_run`: only generates message and does not execute commit
+/// - `format`: output format (Text/JSON)
+/// - `feedback`: initial feedback/instruction (such as "use Chinese", "be concise")
+/// - `verbose`: verbose mode (display API requests/responses)
+/// - `provider_override`: override the provider in the configuration (such as `--provider openai`)
 ///
-/// # 示例
+/// # Example
 /// ```no_run
 /// use gcop_rs::commands::options::CommitOptions;
 /// use gcop_rs::commands::format::OutputFormat;
 ///
 /// let options = CommitOptions {
 ///     no_edit: false,
-///     yes: true,  // 自动接受
+///     yes: true, // automatically accepted
 ///     dry_run: false,
 ///     format: OutputFormat::Text,
 ///     feedback: &["use conventional commits".to_string()],
@@ -57,42 +57,42 @@ use crate::config::AppConfig;
 /// ```
 #[derive(Debug, Clone)]
 pub struct CommitOptions<'a> {
-    /// 是否跳过编辑器交互
+    /// Whether to skip editor interaction
     pub no_edit: bool,
 
-    /// 是否跳过确认（自动接受）
+    /// Whether to skip confirmation (auto-accept)
     pub yes: bool,
 
-    /// 是否只生成不提交
+    /// Whether to only generate and not submit
     pub dry_run: bool,
 
-    /// 输出格式
+    /// Output format
     pub format: OutputFormat,
 
-    /// 初始反馈/指令（引用，避免 clone）
+    /// Initial feedback/instructions (quotes, avoid clones)
     pub feedback: &'a [String],
 
-    /// 是否 verbose 模式
+    /// Whether to use verbose mode
     pub verbose: bool,
 
-    /// 覆盖的 provider
+    /// Covered providers
     pub provider_override: Option<&'a str>,
 }
 
 impl<'a> CommitOptions<'a> {
-    /// 从 CLI 参数构造
+    /// Constructed from CLI parameters
     ///
-    /// # 参数
-    /// - `cli`: 解析的 CLI 参数
+    /// # Parameters
+    /// - `cli`: parsed CLI parameters
     /// - `no_edit`: `--no-edit` flag
     /// - `yes`: `--yes` flag
     /// - `dry_run`: `--dry-run` flag
-    /// - `format`: `--format` 参数（"text", "json"）
-    /// - `json`: `--json` flag（`--format json` 的简写）
-    /// - `feedback`: 位置参数 `FEEDBACK...`（用于附加生成指令）
+    /// - `format`: `--format` parameter ("text", "json")
+    /// - `json`: `--json` flag (short for `--format json`)
+    /// - `feedback`: positional parameter `FEEDBACK...` (for additional generation instructions)
     ///
-    /// # 返回
-    /// 构造好的 `CommitOptions` 实例
+    /// # Returns
+    /// Constructed `CommitOptions` instance
     pub fn from_cli(
         cli: &'a Cli,
         no_edit: bool,
@@ -113,36 +113,36 @@ impl<'a> CommitOptions<'a> {
         }
     }
 
-    /// 获取有效的 colored 设置
+    /// Get valid colored settings
     ///
-    /// 结合输出格式和配置文件的 colored 设置。
+    /// Combines the output format and the colored setting of the configuration file.
     ///
-    /// # 参数
-    /// - `config`: 应用配置
+    /// # Parameters
+    /// - `config`: application configuration
     ///
-    /// # 返回
-    /// - `true` - 启用颜色输出
-    /// - `false` - 禁用颜色输出
+    /// # Returns
+    /// - `true` - enable color output
+    /// - `false` - disable color output
     ///
-    /// # 规则
-    /// - JSON 格式：始终禁用颜色
-    /// - Text 格式：使用配置文件的 `ui.colored` 设置
+    /// # rule
+    /// - JSON format: always disable colors
+    /// - Text format: Use the `ui.colored` setting of the configuration file
     pub fn effective_colored(&self, config: &AppConfig) -> bool {
         self.format.effective_colored(config.ui.colored)
     }
 }
 
-/// Review 命令选项
+/// Review command options
 ///
-/// 从 CLI 参数构造后传递给 `commands::review::run()`。
+/// Constructed from CLI parameters and passed to `commands::review::run()`.
 ///
-/// # 字段说明
-/// - `target`: 审查目标（未暂存变更/单个 commit/范围/文件）
-/// - `format`: 输出格式
-/// - `verbose`: 详细模式（当前未使用，预留）
-/// - `provider_override`: 覆盖配置中的 provider
+/// # Field description
+/// - `target`: review target (unstaged changes/single commit/scope/file)
+/// - `format`: output format
+/// - `verbose`: verbose mode (currently not used, reserved)
+/// - `provider_override`: override the provider in the configuration
 ///
-/// # 示例
+/// # Example
 /// ```no_run
 /// use gcop_rs::commands::options::ReviewOptions;
 /// use gcop_rs::commands::format::OutputFormat;
@@ -158,32 +158,32 @@ impl<'a> CommitOptions<'a> {
 /// ```
 #[derive(Debug, Clone)]
 pub struct ReviewOptions<'a> {
-    /// 审查目标
+    /// review goals
     pub target: &'a ReviewTarget,
 
-    /// 输出格式
+    /// Output format
     pub format: OutputFormat,
 
-    /// 是否 verbose 模式
-    // TODO: 目前 review 命令未使用 verbose，未来可能需要添加详细输出
+    /// Whether to use verbose mode
+    // TODO: Currently the review command does not use verbose. Detailed output may need to be added in the future.
     #[allow(dead_code)]
     pub verbose: bool,
 
-    /// 覆盖的 provider
+    /// Covered providers
     pub provider_override: Option<&'a str>,
 }
 
 impl<'a> ReviewOptions<'a> {
-    /// 从 CLI 参数构造
+    /// Constructed from CLI parameters
     ///
-    /// # 参数
-    /// - `cli`: 解析的 CLI 参数
-    /// - `target`: 审查目标
-    /// - `format`: `--format` 参数
+    /// # Parameters
+    /// - `cli`: parsed CLI parameters
+    /// - `target`: review target
+    /// - `format`: `--format` parameter
     /// - `json`: `--json` flag
     ///
-    /// # 返回
-    /// 构造好的 `ReviewOptions` 实例
+    /// # Returns
+    /// Constructed `ReviewOptions` instance
     pub fn from_cli(cli: &'a Cli, target: &'a ReviewTarget, format: &str, json: bool) -> Self {
         Self {
             target,
@@ -193,28 +193,28 @@ impl<'a> ReviewOptions<'a> {
         }
     }
 
-    /// 获取有效的 colored 设置
+    /// Get valid colored settings
     ///
-    /// # 参数
-    /// - `config`: 应用配置
+    /// # Parameters
+    /// - `config`: application configuration
     ///
-    /// # 返回
-    /// - `true` - 启用颜色输出
-    /// - `false` - 禁用颜色输出
+    /// # Returns
+    /// - `true` - enable color output
+    /// - `false` - disable color output
     pub fn effective_colored(&self, config: &AppConfig) -> bool {
         self.format.effective_colored(config.ui.colored)
     }
 }
 
-/// Stats 命令选项
+/// Stats command options
 ///
-/// 从 CLI 参数构造后传递给 `commands::stats::run()`。
+/// Constructed from CLI parameters and passed to `commands::stats::run()`.
 ///
-/// # 字段说明
-/// - `format`: 输出格式
-/// - `author`: 按作者过滤（可选）
+/// # Field description
+/// - `format`: output format
+/// - `author`: filter by author (optional)
 ///
-/// # 示例
+/// # Example
 /// ```no_run
 /// use gcop_rs::commands::options::StatsOptions;
 /// use gcop_rs::commands::format::OutputFormat;
@@ -226,23 +226,23 @@ impl<'a> ReviewOptions<'a> {
 /// ```
 #[derive(Debug, Clone)]
 pub struct StatsOptions<'a> {
-    /// 输出格式
+    /// Output format
     pub format: OutputFormat,
 
-    /// 按作者过滤
+    /// Filter by author
     pub author: Option<&'a str>,
 }
 
 impl<'a> StatsOptions<'a> {
-    /// 从 CLI 参数构造
+    /// Constructed from CLI parameters
     ///
-    /// # 参数
-    /// - `format`: `--format` 参数
+    /// # Parameters
+    /// - `format`: `--format` parameter
     /// - `json`: `--json` flag
-    /// - `author`: `--author` 参数（可选）
+    /// - `author`: `--author` parameter (optional)
     ///
-    /// # 返回
-    /// 构造好的 `StatsOptions` 实例
+    /// # Returns
+    /// Constructed `StatsOptions` instance
     pub fn from_cli(format: &str, json: bool, author: Option<&'a str>) -> Self {
         Self {
             format: OutputFormat::from_cli(format, json),
@@ -250,14 +250,14 @@ impl<'a> StatsOptions<'a> {
         }
     }
 
-    /// 获取有效的 colored 设置
+    /// Get valid colored settings
     ///
-    /// # 参数
-    /// - `config_colored`: 配置文件的 `ui.colored` 设置
+    /// # Parameters
+    /// - `config_colored`: `ui.colored` setting of configuration file
     ///
-    /// # 返回
-    /// - `true` - 启用颜色输出
-    /// - `false` - 禁用颜色输出
+    /// # Returns
+    /// - `true` - enable color output
+    /// - `false` - disable color output
     pub fn effective_colored(&self, config_colored: bool) -> bool {
         self.format.effective_colored(config_colored)
     }

@@ -1,5 +1,13 @@
+//! LLM abstractions, shared types, and provider traits.
+//!
+//! This module defines the provider interface used by commit generation
+//! and code review flows.
+
+/// Provider message payload helper types.
 pub mod message;
+/// Prompt-building utilities for commit/review flows.
 pub mod prompt;
+/// Built-in provider implementations and factory helpers.
 pub mod provider;
 
 use async_trait::async_trait;
@@ -8,41 +16,42 @@ use tokio::sync::mpsc;
 
 use crate::error::Result;
 
-/// LLM 操作的进度报告接口
+/// Progress reporting interface for LLM operations.
 ///
-/// LLM 层通过此 trait 向调用方报告状态变化（重试、fallback 切换等），
-/// 而不直接依赖具体的 UI 实现。
+/// The LLM layer reports status changes (retry, fallback switch, etc.) through this trait
+/// instead of depending on a concrete UI implementation.
 pub trait ProgressReporter: Send + Sync {
+    /// Appends an informative suffix to a progress message (for retries/fallbacks).
     fn append_suffix(&self, suffix: &str);
 }
 
-/// 流式响应的数据块
+/// Stream chunks emitted by streaming providers.
 ///
-/// 用于 LLM 流式生成 commit message 的增量数据传输。
+/// Used for incremental delivery while generating commit messages.
 ///
-/// # 变体
-/// - [`Delta`] - 文本增量（追加到已有内容）
-/// - [`Done`] - 流正常结束
-/// - [`Error`] - 流异常终止
+/// # Variants
+/// - [`Delta`] - text delta (append to existing content)
+/// - [`Done`] - stream ended normally
+/// - [`Error`] - stream terminated with an error
 ///
 /// [`Delta`]: StreamChunk::Delta
 /// [`Done`]: StreamChunk::Done
 /// [`Error`]: StreamChunk::Error
 #[derive(Debug, Clone)]
 pub enum StreamChunk {
-    /// 文本增量（追加到已有内容）
+    /// Text delta (append to existing content).
     Delta(String),
-    /// 流正常结束
+    /// Stream ended normally.
     Done,
-    /// 流异常终止，包含错误描述
+    /// Stream terminated with an error description.
     Error(String),
 }
 
-/// 流式生成器句柄
+/// Handle for receiving a streaming response.
 ///
-/// 包含一个 tokio channel receiver，用于接收流式响应的数据块。
+/// Wraps a Tokio channel receiver for incoming stream chunks.
 ///
-/// # 使用示例
+/// # Usage example
 /// ```no_run
 /// use gcop_rs::llm::StreamChunk;
 ///
@@ -60,29 +69,29 @@ pub enum StreamChunk {
 /// # }
 /// ```
 pub struct StreamHandle {
-    /// 数据块接收器
+    /// Stream chunk receiver.
     pub receiver: mpsc::Receiver<StreamChunk>,
 }
 
-/// LLM Provider 统一接口
+/// Unified interface implemented by all LLM providers.
 ///
-/// 该 trait 定义了所有 LLM provider 必须实现的方法，支持：
-/// - 生成 commit message
-/// - 代码审查
-/// - 流式响应（可选）
+/// Required capabilities:
+/// - Commit message generation
+/// - Code review
+/// - Optional streaming output
 ///
-/// # 实现者注意
-/// 1. 必须实现 `Send + Sync`（用于 async 上下文）
-/// 2. 所有方法需要处理网络错误、超时、速率限制等
-/// 3. `supports_streaming()` 返回 `false` 时，`generate_commit_message_streaming()` 会 fallback 到非流式
+/// # Implementer Notes
+/// 1. Implement `Send + Sync` (required in async contexts).
+/// 2. Handle network failures, timeouts, and rate limits.
+/// 3. If `supports_streaming()` returns `false`, `generate_commit_message_streaming()` falls back to non-streaming.
 ///
-/// # 内置实现
+/// # Built-In Implementations
 /// - [`ClaudeProvider`](provider::claude::ClaudeProvider) - Anthropic Claude
-/// - [`OpenAIProvider`](provider::openai::OpenAIProvider) - OpenAI/兼容 API
-/// - [`OllamaProvider`](provider::ollama::OllamaProvider) - Ollama 本地模型
-/// - [`FallbackProvider`](provider::fallback::FallbackProvider) - 多 provider 高可用封装
+/// - [`OpenAIProvider`](provider::openai::OpenAIProvider) - OpenAI/compatible API
+/// - [`OllamaProvider`](provider::ollama::OllamaProvider) - Ollama local model
+/// - [`FallbackProvider`](provider::fallback::FallbackProvider) - fallback wrapper for high availability
 ///
-/// # 自定义 Provider 示例
+/// # Custom Provider Example
 /// ```no_run
 /// use async_trait::async_trait;
 /// use gcop_rs::llm::{LLMProvider, CommitContext, ReviewResult, ReviewType};
@@ -100,7 +109,7 @@ pub struct StreamHandle {
 ///         context: Option<CommitContext>,
 ///         progress: Option<&dyn gcop_rs::llm::ProgressReporter>,
 ///     ) -> Result<String> {
-///         // 调用自定义 API...
+///         // Call custom API...
 ///         todo!()
 ///     }
 ///
@@ -119,33 +128,33 @@ pub struct StreamHandle {
 ///     }
 ///
 ///     async fn validate(&self) -> Result<()> {
-///         // 验证 API key 有效性...
+///         // Validate API key validity...
 ///         Ok(())
 ///     }
 /// }
 /// ```
 #[async_trait]
 pub trait LLMProvider: Send + Sync {
-    /// 生成 commit message
+    /// Generates a commit message.
     ///
-    /// 基于 diff 内容和可选上下文生成 commit message（默认按 Conventional 风格，可通过配置引导）。
+    /// Generates a commit message from a diff and optional context.
     ///
-    /// # 参数
-    /// - `diff`: Git diff 内容（通过 `git diff --staged` 获取）
-    /// - `context`: 可选的上下文信息（分支名、文件列表、用户反馈等）
-    /// - `spinner`: 可选的进度报告器（用于显示重试进度）
+    /// # Parameters
+    /// - `diff`: git diff content (typically from `git diff --staged`)
+    /// - `context`: optional context (branch, file list, user feedback, etc.)
+    /// - `progress`: optional progress reporter for retry/fallback feedback
     ///
-    /// # 返回
-    /// - `Ok(message)` - 生成的 commit message
-    /// - `Err(_)` - API 错误、网络错误、超时等
+    /// # Returns
+    /// - `Ok(message)` - generated commit message text
+    /// - `Err(_)` - API error, network error, timeout, etc.
     ///
-    /// # 错误处理
-    /// 实现者需要处理：
-    /// - 网络连接错误（按 `network.max_retries` 配置重试，默认 3 次）
-    /// - 429（速率限制，可结合 Retry-After）
-    /// - 超时与其他 HTTP 错误（通常不自动重试）
+    /// # Error Handling
+    /// Implementers should handle:
+    /// - Network errors (retry based on `network.max_retries`, default: 3)
+    /// - HTTP 429 (rate limiting, optionally using `Retry-After`)
+    /// - Timeouts and other HTTP failures
     ///
-    /// # 示例
+    /// # Example
     /// ```ignore
     /// use gcop_rs::llm::{LLMProvider, CommitContext, provider::openai::OpenAIProvider};
     /// use gcop_rs::config::{ProviderConfig, NetworkConfig};
@@ -167,25 +176,25 @@ pub trait LLMProvider: Send + Sync {
         progress: Option<&dyn ProgressReporter>,
     ) -> Result<String>;
 
-    /// 代码审查
+    /// Runs code review.
     ///
-    /// 分析代码变更，识别潜在问题和改进建议。
+    /// Analyzes code changes and returns issues plus suggestions.
     ///
-    /// # 参数
-    /// - `diff`: 要审查的 diff 内容
-    /// - `review_type`: 审查类型（未暂存工作区变更、单个 commit、范围等）
-    /// - `custom_prompt`: 用户自定义 prompt（追加到系统 prompt）
-    /// - `spinner`: 可选的进度报告器
+    /// # Parameters
+    /// - `diff`: diff content to review
+    /// - `review_type`: target scope (unstaged, single commit, range, file)
+    /// - `custom_prompt`: optional user prompt appended to system guidance
+    /// - `progress`: optional progress reporter
     ///
-    /// # 返回
-    /// - `Ok(result)` - 审查结果（总结、问题列表、建议）
-    /// - `Err(_)` - API 错误或网络错误
+    /// # Returns
+    /// - `Ok(result)` - structured review result
+    /// - `Err(_)` - API error or network error
     ///
-    /// # 审查内容
-    /// - 代码质量（重复代码、复杂度、命名等）
-    /// - 潜在 bug（空指针、数组越界、资源泄漏等）
-    /// - 安全问题（SQL 注入、XSS、敏感信息泄漏等）
-    /// - 性能问题（O(n²) 算法、不必要的复制等）
+    /// # Review dimensions
+    /// - Code quality (duplicate code, complexity, naming, etc.)
+    /// - Potential bugs (null pointer, array out of bounds, resource leak, etc.)
+    /// - Security issues (SQL injection, XSS, sensitive information leakage, etc.)
+    /// - Performance issues (O(n²) algorithm, unnecessary copying, etc.)
     async fn review_code(
         &self,
         diff: &str,
@@ -194,11 +203,11 @@ pub trait LLMProvider: Send + Sync {
         progress: Option<&dyn ProgressReporter>,
     ) -> Result<ReviewResult>;
 
-    /// Provider 名称
+    /// Provider name.
     ///
-    /// 用于日志和错误消息。
+    /// Used for logs and error messages.
     ///
-    /// # 示例
+    /// # Example
     /// ```ignore
     /// use gcop_rs::llm::{LLMProvider, provider::openai::OpenAIProvider};
     /// use gcop_rs::config::{ProviderConfig, NetworkConfig};
@@ -211,48 +220,48 @@ pub trait LLMProvider: Send + Sync {
     #[allow(dead_code)]
     fn name(&self) -> &str;
 
-    /// 验证配置
+    /// Validates provider configuration.
     ///
-    /// 发送测试请求验证 API key、endpoint 等配置是否正确。
+    /// Sends a lightweight test request to verify API key, endpoint, and model configuration.
     ///
-    /// # 返回
-    /// - `Ok(())` - 配置有效
-    /// - `Err(_)` - 配置无效或网络错误
+    /// # Returns
+    /// - `Ok(())` - configuration is valid
+    /// - `Err(_)` - invalid configuration or network error
     ///
-    /// # 错误类型
-    /// - [`GcopError::Llm`] - API key 无效、模型不存在等
-    /// - [`GcopError::Network`] - 网络错误、超时等
+    /// # Error Types
+    /// - [`GcopError::Llm`] - API key is invalid, model does not exist, etc.
+    /// - [`GcopError::Network`] - Network errors, timeouts, etc.
     ///
     /// [`GcopError::Llm`]: crate::error::GcopError::Llm
     /// [`GcopError::Network`]: crate::error::GcopError::Network
     async fn validate(&self) -> Result<()>;
 
-    /// 是否支持流式响应
+    /// Whether streaming output is supported.
     ///
-    /// # 返回
-    /// - `true` - 支持流式（SSE）
-    /// - `false` - 仅支持非流式（默认值）
+    /// # Returns
+    /// - `true` - supports streaming (SSE)
+    /// - `false` - only non-streaming is supported (default)
     fn supports_streaming(&self) -> bool {
         false
     }
 
-    /// 流式生成 commit message
+    /// Generates a commit message as a stream.
     ///
-    /// 返回一个流式生成器，实时接收生成的文本增量。
+    /// Returns a stream handle that yields text deltas in real time.
     ///
-    /// # 参数
-    /// - `diff`: Git diff 内容
-    /// - `context`: 可选的上下文信息
+    /// # Parameters
+    /// - `diff`: Git diff content
+    /// - `context`: optional context information
     ///
-    /// # 返回
-    /// - `Ok(handle)` - 流式生成器句柄
-    /// - `Err(_)` - API 错误或网络错误
+    /// # Returns
+    /// - `Ok(handle)` - stream handle
+    /// - `Err(_)` - API error or network error
     ///
-    /// # 默认实现
-    /// 如果 provider 不支持流式，默认实现会 fallback 到非流式方法，
-    /// 然后一次性发送完整消息（模拟流式行为）。
+    /// # Default Implementation
+    /// If streaming is unsupported, this falls back to `generate_commit_message()`
+    /// and emits the full message as a single delta.
     ///
-    /// # 示例
+    /// # Example
     /// ```ignore
     /// use gcop_rs::llm::{LLMProvider, StreamChunk, provider::claude::ClaudeProvider};
     /// use gcop_rs::config::{ProviderConfig, NetworkConfig};
@@ -281,7 +290,7 @@ pub trait LLMProvider: Send + Sync {
     ) -> Result<StreamHandle> {
         let (tx, rx) = mpsc::channel(32);
 
-        // 调用非流式方法，然后一次性发送
+        // Fall back to non-streaming and emit one full-message chunk.
         let result = self.generate_commit_message(diff, context, None).await;
 
         match result {
@@ -300,41 +309,41 @@ pub trait LLMProvider: Send + Sync {
 
 use crate::config::CommitConvention;
 
-/// Workspace scope 信息
+/// Workspace scope metadata for monorepos.
 ///
-/// 提供给 LLM 的 monorepo scope 上下文。
+/// Additional scope context passed into commit prompt generation.
 ///
-/// # 字段
-/// - `workspace_types`: 检测到的 workspace 类型（如 "cargo", "pnpm"）
-/// - `packages`: 受影响的包路径列表
-/// - `suggested_scope`: 建议的 scope 字符串（可能为 None）
-/// - `has_root_changes`: 是否有 root 级别（非包内）的变更
+/// # Fields
+/// - `workspace_types`: detected workspace systems (for example `"cargo"`, `"pnpm"`)
+/// - `packages`: list of affected package paths
+/// - `suggested_scope`: suggested scope string (may be `None`)
+/// - `has_root_changes`: whether root-level (non-package) files were changed
 #[derive(Debug, Clone, Default)]
 pub struct ScopeInfo {
-    /// 检测到的 workspace 类型
+    /// Detected workspace systems.
     pub workspace_types: Vec<String>,
-    /// 受影响的包路径
+    /// Affected package paths.
     pub packages: Vec<String>,
-    /// 建议的 scope 字符串
+    /// Suggested commit scope string.
     pub suggested_scope: Option<String>,
-    /// 是否有 root 级别变更
+    /// Whether there are root-level changes.
     pub has_root_changes: bool,
 }
 
-/// Commit 上下文信息
+/// Context passed to commit-message generation.
 ///
-/// 提供给 LLM 的额外信息，用于生成更准确的 commit message。
+/// Enriches prompt construction with git metadata and user constraints.
 ///
-/// # 字段
-/// - `files_changed`: 变更的文件路径列表
-/// - `insertions`: 新增行数
-/// - `deletions`: 删除行数
-/// - `branch_name`: 当前分支名（可能为 None，如 detached HEAD）
-/// - `custom_prompt`: 用户自定义 prompt（追加到系统 prompt）
-/// - `user_feedback`: 用户反馈（重新生成时使用，支持累积）
-/// - `convention`: commit 规范配置（来自项目级或用户级配置）
+/// # Fields
+/// - `files_changed`: list of changed file paths
+/// - `insertions`: number of inserted lines
+/// - `deletions`: number of deleted lines
+/// - `branch_name`: current branch name (may be `None`, for example detached HEAD)
+/// - `custom_prompt`: user-defined prompt (appended to system prompt)
+/// - `user_feedback`: user feedback (used when regenerating, supports accumulation)
+/// - `convention`: optional commit-convention config
 ///
-/// # 示例
+/// # Example
 /// ```
 /// use gcop_rs::llm::CommitContext;
 ///
@@ -351,26 +360,33 @@ pub struct ScopeInfo {
 /// ```
 #[derive(Debug, Clone, Default)]
 pub struct CommitContext {
+    /// Changed file paths used as additional model context.
     pub files_changed: Vec<String>,
+    /// Number of inserted lines in the diff.
     pub insertions: usize,
+    /// Number of deleted lines in the diff.
     pub deletions: usize,
+    /// Current branch name, if available.
     pub branch_name: Option<String>,
+    /// Optional user-provided prompt additions.
     pub custom_prompt: Option<String>,
-    pub user_feedback: Vec<String>, // 用户重试反馈（支持累积）
+    /// Accumulated feedback from previous retry attempts.
+    pub user_feedback: Vec<String>,
+    /// Optional commit convention constraints.
     pub convention: Option<CommitConvention>,
-    /// Workspace scope 信息（None 表示非 monorepo 或未启用检测）
+    /// Workspace scope metadata (`None` when detection is disabled or not applicable).
     pub scope_info: Option<ScopeInfo>,
 }
 
-/// 审查类型
+/// Review target type.
 ///
-/// 指定要审查的代码范围。
+/// Selects which code changes to review.
 ///
-/// # 变体
-/// - [`UncommittedChanges`] - 未提交且未暂存的变更（index -> workdir）
-/// - [`SingleCommit`] - 单个 commit（通过 hash）
-/// - [`CommitRange`] - commit 范围（如 `HEAD~3..HEAD`）
-/// - [`FileOrDir`] - 特定文件路径（当前不支持目录）
+/// # Variants
+/// - [`UncommittedChanges`] - unstaged working tree changes (`index -> workdir`)
+/// - [`SingleCommit`] - one commit by hash
+/// - [`CommitRange`] - commit range (for example `HEAD~3..HEAD`)
+/// - [`FileOrDir`] - one file path (directories are currently unsupported)
 ///
 /// [`UncommittedChanges`]: ReviewType::UncommittedChanges
 /// [`SingleCommit`]: ReviewType::SingleCommit
@@ -379,22 +395,26 @@ pub struct CommitContext {
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum ReviewType {
+    /// Review unstaged workspace changes (`index -> workdir`).
     UncommittedChanges,
+    /// Review a single commit by hash.
     SingleCommit(String),
+    /// Review a commit range (`A..B`).
     CommitRange(String),
+    /// Review a single file path (directory recursion is not supported).
     FileOrDir(String),
 }
 
-/// 审查结果
+/// Structured result returned by code review.
 ///
-/// LLM 代码审查的输出结果。
+/// Parsed output from an LLM review response.
 ///
-/// # 字段
-/// - `summary`: 总体评价和摘要
-/// - `issues`: 发现的问题列表（按严重程度排序）
-/// - `suggestions`: 改进建议列表
+/// # Fields
+/// - `summary`: high-level summary
+/// - `issues`: issues discovered by the reviewer
+/// - `suggestions`: additional improvement suggestions
 ///
-/// # 示例
+/// # Example
 /// ```
 /// use gcop_rs::llm::{ReviewResult, ReviewIssue, IssueSeverity};
 ///
@@ -413,46 +433,54 @@ pub enum ReviewType {
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReviewResult {
+    /// High-level summary generated by the reviewer model.
     pub summary: String,
+    /// Structured list of discovered issues.
     pub issues: Vec<ReviewIssue>,
+    /// Additional improvement suggestions.
     pub suggestions: Vec<String>,
 }
 
-/// 审查问题
+/// A single issue found during review.
 ///
-/// 代码审查中发现的单个问题。
-///
-/// # 字段
-/// - `severity`: 严重程度（Critical/Warning/Info）
-/// - `description`: 问题描述
-/// - `file`: 相关文件路径（可选）
-/// - `line`: 相关行号（可选）
+/// # Fields
+/// - `severity`: issue severity (`Critical`/`Warning`/`Info`)
+/// - `description`: issue description
+/// - `file`: related file path (optional)
+/// - `line`: related line number (optional)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReviewIssue {
+    /// Severity level assigned to this issue.
     pub severity: IssueSeverity,
+    /// Human-readable description of the issue.
     pub description: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// Optional file path related to the issue.
     pub file: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// Optional 1-based line number related to the issue.
     pub line: Option<usize>,
 }
 
-/// 问题严重性
+/// Issue severity level.
 ///
-/// # 变体
-/// - `Critical` - 严重问题（安全漏洞、崩溃风险等）
-/// - `Warning` - 警告（性能问题、代码异味等）
-/// - `Info` - 提示（风格建议、最佳实践等）
+/// # Variants
+/// - `Critical` - severe issue (security/correctness risk)
+/// - `Warning` - notable issue (performance/maintainability concern)
+/// - `Info` - informational suggestion
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum IssueSeverity {
+    /// Critical issue (e.g., correctness/security risk).
     Critical,
+    /// Warning-level issue (e.g., maintainability/performance concern).
     Warning,
+    /// Informational suggestion.
     Info,
 }
 
 impl IssueSeverity {
-    /// 数值等级，用于过滤比较（越小越严重）
+    /// Numeric severity level used for filtering (`0` is most severe).
     pub fn level(&self) -> u8 {
         match self {
             Self::Critical => 0,
@@ -461,7 +489,7 @@ impl IssueSeverity {
         }
     }
 
-    /// 从配置字符串解析
+    /// Parses severity from a config string.
     pub fn from_config_str(s: &str) -> Self {
         match s {
             "critical" => Self::Critical,
@@ -470,7 +498,7 @@ impl IssueSeverity {
         }
     }
 
-    /// 获取 i18n 标签
+    /// Returns localized label text.
     pub fn label(&self, colored: bool) -> String {
         match (self, colored) {
             (Self::Critical, true) => rust_i18n::t!("review.severity.critical").to_string(),
@@ -484,7 +512,7 @@ impl IssueSeverity {
         }
     }
 
-    /// 彩色输出标签
+    /// Returns a colored severity label.
     pub fn colored_label(&self) -> String {
         use colored::Colorize;
         let label = self.label(true);

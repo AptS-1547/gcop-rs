@@ -1,12 +1,12 @@
 use thiserror::Error;
 
-/// Result 类型别名，使用 [`GcopError`] 作为错误类型
+/// Result type alias, use [`GcopError`] as error type
 pub type Result<T> = std::result::Result<T, GcopError>;
 
-/// git2::Error 的包装类型，提供更友好的错误信息
+/// A wrapper type for git2::Error that provides more friendly error information
 ///
-/// 隐藏 libgit2 的技术细节（ErrorClass、ErrorCode 等），
-/// 仅显示用户友好的错误消息。
+/// Hide technical details of libgit2 (ErrorClass, ErrorCode, etc.),
+/// Display only user-friendly error messages.
 #[derive(Debug)]
 pub struct GitErrorWrapper(pub git2::Error);
 
@@ -28,21 +28,21 @@ impl From<git2::Error> for GcopError {
     }
 }
 
-/// gcop-rs 统一错误类型
+/// gcop-rs unified error types
 ///
-/// 包含所有可能的错误情况，支持：
-/// - 国际化错误消息（通过 [`localized_message()`]）
-/// - 用户友好的解决建议（通过 [`localized_suggestion()`]）
-/// - 从各种库错误自动转换（实现 `From<T>`）
+/// Contains all possible error conditions, supporting:
+/// - Internationalized error messages (via [`localized_message()`])
+/// - User-friendly solution suggestions (via [`localized_suggestion()`])
+/// - Automatic conversion from various library errors (implementing `From<T>`)
 ///
-/// # 错误类别
-/// - Git 操作错误：[`GitCommand`], [`Git`]
-/// - LLM 相关错误：[`Llm`], [`LlmApi`]
-/// - 配置错误：[`Config`], [`ConfigParse`]
-/// - 用户操作：[`UserCancelled`], [`InvalidInput`]
-/// - 其他：[`Io`], [`Network`], [`Other`]
+/// # Error category
+/// - Git operation errors: [`GitCommand`], [`Git`]
+/// - LLM related errors: [`Llm`], [`LlmApi`]
+/// - Configuration errors: [`Config`], [`ConfigParse`]
+/// - User operations: [`UserCancelled`], [`InvalidInput`]
+/// - Others: [`Io`], [`Network`], [`Other`]
 ///
-/// # 示例
+/// # Example
 /// ```
 /// use gcop_rs::error::{GcopError, Result};
 ///
@@ -71,131 +71,131 @@ impl From<git2::Error> for GcopError {
 /// [`localized_suggestion()`]: GcopError::localized_suggestion
 #[derive(Error, Debug)]
 pub enum GcopError {
-    /// Git2 库错误（libgit2）
+    /// Git2 library error (libgit2)
     ///
-    /// 包含详细的 ErrorCode 和 ErrorClass。
+    /// Contains detailed ErrorCode and ErrorClass.
     ///
-    /// # 常见错误码
-    /// - `NotFound`：文件/分支不存在
-    /// - `Exists`：分支已存在
-    /// - `Uncommitted`：有未提交的变更
-    /// - `Conflict`：merge 冲突
+    /// # Common error codes
+    /// - `NotFound`: file/branch does not exist
+    /// - `Exists`: branch already exists
+    /// - `Uncommitted`: There are uncommitted changes
+    /// - `Conflict`: merge conflict
     #[error("Git error: {0}")]
     Git(GitErrorWrapper),
 
-    /// Git 命令执行失败
+    /// Git command execution failed
     ///
-    /// 包含 `git` 命令的 stderr 输出。
+    /// Contains the stderr output of the `git` command.
     ///
-    /// # 常见原因
-    /// - 无 staged changes：`nothing to commit`
-    /// - pre-commit hook 失败
-    /// - merge 冲突
+    /// # Common reasons
+    /// - No staged changes: `nothing to commit`
+    /// - pre-commit hook failed
+    /// - merge conflicts
     #[error("Git command failed: {0}")]
     GitCommand(String),
 
-    /// 配置错误
+    /// Configuration error
     ///
-    /// 包含配置文件错误、环境变量错误、API key 缺失等。
+    /// Including configuration file errors, environment variable errors, missing API keys, etc.
     #[error("Configuration error: {0}")]
     Config(String),
 
-    /// LLM provider 错误
+    /// LLM provider error
     ///
-    /// 通用 LLM 错误（非 HTTP 状态码错误）。
+    /// Generic LLM errors (non-HTTP status code errors).
     ///
-    /// # 常见原因
-    /// - 超时
-    /// - 连接失败
-    /// - 响应解析失败
+    /// # Common reasons
+    /// - time out
+    /// - Connection failed
+    /// - Response parsing failed
     #[error("LLM provider error: {0}")]
     Llm(String),
 
-    /// LLM API HTTP 错误
+    /// LLM API HTTP Error
     ///
-    /// 包含 HTTP 状态码和错误消息。
+    /// Contains HTTP status codes and error messages.
     ///
-    /// # 常见状态码
-    /// - `401` - API key 无效或过期
-    /// - `429` - 速率限制
-    /// - `500+` - 服务端错误
+    /// # Common status codes
+    /// - `401` - API key is invalid or expired
+    /// - `429` - rate limit
+    /// - `500+` - Server error
     #[error("LLM API error ({status}): {message}")]
     LlmApi {
-        /// HTTP 状态码
+        /// HTTP status code
         status: u16,
-        /// 错误消息
+        /// error message
         message: String,
     },
 
-    /// 网络错误
+    /// network error
     ///
-    /// HTTP 请求失败（超时、DNS 错误、连接拒绝等）。
+    /// HTTP request failed (timeout, DNS error, connection refused, etc.).
     #[error("Network error: {0}")]
     Network(#[from] reqwest::Error),
 
-    /// IO 错误
+    /// IO error
     ///
-    /// 文件读写失败。
+    /// File reading and writing failed.
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
-    /// 序列化错误
+    /// serialization error
     ///
-    /// JSON 序列化/反序列化失败。
+    /// JSON serialization/deserialization failed.
     #[error("Serialization error: {0}")]
     Serde(#[from] serde_json::Error),
 
-    /// 配置文件解析错误
+    /// Configuration file parsing error
     ///
-    /// TOML 文件格式错误或字段类型不匹配。
+    /// The TOML file is malformed or the field types do not match.
     #[error("Configuration parsing error: {0}")]
     ConfigParse(#[from] config::ConfigError),
 
-    /// UI 交互错误
+    /// UI interaction errors
     ///
-    /// 终端交互失败（用户输入错误、终端不可用等）。
+    /// Terminal interaction failed (user input error, terminal unavailable, etc.).
     #[error("UI error: {0}")]
     Dialoguer(#[from] dialoguer::Error),
 
-    /// 无 staged changes
+    /// No staged changes
     ///
-    /// 暂存区为空，无法生成 commit message。
+    /// The staging area is empty and the commit message cannot be generated.
     #[error("No staged changes found")]
     NoStagedChanges,
 
-    /// 用户取消操作
+    /// User cancels operation
     ///
-    /// 用户在交互式 prompt 中选择退出。
+    /// The user chooses to exit at the interactive prompt.
     #[error("Operation cancelled by user")]
     UserCancelled,
 
-    /// 无效输入
+    /// Invalid input
     ///
-    /// 用户提供的参数不符合预期格式。
+    /// The user-supplied parameter does not conform to the expected format.
     #[error("Invalid input: {0}")]
     InvalidInput(String),
 
-    /// 达到最大重试次数
+    /// Maximum number of retries reached
     ///
-    /// commit message 生成重试次数超过配置的上限。
+    /// The number of commit message generation retries exceeds the configured upper limit.
     #[error("Max retries exceeded after {0} attempts")]
     MaxRetriesExceeded(usize),
 
-    /// 通用错误类型
+    /// Common error types
     ///
-    /// 用于不适合其他分类的错误。
+    /// Used for errors that do not fit into other categories.
     #[error("{0}")]
     Other(String),
 }
 
-/// 将 Git ErrorCode 映射到建议 key（用于去重）
+/// Map Git ErrorCode to suggestion key (for deduplication)
 ///
-/// # 参数
-/// - `code`: libgit2 错误码
+/// # Parameters
+/// - `code`: libgit2 error code
 ///
-/// # 返回
-/// - `Some(key)` - 建议的 i18n key
-/// - `None` - 无特定建议（通用错误）
+/// # Returns
+/// - `Some(key)` - suggested i18n key
+/// - `None` - no specific advice (generic error)
 fn git_error_code_to_key(code: git2::ErrorCode) -> Option<&'static str> {
     use git2::ErrorCode;
     match code {
@@ -228,21 +228,21 @@ fn git_error_code_to_key(code: git2::ErrorCode) -> Option<&'static str> {
 }
 
 impl GcopError {
-    /// 获取本地化的错误消息
+    /// Get localized error messages
     ///
-    /// 根据当前语言环境返回翻译后的错误消息。
+    /// Returns a translated error message based on the current locale.
     ///
-    /// # 返回
-    /// 本地化后的错误消息字符串
+    /// # Returns
+    /// Localized error message string
     ///
-    /// # 示例
+    /// # Example
     /// ```
     /// use gcop_rs::error::GcopError;
     ///
     /// let err = GcopError::NoStagedChanges;
     /// println!("{}", err.localized_message());
-    /// // 输出：No staged changes found（英文环境）
-    /// // 输出：未找到暂存的更改（中文环境）
+    /// // Output: No staged changes found (English environment)
+    /// // Output: No staged changes found (Chinese environment)
     /// ```
     pub fn localized_message(&self) -> String {
         match self {
@@ -283,23 +283,23 @@ impl GcopError {
         }
     }
 
-    /// 获取本地化的解决建议
+    /// Get localized solutions
     ///
-    /// 根据错误类型返回用户友好的解决建议（如果有）。
+    /// Returns user-friendly resolution suggestions based on the error type (if any).
     ///
-    /// # 返回
-    /// - `Some(suggestion)` - 解决建议字符串
-    /// - `None` - 无特定建议
+    /// # Returns
+    /// - `Some(suggestion)` - solution suggestion string
+    /// - `None` - no specific suggestions
     ///
-    /// # 建议类型
-    /// - **NoStagedChanges**: 提示运行 `git add`
-    /// - **Config(API key)**: 提示设置 API key
-    /// - **LlmApi(401)**: 提示检查 API key 有效性
-    /// - **LlmApi(429)**: 提示稍后重试或升级 API 计划
-    /// - **Network**: 提示检查网络连接
-    /// - 其他错误：可能返回 `None`
+    /// # Suggestion type
+    /// - **NoStagedChanges**: Prompt to run `git add`
+    /// - **Config(API key)**: Prompt to set API key
+    /// - **LlmApi(401)**: Prompt to check API key validity
+    /// - **LlmApi(429)**: Prompt to try again later or upgrade the API plan
+    /// - **Network**: Prompt to check network connection
+    /// - Other errors: may return `None`
     ///
-    /// # 示例
+    /// # Example
     /// ```
     /// use gcop_rs::error::GcopError;
     ///
@@ -307,7 +307,7 @@ impl GcopError {
     /// if let Some(suggestion) = err.localized_suggestion() {
     ///     println!("Try: {}", suggestion);
     /// }
-    /// // 输出：Try: Run 'git add <files>' to stage your changes first
+    /// // Output: Try: Run 'git add <files>' to stage your changes first
     /// ```
     pub fn localized_suggestion(&self) -> Option<String> {
         match self {
@@ -377,7 +377,7 @@ impl GcopError {
 mod tests {
     use super::*;
 
-    // === NoStagedChanges 分支 ===
+    // === NoStagedChanges branch ===
 
     #[test]
     fn test_suggestion_no_staged_changes() {
@@ -388,7 +388,7 @@ mod tests {
         );
     }
 
-    // === Config 错误: API key 分支 ===
+    // === Config Error: API key branch ===
 
     #[test]
     fn test_suggestion_config_claude_api_key() {
@@ -421,19 +421,19 @@ mod tests {
         assert!(suggestion.contains("claude, openai, ollama"));
     }
 
-    // === Network 错误 ===
+    // === Network Error ===
 
     #[test]
     fn test_suggestion_network_error() {
-        // reqwest::Error 无法直接构造，使用真实网络错误或跳过
-        // 这里我们测试 Network 变体存在时的行为
-        // 注意：需要实际的 reqwest::Error，这里用文档说明测试思路
+        // reqwest::Error cannot be constructed directly, use real network error or skip
+        // Here we test the behavior when the Network variant is present
+        // Note: Actual reqwest::Error is required. Here is a document describing the test idea.
 
-        // 由于 reqwest::Error 构造困难，我们验证 suggestion() 的逻辑
-        // 实际测试需要集成测试或使用 mock
+        // Since reqwest::Error is difficult to construct, we verify the logic of suggestion()
+        // Actual testing requires integration testing or using mocks
     }
 
-    // === Llm 错误分支 ===
+    // === Llm wrong branch ===
 
     #[test]
     fn test_suggestion_llm_timeout() {
@@ -504,7 +504,7 @@ mod tests {
         assert!(suggestion.contains("feedback"));
     }
 
-    // === 无建议的分支 ===
+    // === No suggested branches ===
 
     #[test]
     fn test_suggestion_returns_none_for_other_errors() {
@@ -513,7 +513,7 @@ mod tests {
             GcopError::InvalidInput("bad input".to_string()),
             GcopError::Other("random error".to_string()),
             GcopError::GitCommand("git failed".to_string()),
-            // Config/Llm 不匹配任何模式
+            // Config/Llm does not match any pattern
             GcopError::Config("some random config error".to_string()),
             GcopError::Llm("some random llm error".to_string()),
         ];

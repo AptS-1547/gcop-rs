@@ -2,7 +2,7 @@ use colored::Colorize;
 
 use crate::git::DiffStats;
 
-/// 显示成功消息（绿色 ✓）
+/// Show success message (green ✓)
 pub fn success(msg: &str, colored: bool) {
     if colored {
         println!("{} {}", "✓".green().bold(), msg.green());
@@ -11,7 +11,7 @@ pub fn success(msg: &str, colored: bool) {
     }
 }
 
-/// 显示错误消息（红色 ✗）
+/// Show error message (red ✗)
 pub fn error(msg: &str, colored: bool) {
     if colored {
         eprintln!("{} {}", "✗".red().bold(), msg.red());
@@ -20,7 +20,7 @@ pub fn error(msg: &str, colored: bool) {
     }
 }
 
-/// 显示警告消息（黄色 ⚠）
+/// Show warning message (yellow ⚠)
 pub fn warning(msg: &str, colored: bool) {
     if colored {
         println!("{} {}", "⚠".yellow().bold(), msg.yellow());
@@ -29,7 +29,7 @@ pub fn warning(msg: &str, colored: bool) {
     }
 }
 
-/// 显示信息消息（蓝色 ℹ）
+/// Show information messages (blue ℹ)
 pub fn info(msg: &str, colored: bool) -> String {
     if colored {
         format!("{} {}", "ℹ".blue().bold(), msg.blue())
@@ -38,7 +38,7 @@ pub fn info(msg: &str, colored: bool) -> String {
     }
 }
 
-/// 显示步骤提示（灰色）
+/// Show step prompts (gray)
 pub fn step(step: &str, msg: &str, colored: bool) {
     if colored {
         println!(
@@ -51,7 +51,7 @@ pub fn step(step: &str, msg: &str, colored: bool) {
     }
 }
 
-/// 格式化 diff 统计信息
+/// Format diff statistics
 pub fn format_diff_stats(stats: &DiffStats, colored: bool) -> String {
     use rust_i18n::t;
 
@@ -90,7 +90,7 @@ pub fn format_diff_stats(stats: &DiffStats, colored: bool) -> String {
 mod tests {
     use super::*;
 
-    // === 文件数量单复数测试 ===
+    // === Number of files singular and plural test ===
 
     #[test]
     fn test_format_diff_stats_single_file() {
@@ -115,7 +115,7 @@ mod tests {
         assert!(result.contains("3 files"));
     }
 
-    // === 插入/删除数量单复数测试 ===
+    // === Insertion/deletion quantity singular and plural test ===
 
     #[test]
     fn test_format_diff_stats_single_insertion() {
@@ -141,7 +141,7 @@ mod tests {
         assert!(!result.contains("1 deletions"));
     }
 
-    // === 边界情况：零值 ===
+    // === Boundary case: zero value ===
 
     #[test]
     fn test_format_diff_stats_zero_insertions() {
@@ -167,7 +167,7 @@ mod tests {
         assert!(result.contains("0 deletions(-)"));
     }
 
-    // === 彩色输出测试 ===
+    // === Color output test ===
 
     #[test]
     fn test_format_diff_stats_colored() {
@@ -179,7 +179,7 @@ mod tests {
         let colored = format_diff_stats(&stats, true);
         let plain = format_diff_stats(&stats, false);
 
-        // 两个版本都应该包含核心信息
+        // Both versions should contain the core information
         assert!(colored.contains("1 file"));
         assert!(colored.contains("10 insertions(+)"));
         assert!(colored.contains("5 deletions(-)"));
@@ -197,6 +197,6 @@ mod tests {
             deletions: 0,
         };
         let result = format_diff_stats(&stats, false);
-        assert!(result.contains("0 files")); // 复数形式用于0
+        assert!(result.contains("0 files")); // The plural form is used for 0
     }
 }

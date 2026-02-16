@@ -14,21 +14,22 @@ use crate::ui::colors;
 
 use super::create_single_provider;
 
-/// Fallback Provider - 包装多个 provider，失败时自动切换
+/// Fallback Provider - wraps multiple providers and automatically switches when failure occurs
 pub struct FallbackProvider {
     providers: Vec<Arc<dyn LLMProvider>>,
     colored: bool,
 }
 
 impl FallbackProvider {
+    /// Creates a fallback wrapper from a prepared provider chain.
     pub fn new(providers: Vec<Arc<dyn LLMProvider>>, colored: bool) -> Self {
         Self { providers, colored }
     }
 
-    /// 从配置创建 FallbackProvider
+    /// Create FallbackProvider from configuration
     ///
-    /// 收集主 provider 和 fallback providers，创建时失败只记录 debug 日志。
-    /// 返回包装好的 provider（如果只有一个成功则直接返回它）。
+    /// Collect main providers and fallback providers, and only record debug logs if they fail during creation.
+    /// Return the wrapped provider (if only one succeeds, return it directly).
     pub fn from_config(
         config: &AppConfig,
         provider_name: Option<&str>,
@@ -36,16 +37,16 @@ impl FallbackProvider {
         let colored = config.ui.colored;
         let main_name = provider_name.unwrap_or(&config.llm.default_provider);
 
-        // 收集所有要尝试的 provider 名称
+        // Collect all provider names to try
         let mut provider_names: Vec<&str> = vec![main_name];
         provider_names.extend(config.llm.fallback_providers.iter().map(String::as_str));
 
-        // 如果只有一个 provider（无 fallback），直接创建
+        // If there is only one provider (no fallback), create it directly
         if provider_names.len() == 1 {
             return create_single_provider(config, provider_names[0], colored);
         }
 
-        // 创建所有 provider，失败时记录 debug 日志
+        // Create all providers and record debug logs on failure
         let mut providers: Vec<Arc<dyn LLMProvider>> = Vec::new();
 
         for (i, &name) in provider_names.iter().enumerate() {
@@ -67,9 +68,9 @@ impl FallbackProvider {
             ));
         }
 
-        // 如果只成功创建了一个，直接返回（避免不必要的包装）
+        // If exactly one provider is available, return it directly.
         if providers.len() == 1 {
-            // SAFETY: len() == 1 保证了有元素
+            // SAFETY: len() == 1 guarantees that there are elements
             return Ok(providers
                 .into_iter()
                 .next()
@@ -87,7 +88,7 @@ impl LLMProvider for FallbackProvider {
     }
 
     fn supports_streaming(&self) -> bool {
-        // 使用第一个 provider 的能力
+        // Ability to use the first provider
         self.providers
             .first()
             .map(|p| p.supports_streaming())
@@ -140,7 +141,7 @@ impl LLMProvider for FallbackProvider {
         let mut last_error = None;
 
         for (i, provider) in self.providers.iter().enumerate() {
-            // 如果是 fallback（非第一个 provider），更新 spinner 显示
+            // If it is fallback (not the first provider), update the spinner display
             if i > 0
                 && let Some(p) = progress
             {
@@ -156,7 +157,7 @@ impl LLMProvider for FallbackProvider {
             {
                 Ok(msg) => return Ok(msg),
                 Err(e) => {
-                    // 如果不是最后一个 provider，显示警告并继续
+                    // If it is not the last provider, show a warning and continue
                     if i < self.providers.len() - 1 {
                         colors::warning(
                             &rust_i18n::t!(
@@ -187,7 +188,7 @@ impl LLMProvider for FallbackProvider {
         let mut last_error = None;
 
         for (i, provider) in self.providers.iter().enumerate() {
-            // 如果是 fallback（非第一个 provider），更新 spinner 显示
+            // If it is fallback (not the first provider), update the spinner display
             if i > 0
                 && let Some(p) = progress
             {
@@ -231,7 +232,7 @@ impl LLMProvider for FallbackProvider {
         let mut last_error = None;
         let mut tried_streaming = false;
 
-        // 尝试所有支持流式的 provider
+        // Try all providers that support streaming
         for provider in &self.providers {
             if !provider.supports_streaming() {
                 continue;
@@ -257,7 +258,7 @@ impl LLMProvider for FallbackProvider {
             }
         }
 
-        // 所有流式 provider 都失败了，fallback 到非流式模式
+        // All streaming providers failed and fellback to non-streaming mode
         if tried_streaming {
             colors::warning(
                 &rust_i18n::t!("provider.all_streaming_failed"),
@@ -274,7 +275,7 @@ impl LLMProvider for FallbackProvider {
                 let _ = tx.send(StreamChunk::Done).await;
             }
             Err(e) => {
-                // 如果非流式也失败了，优先返回流式的错误（更有意义）
+                // If the non-streaming method also fails, the streaming error will be returned first (more meaningful)
                 let error = last_error.map(|le| le.to_string()).unwrap_or(e.to_string());
                 let _ = tx.send(StreamChunk::Error(error)).await;
             }
@@ -288,7 +289,7 @@ impl LLMProvider for FallbackProvider {
 mod tests {
     use super::*;
 
-    /// 简单的 Mock Provider 用于测试
+    /// Simple Mock Provider for testing
     struct TestProvider {
         name: String,
         should_fail: bool,
@@ -385,7 +386,7 @@ mod tests {
         }
     }
 
-    // === 测试 supports_streaming ===
+    // === Test supports_streaming ===
 
     #[test]
     fn test_supports_streaming_true() {
@@ -407,7 +408,7 @@ mod tests {
         assert!(!fallback.supports_streaming());
     }
 
-    // === 测试 validate ===
+    // === Test validate ===
 
     #[tokio::test]
     async fn test_validate_empty_providers() {
@@ -435,12 +436,12 @@ mod tests {
     #[tokio::test]
     async fn test_validate_partial_success() {
         let provider1 = TestProvider::new("p1").with_failure();
-        let provider2 = TestProvider::new("p2"); // 成功
+        let provider2 = TestProvider::new("p2"); // success
         let fallback = FallbackProvider::new(vec![Arc::new(provider1), Arc::new(provider2)], false);
         assert!(fallback.validate().await.is_ok());
     }
 
-    // === 测试 generate_commit_message ===
+    // === Test generate_commit_message ===
 
     #[tokio::test]
     async fn test_generate_commit_message_primary_success() {
@@ -470,7 +471,7 @@ mod tests {
         assert!(result.is_err());
     }
 
-    // === 测试 review_code ===
+    // === Test review_code ===
 
     #[tokio::test]
     async fn test_review_code_primary_success() {
@@ -495,7 +496,7 @@ mod tests {
         assert_eq!(result.unwrap().summary, "message from fallback");
     }
 
-    // === 测试 generate_commit_message_streaming ===
+    // === Test generate_commit_message_streaming ===
 
     #[tokio::test]
     async fn test_streaming_primary_success() {
@@ -522,13 +523,13 @@ mod tests {
         let result = fallback
             .generate_commit_message_streaming("diff", None)
             .await;
-        // 应该 fallback 到非流式模式，但因为也失败了，会收到错误
+        // Should fallback to non-streaming mode, but since that also fails, you get an error
         assert!(result.is_ok());
 
         let mut handle = result.unwrap();
         let chunk = handle.receiver.recv().await;
         assert!(chunk.is_some());
-        // 应该收到 Error chunk（也可能收到其他 chunk）
+        // Error chunk should be received (other chunks may also be received)
         if let StreamChunk::Error(_) = chunk.unwrap() {
             // OK
         }

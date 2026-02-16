@@ -1,8 +1,8 @@
-// 配置模块
-//
-// 此模块负责应用配置的加载、管理和访问。
+//! Configuration loading, merging, and validation.
+//!
+//! This module exposes the public configuration API used across command flows,
+//! provider initialization, and runtime behavior.
 
-// 子模块声明
 mod global;
 mod loader;
 mod structs;
@@ -10,7 +10,7 @@ mod structs;
 #[cfg(test)]
 mod tests;
 
-// 公开 API
+// Public API exports.
 pub use global::{get_config, init_config};
 pub use loader::{get_config_dir, load_config};
 pub use structs::{

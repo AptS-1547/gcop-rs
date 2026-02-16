@@ -13,19 +13,27 @@ use crate::git::{DiffStats, GitOperations, repository::GitRepository};
 use crate::llm::{CommitContext, LLMProvider, ScopeInfo, provider::create_provider};
 use crate::ui;
 
-/// Commit 命令的数据部分
+/// The data part of the Commit command
 #[derive(Debug, Serialize)]
 pub struct CommitData {
+    /// Final commit message produced by the command.
     pub message: String,
+    /// Diff statistics included in JSON output.
     pub diff_stats: DiffStatsJson,
+    /// Whether `git commit` was executed (`false` for dry-run/json-only flows).
     pub committed: bool,
 }
 
+/// Serializable diff statistics payload used by command JSON output.
 #[derive(Debug, Serialize)]
 pub struct DiffStatsJson {
+    /// Files changed in the staged diff.
     pub files_changed: Vec<String>,
+    /// Number of inserted lines.
     pub insertions: usize,
+    /// Number of deleted lines.
     pub deletions: usize,
+    /// Total changed lines (`insertions + deletions`).
     pub total_changes: usize,
 }
 
@@ -40,11 +48,11 @@ impl From<&DiffStats> for DiffStatsJson {
     }
 }
 
-/// 执行 commit 命令
+/// Execute commit command
 ///
 /// # Arguments
-/// * `options` - Commit 命令选项
-/// * `config` - 应用配置
+/// * `options` - Commit command options
+/// * `config` - application configuration
 pub async fn run(options: &CommitOptions<'_>, config: &AppConfig) -> Result<()> {
     let repo = GitRepository::open(None)?;
     let provider = create_provider(config, options.provider_override)?;
@@ -52,8 +60,8 @@ pub async fn run(options: &CommitOptions<'_>, config: &AppConfig) -> Result<()> 
     run_with_deps(options, config, &repo as &dyn GitOperations, &provider).await
 }
 
-/// 执行 commit 命令（可测试版本，接受 trait 对象）
-#[allow(dead_code)] // 供测试使用
+/// Execute commit command (testable version, accepts trait objects)
+#[allow(dead_code)] // for testing
 async fn run_with_deps(
     options: &CommitOptions<'_>,
     config: &AppConfig,
@@ -62,7 +70,7 @@ async fn run_with_deps(
 ) -> Result<()> {
     let colored = options.effective_colored(config);
 
-    // 合并命令行参数为一条反馈（便于不加引号时使用）
+    // Merge command line parameters into one feedback (easy to use without quotes)
     // e.g. `gcop-rs commit use Chinese` -> "use Chinese"
     let initial_feedbacks = if options.feedback.is_empty() {
         vec![]
@@ -70,28 +78,28 @@ async fn run_with_deps(
         vec![options.feedback.join(" ")]
     };
 
-    // JSON 模式：独立流程
+    // JSON Schema: Standalone Process
     if options.format.is_json() {
         return handle_json_mode(options, config, repo, provider, &initial_feedbacks).await;
     }
 
-    // 检查 staged changes
+    // Check staged changes
     if !repo.has_staged_changes()? {
         ui::error(&rust_i18n::t!("commit.no_staged_changes"), colored);
         return Err(GcopError::NoStagedChanges);
     }
 
-    // 获取 diff 和统计
+    // Get diff and statistics
     let diff = repo.get_staged_diff()?;
     let stats = repo.get_diff_stats(&diff)?;
 
-    // 截断过大的 diff，防止 token 超限
+    // Truncate overly large diffs to prevent tokens from exceeding the limit
     let (diff, truncated) = smart_truncate_diff(&diff, config.llm.max_diff_size);
     if truncated {
         ui::warning(&rust_i18n::t!("diff.truncated"), colored);
     }
 
-    // Workspace scope 检测
+    // Workspace scope detection
     let scope_info = compute_scope_info(&stats.files_changed, config);
 
     ui::step(
@@ -108,7 +116,7 @@ async fn run_with_deps(
         println!("\n{}", ui::format_diff_stats(&stats, colored));
     }
 
-    // dry_run 模式：只生成不提交
+    // dry_run mode: only generate without submitting
     if options.dry_run {
         let branch_name = repo.get_current_branch()?;
         let custom_prompt = config.commit.custom_prompt.clone();
@@ -131,11 +139,11 @@ async fn run_with_deps(
         return Ok(());
     }
 
-    // 交互模式：状态机主循环
+    // Interactive mode: state machine main loop
     let should_edit = config.commit.allow_edit && !options.no_edit;
     let max_retries = config.commit.max_retries;
 
-    // 提取循环中不变的上下文（branch_name、custom_prompt 不会随 retry 变化）
+    // Extract the unchanged context in the loop (branch_name, custom_prompt will not change with retry)
     let branch_name = repo.get_current_branch()?;
     let custom_prompt = config.commit.custom_prompt.clone();
 
@@ -193,7 +201,7 @@ async fn run_with_deps(
     }
 }
 
-/// JSON 模式的完整处理流程
+/// Full execution flow for JSON output mode.
 async fn handle_json_mode(
     options: &CommitOptions<'_>,
     config: &AppConfig,
@@ -234,7 +242,7 @@ async fn handle_json_mode(
     }
 }
 
-/// 处理 Generating 状态
+/// Handles the `Generating` state.
 #[allow(clippy::too_many_arguments)]
 async fn handle_generating(
     attempt: usize,
@@ -250,7 +258,7 @@ async fn handle_generating(
     custom_prompt: &Option<String>,
     scope_info: &Option<ScopeInfo>,
 ) -> Result<CommitState> {
-    // 检查重试上限
+    // Check retry limit
     let gen_state = CommitState::Generating {
         attempt,
         feedbacks: feedbacks.clone(),
@@ -264,7 +272,7 @@ async fn handle_generating(
         return gen_state.handle_generation(GenerationResult::MaxRetriesExceeded, options.yes);
     }
 
-    // 生成 message
+    // Generate message.
     let (message, already_displayed) = generate_message(
         provider,
         diff,
@@ -279,12 +287,12 @@ async fn handle_generating(
     )
     .await?;
 
-    // 使用状态机方法处理生成结果
+    // Use state-machine transition for generation result.
     let gen_state = CommitState::Generating { attempt, feedbacks };
     let result = GenerationResult::Success(message.clone());
     let next_state = gen_state.handle_generation(result, options.yes)?;
 
-    // 显示生成的消息（除非 --yes 直接接受，或流式模式已经显示过）
+    // Show generated message unless it was auto-accepted or already streamed.
     if !options.yes && !already_displayed {
         display_message(&message, attempt, colored);
     }
@@ -292,7 +300,7 @@ async fn handle_generating(
     Ok(next_state)
 }
 
-/// 处理 WaitingForAction 状态
+/// Handles the `WaitingForAction` state.
 fn handle_waiting_for_action(
     message: &str,
     attempt: usize,
@@ -307,7 +315,7 @@ fn handle_waiting_for_action(
     );
     let ui_action = ui::commit_action_menu(message, should_edit, attempt, colored)?;
 
-    // 映射 UI action 到状态机 action，处理编辑逻辑
+    // Map UI action to state-machine action and apply editor flow when needed.
     let user_action = match ui_action {
         ui::CommitAction::Accept => UserAction::Accept,
 
@@ -355,10 +363,10 @@ fn handle_waiting_for_action(
     Ok(waiting_state.handle_action(user_action))
 }
 
-/// 生成 commit message
+/// Generates a commit message.
 ///
-/// 返回 (message, already_displayed) - 流式模式下 message 已经显示过了
-#[allow(clippy::too_many_arguments)] // 参数较多但合理
+/// Returns `(message, already_displayed)`.
+#[allow(clippy::too_many_arguments)] // There are many parameters but reasonable
 async fn generate_message(
     provider: &Arc<dyn LLMProvider>,
     diff: &str,
@@ -382,7 +390,7 @@ async fn generate_message(
         scope_info: scope_info.clone(),
     };
 
-    // verbose 模式下显示 prompt
+    // Show prompts in verbose mode.
     if verbose {
         let (system, user) = crate::llm::prompt::build_commit_prompt_split(
             diff,
@@ -406,12 +414,12 @@ async fn generate_message(
         );
     }
 
-    // 判断是否使用流式模式
+    // Decide whether to use streaming mode.
     let use_streaming = config.ui.streaming && provider.supports_streaming();
     let colored = config.ui.colored;
 
     if use_streaming {
-        // 流式模式：先显示标题，再流式输出
+        // Streaming mode: print header, then stream response chunks.
         let step_msg = if attempt == 0 {
             rust_i18n::t!("spinner.generating_streaming")
         } else {
@@ -427,9 +435,9 @@ async fn generate_message(
         let mut output = ui::StreamingOutput::new(colored);
         let message = output.process(stream_handle.receiver).await?;
 
-        Ok((message, true)) // 已经显示过了
+        Ok((message, true)) // Already shown
     } else {
-        // 非流式模式：使用 Spinner（带取消提示和时间显示）
+        // Non-streaming mode: use spinner with cancel hint and elapsed time.
         let spinner_message = if attempt == 0 {
             rust_i18n::t!("spinner.generating").to_string()
         } else {
@@ -443,11 +451,11 @@ async fn generate_message(
             .await?;
 
         spinner.finish_and_clear();
-        Ok((message, false)) // 还没显示
+        Ok((message, false)) // Not shown yet
     }
 }
 
-/// 格式化消息头部（纯函数，便于测试）
+/// Formats the message header (pure function, easy to test).
 fn format_message_header(attempt: usize) -> String {
     if attempt == 0 {
         rust_i18n::t!("commit.generated").to_string()
@@ -456,12 +464,12 @@ fn format_message_header(attempt: usize) -> String {
     }
 }
 
-/// 格式化编辑后消息头部（纯函数，便于测试）
+/// Formats the edited-message header (pure function, easy to test).
 fn format_edited_header() -> String {
     rust_i18n::t!("commit.updated").to_string()
 }
 
-/// 显示生成的 message
+/// Displays the generated message.
 fn display_message(message: &str, attempt: usize, colored: bool) {
     let header = format_message_header(attempt);
 
@@ -473,7 +481,7 @@ fn display_message(message: &str, attempt: usize, colored: bool) {
     }
 }
 
-/// 显示编辑后的 message
+/// Show the edited message
 fn display_edited_message(message: &str, colored: bool) {
     println!("\n{}", ui::info(&format_edited_header(), colored));
     if colored {
@@ -483,7 +491,7 @@ fn display_edited_message(message: &str, colored: bool) {
     }
 }
 
-/// 生成 commit message（非流式版本，用于 JSON 输出模式）
+/// Generate commit message (non-streaming version, for JSON output mode)
 #[allow(clippy::too_many_arguments)]
 async fn generate_message_no_streaming(
     provider: &Arc<dyn LLMProvider>,
@@ -507,7 +515,7 @@ async fn generate_message_no_streaming(
         scope_info: scope_info.clone(),
     };
 
-    // verbose 模式下显示 prompt
+    // Display prompt in verbose mode
     if verbose {
         let (system, user) = crate::llm::prompt::build_commit_prompt_split(
             diff,
@@ -523,13 +531,13 @@ async fn generate_message_no_streaming(
         eprintln!("{}\n", rust_i18n::t!("commit.verbose.divider"));
     }
 
-    // 直接使用非流式 API
+    // Use the non-streaming API directly
     provider
         .generate_commit_message(diff, Some(context), None)
         .await
 }
 
-/// JSON 格式成功输出
+/// JSON format successfully output
 fn output_json_success(message: &str, stats: &DiffStats, committed: bool) -> Result<()> {
     let output = JsonOutput {
         success: true,
@@ -544,10 +552,10 @@ fn output_json_success(message: &str, stats: &DiffStats, committed: bool) -> Res
     Ok(())
 }
 
-/// 计算 workspace scope 信息
+/// Calculate workspace scope information
 ///
-/// 从 git root 检测 workspace 配置，推断 changed files 的 scope。
-/// 支持手动配置覆盖自动检测。检测失败时返回 None（非致命）。
+/// Detect workspace configuration from git root and infer the scope of changed files.
+/// Supports manual configuration override automatic detection. Returns None (non-fatal) if detection fails.
 fn compute_scope_info(files_changed: &[String], config: &AppConfig) -> Option<ScopeInfo> {
     if !config.workspace.enabled {
         return None;
@@ -555,7 +563,7 @@ fn compute_scope_info(files_changed: &[String], config: &AppConfig) -> Option<Sc
 
     let root = crate::git::find_git_root()?;
 
-    // 构建 WorkspaceInfo：手动配置优先，否则自动检测
+    // Build WorkspaceInfo: Manual configuration takes precedence, otherwise automatic detection
     let workspace_info = if let Some(ref manual_members) = config.workspace.members {
         crate::workspace::WorkspaceInfo {
             workspace_types: vec![],
@@ -572,7 +580,7 @@ fn compute_scope_info(files_changed: &[String], config: &AppConfig) -> Option<Sc
         crate::workspace::detect_workspace(&root)?
     };
 
-    // 输出检测结果
+    // Output detection results
     if !workspace_info.workspace_types.is_empty() {
         let type_str = workspace_info
             .workspace_types
@@ -592,7 +600,7 @@ fn compute_scope_info(files_changed: &[String], config: &AppConfig) -> Option<Sc
 
     let scope = crate::workspace::scope::infer_scope(files_changed, &workspace_info, None);
 
-    // 应用 scope_mappings 重映射
+    // Apply scope_mappings remapping
     let suggested = scope.suggested_scope.map(|s| {
         config
             .workspace
@@ -623,7 +631,7 @@ mod tests {
     use super::*;
     use pretty_assertions::assert_eq;
 
-    // === format_message_header 测试 ===
+    // === format_message_header test ===
 
     #[test]
     fn test_format_message_header_first_attempt() {
@@ -643,7 +651,7 @@ mod tests {
         assert_eq!(header, "Regenerated commit message (attempt 3):");
     }
 
-    // === format_edited_header 测试 ===
+    // === format_edited_header test ===
 
     #[test]
     fn test_format_edited_header() {

@@ -4,7 +4,7 @@ use crate::git::find_git_root;
 use crate::ui;
 use std::fs;
 
-/// 初始化配置文件
+/// Initialization configuration file
 pub fn run(force: bool, project: bool, colored: bool) -> Result<()> {
     if project {
         run_project_init(force, colored)
@@ -13,16 +13,16 @@ pub fn run(force: bool, project: bool, colored: bool) -> Result<()> {
     }
 }
 
-/// 初始化用户级配置文件
+/// Initialize user-level configuration file
 fn run_user_init(force: bool, colored: bool) -> Result<()> {
-    // 1. 获取配置目录和文件路径
+    // 1. Get the configuration directory and file path
     let config_dir = config::get_config_dir().ok_or_else(|| {
         GcopError::Config(rust_i18n::t!("config.failed_determine_dir").to_string())
     })?;
 
     let config_file = config_dir.join("config.toml");
 
-    // 2. 检查配置文件是否已存在
+    // 2. Check if the configuration file already exists
     if config_file.exists() && !force {
         ui::warning(
             &rust_i18n::t!("init.exists", path = config_file.display()),
@@ -34,14 +34,14 @@ fn run_user_init(force: bool, colored: bool) -> Result<()> {
         return Ok(());
     }
 
-    // 3. 创建配置目录
+    // 3. Create configuration directory
     fs::create_dir_all(&config_dir)?;
     ui::success(
         &rust_i18n::t!("init.dir_created", path = config_dir.display()),
         colored,
     );
 
-    // 4. 复制示例配置
+    // 4. Copy the sample configuration
     let example_config = include_str!("../../examples/config.toml.example");
     fs::write(&config_file, example_config)?;
     ui::success(
@@ -49,7 +49,7 @@ fn run_user_init(force: bool, colored: bool) -> Result<()> {
         colored,
     );
 
-    // 5. 设置文件权限（仅 Unix）
+    // 5. Set file permissions (Unix only)
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -59,7 +59,7 @@ fn run_user_init(force: bool, colored: bool) -> Result<()> {
         ui::success(&rust_i18n::t!("init.permissions"), colored);
     }
 
-    // 6. 显示下一步提示
+    // 6. Display next step prompt
     println!();
     println!("{}", ui::info(&rust_i18n::t!("init.next_steps"), colored));
     println!("{}", rust_i18n::t!("init.step1"));
@@ -69,7 +69,7 @@ fn run_user_init(force: bool, colored: bool) -> Result<()> {
     println!("{}", rust_i18n::t!("init.step2_url"));
     println!();
 
-    // 7. 询问是否安装 git aliases
+    // 7. Ask whether to install git aliases
     let install_aliases = ui::confirm(&rust_i18n::t!("init.install_aliases"), true)?;
 
     if install_aliases {
@@ -98,11 +98,11 @@ fn run_user_init(force: bool, colored: bool) -> Result<()> {
     Ok(())
 }
 
-/// 初始化项目级配置文件 (.gcop/config.toml)
+/// Initialize the project-level configuration file (.gcop/config.toml)
 ///
-/// 若当前目录不在 Git 仓库中，则回退到当前工作目录创建 `.gcop/config.toml` 并给出提示。
+/// If the current directory is not in the Git repository, return to the current working directory to create `.gcop/config.toml` and give a prompt.
 fn run_project_init(force: bool, colored: bool) -> Result<()> {
-    // 1. 查找 git repo 根目录
+    // 1. Find the git repo root directory
     let repo_root = match find_git_root() {
         Some(root) => root,
         None => {
@@ -114,7 +114,7 @@ fn run_project_init(force: bool, colored: bool) -> Result<()> {
     let gcop_dir = repo_root.join(".gcop");
     let config_file = gcop_dir.join("config.toml");
 
-    // 2. 检查是否已存在
+    // 2. Check if it already exists
     if config_file.exists() && !force {
         ui::warning(
             &rust_i18n::t!("init.project_exists", path = config_file.display()),
@@ -125,14 +125,14 @@ fn run_project_init(force: bool, colored: bool) -> Result<()> {
         return Ok(());
     }
 
-    // 3. 创建 .gcop/ 目录
+    // 3. Create the .gcop/ directory
     fs::create_dir_all(&gcop_dir)?;
     ui::success(
         &rust_i18n::t!("init.project_dir_created", path = gcop_dir.display()),
         colored,
     );
 
-    // 4. 写入项目级模板
+    // 4. Write project-level templates
     let project_config = include_str!("../../examples/project-config.toml.example");
     fs::write(&config_file, project_config)?;
     ui::success(
@@ -140,7 +140,7 @@ fn run_project_init(force: bool, colored: bool) -> Result<()> {
         colored,
     );
 
-    // 5. 提示下一步
+    // 5. Prompt for next step
     println!();
     println!(
         "{}",

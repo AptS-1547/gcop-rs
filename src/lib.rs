@@ -1,36 +1,36 @@
 //! # gcop-rs
 //!
-//! AI 驱动的 Git 工具，用于生成 commit message 和代码审查。
+//! AI-powered Git tool for generating commit messages and code reviews.
 //!
-//! 这是原 Python 项目 [gcop](https://github.com/Undertone0809/gcop) 的 Rust 重写版本。
+//! This is a Rust rewrite of the original Python project [gcop](https://github.com/Undertone0809/gcop).
 //!
-//! ## 功能
-//! - **Commit message 生成**：基于 staged changes 自动生成提交信息（默认 Conventional，可通过配置调整）
-//! - **代码审查**：分析代码变更，识别潜在问题和改进建议
-//! - **多 Provider 支持**：Claude, OpenAI, Gemini, Ollama（本地模型）
-//! - **高可用**：Fallback 机制，主 provider 失败时自动切换
-//! - **流式输出**：实时打字机效果（Claude/OpenAI/Gemini）
-//! - **国际化**：支持中英文
+//! ## Features
+//! - **Commit message generation**: Generates messages from staged changes (Conventional Commits by default, configurable).
+//! - **Code review**: Analyzes diffs to surface potential issues and improvement suggestions.
+//! - **Multiple providers**: Claude, OpenAI, Gemini, and Ollama (local models).
+//! - **High availability**: Built-in fallback chain when the primary provider fails.
+//! - **Streaming output**: Real-time typewriter-style output (Claude/OpenAI/Gemini).
+//! - **Internationalization**: Supports English and Chinese.
 //!
-//! ## 快速开始
+//! ## Quick Start
 //!
-//! ### 作为 CLI 使用
+//! ### Use as a CLI
 //! ```bash
-//! # 安装
+//! # Install
 //! cargo install gcop-rs
 //!
-//! # 初始化配置
+//! # Initialize configuration
 //! gcop-rs init
 //!
-//! # 生成 commit message
+//! # Generate commit message
 //! git add .
 //! gcop-rs commit
 //!
-//! # 代码审查
+//! # Code review
 //! gcop-rs review changes
 //! ```
 //!
-//! ### 作为库使用
+//! ### Use as a library
 //! ```ignore
 //! use gcop_rs::git::repository::GitRepository;
 //! use gcop_rs::git::GitOperations;
@@ -39,11 +39,11 @@
 //! use gcop_rs::config::{ProviderConfig, NetworkConfig};
 //!
 //! # async fn example() -> anyhow::Result<()> {
-//! // 1. 初始化 Git 仓库
+//! // 1. Initialize Git repository
 //! let repo = GitRepository::open(None)?;
 //! let diff = repo.get_staged_diff()?;
 //!
-//! // 2. 初始化 LLM provider
+//! // 2. Initialize LLM provider
 //! let config = ProviderConfig {
 //!     api_key: Some("sk-...".to_string()),
 //!     model: "gpt-4o-mini".to_string(),
@@ -52,29 +52,29 @@
 //! let network_config = NetworkConfig::default();
 //! let provider = OpenAIProvider::new(&config, "openai", &network_config, false)?;
 //!
-//! // 3. 生成 commit message
+//! // 3. Generate commit message
 //! let message = provider.generate_commit_message(&diff, None, None).await?;
 //! println!("Generated: {}", message);
 //! # Ok(())
 //! # }
 //! ```
 //!
-//! ## 核心模块
-//! - [`git`] - Git 操作抽象
-//! - [`llm`] - LLM provider 接口和实现
-//! - [`commands`] - CLI 命令实现
-//! - [`config`] - 配置管理
-//! - [`error`] - 统一错误类型
-//! - [`ui`] - 用户界面工具
+//! ## Core Modules
+//! - [`git`] - Git operation abstractions.
+//! - [`llm`] - LLM provider traits and implementations.
+//! - [`commands`] - CLI command implementations.
+//! - [`config`] - Configuration loading and management.
+//! - [`error`] - Unified error types.
+//! - [`ui`] - Terminal UI utilities.
 //!
-//! ## 配置
-//! 配置文件位置：
+//! ## Configuration
+//! Configuration file locations:
 //! - Linux: `~/.config/gcop/config.toml`
 //! - macOS: `~/Library/Application Support/gcop/config.toml`
 //! - Windows: `%APPDATA%\gcop\config\config.toml`
-//! - 项目级（可选）: `<repo>/.gcop/config.toml`
+//! - Project-level (optional): `<repo>/.gcop/config.toml`
 //!
-//! 示例配置：
+//! Example configuration:
 //! ```toml
 //! [llm]
 //! default_provider = "claude"
@@ -92,14 +92,22 @@
 #[macro_use]
 extern crate rust_i18n;
 
+/// Command-line argument definitions and parsing.
 pub mod cli;
+/// CLI command implementations and shared helpers.
 pub mod commands;
+/// Configuration loading, defaults, and validation.
 pub mod config;
+/// Unified error types and localization helpers.
 pub mod error;
+/// Git repository abstractions and operations.
 pub mod git;
+/// LLM traits, message types, prompts, and providers.
 pub mod llm;
+/// Terminal UI helpers (colors, prompts, spinner, streaming output).
 pub mod ui;
+/// Workspace detection and commit scope inference for monorepos.
 pub mod workspace;
 
-// Initialize i18n for library modules
+// Initialize i18n for library modules.
 i18n!("locales", fallback = "en");

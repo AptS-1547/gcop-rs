@@ -5,15 +5,16 @@ use crate::ui;
 use colored::Colorize;
 use dialoguer::Select;
 
-/// 编辑后用户可选的操作
+/// User-optional operations after editing
 enum EditAction {
-    Retry,  // 重新编辑
-    Keep,   // 保留原配置（不修改）
-    Ignore, // 忽略错误强制保存
+    Retry,  // Re-edit
+    Keep,   // Keep the original configuration (do not modify it)
+    Ignore, // Ignore errors and force save
 }
 
+/// Runs the `config` command with either edit or validate behavior.
 pub async fn run(action: Option<crate::cli::ConfigAction>, colored: bool) -> Result<()> {
-    // 默认行为：调用 edit
+    // Default behavior: call edit
     let action = action.unwrap_or(crate::cli::ConfigAction::Edit);
 
     match action {
@@ -22,7 +23,7 @@ pub async fn run(action: Option<crate::cli::ConfigAction>, colored: bool) -> Res
     }
 }
 
-/// 打开编辑器编辑配置文件（带校验）
+/// Open the editor to edit the configuration file (with verification)
 fn edit(colored: bool) -> Result<()> {
     let config_dir = config::get_config_dir().ok_or_else(|| {
         GcopError::Config(rust_i18n::t!("config.failed_determine_dir").to_string())
@@ -30,7 +31,7 @@ fn edit(colored: bool) -> Result<()> {
 
     let config_file = config_dir.join("config.toml");
 
-    // 如果配置文件不存在，提示运行 init
+    // If the configuration file does not exist, prompt to run init
     if !config_file.exists() {
         ui::error(&rust_i18n::t!("config.file_not_found"), colored);
         println!();
@@ -45,10 +46,10 @@ fn edit(colored: bool) -> Result<()> {
         ));
     }
 
-    // 初始读取配置内容
+    // Initial reading of configuration content
     let mut content = std::fs::read_to_string(&config_file)?;
 
-    // 编辑-校验循环
+    // Edit-Verify Loop
     loop {
         println!(
             "{}",
@@ -58,10 +59,10 @@ fn edit(colored: bool) -> Result<()> {
             )
         );
 
-        // 使用 edit crate 打开编辑器（自动 fallback：$VISUAL > $EDITOR > 平台预设列表）
+        // Open the editor using the edit crate (automatic fallback: $VISUAL > $EDITOR > platform preset list)
         let edited = edit::edit(&content)?;
 
-        // 校验配置（通过 config crate 反序列化，与 load_config 一致的路径）
+        // Verify configuration (deserialized through config crate, path consistent with load_config)
         let validation: std::result::Result<crate::config::AppConfig, _> =
             ::config::Config::builder()
                 .add_source(::config::File::from_str(
@@ -72,13 +73,13 @@ fn edit(colored: bool) -> Result<()> {
                 .and_then(|c| c.try_deserialize());
         match validation {
             Ok(_) => {
-                // 校验成功，写入文件
+                // Verification successful, write to file
                 std::fs::write(&config_file, &edited)?;
                 ui::success(&rust_i18n::t!("config.file_updated"), colored);
                 return Ok(());
             }
             Err(e) => {
-                // 校验失败
+                // Verification failed
                 println!();
                 ui::error(
                     &rust_i18n::t!("config.validation_failed", error = e.to_string()),
@@ -88,17 +89,17 @@ fn edit(colored: bool) -> Result<()> {
 
                 match prompt_edit_action(colored)? {
                     EditAction::Retry => {
-                        // 保留编辑后的内容继续编辑
+                        // Keep the edited content and continue editing
                         content = edited;
                         continue;
                     }
                     EditAction::Keep => {
-                        // 原文件从未被修改，直接返回
+                        // The original file has never been modified and is returned directly.
                         println!("{}", ui::info(&rust_i18n::t!("config.unchanged"), colored));
                         return Ok(());
                     }
                     EditAction::Ignore => {
-                        // 强制保存错误的配置
+                        // Force saving of incorrect configuration
                         std::fs::write(&config_file, &edited)?;
                         ui::warning(&rust_i18n::t!("config.saved_with_errors"), colored);
                         return Ok(());
@@ -109,7 +110,7 @@ fn edit(colored: bool) -> Result<()> {
     }
 }
 
-/// 提示用户选择操作
+/// Prompt user to select an action
 fn prompt_edit_action(colored: bool) -> Result<EditAction> {
     let items: Vec<String> = if colored {
         vec![
@@ -149,24 +150,24 @@ fn prompt_edit_action(colored: bool) -> Result<EditAction> {
     })
 }
 
-/// 验证配置
+/// Verify configuration
 async fn validate(colored: bool) -> Result<()> {
     ui::step("1/2", &rust_i18n::t!("config.loading"), colored);
 
-    // 加载配置
+    // Load configuration
     let config = load_config()?;
 
     ui::success(&rust_i18n::t!("config.loaded"), colored);
     println!();
 
-    // 显示配置的 providers
+    // Show configured providers
     println!("{}", rust_i18n::t!("config.providers"));
     for name in config.llm.providers.keys() {
         println!("  • {}", name);
     }
     println!();
 
-    // 验证 provider 链可用性（默认 provider + fallback providers）
+    // Verify provider chain availability (default provider + fallback providers)
     ui::step("2/2", &rust_i18n::t!("config.testing"), colored);
 
     let provider = create_provider(&config, None)?;

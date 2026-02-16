@@ -1,7 +1,7 @@
 use indicatif::{ProgressBar, ProgressStyle};
 use tokio::task::JoinHandle;
 
-/// 进度指示器（旋转动画）
+/// Progress indicator (rotation animation)
 pub struct Spinner {
     pb: ProgressBar,
     base_message: String,
@@ -11,7 +11,7 @@ pub struct Spinner {
 }
 
 impl Spinner {
-    /// 创建新的 spinner
+    /// Create new spinner
     pub fn new(message: &str, colored: bool) -> Self {
         let pb = ProgressBar::new_spinner();
         let template = if colored {
@@ -34,7 +34,7 @@ impl Spinner {
         }
     }
 
-    /// 创建带取消提示的 spinner
+    /// Create a spinner with cancellation prompt
     pub fn new_with_cancel_hint(message: &str, colored: bool) -> Self {
         use rust_i18n::t;
 
@@ -60,7 +60,7 @@ impl Spinner {
         }
     }
 
-    /// 启动时间显示（每秒更新一次）
+    /// Startup time display (updated every second)
     pub fn start_time_display(&mut self) {
         use rust_i18n::t;
 
@@ -84,32 +84,32 @@ impl Spinner {
         self.time_task = Some(handle);
     }
 
-    /// 停止时间显示
+    /// Stop time display
     fn stop_time_display(&mut self) {
         if let Some(handle) = self.time_task.take() {
             handle.abort();
         }
     }
 
-    /// 更新 spinner 消息
+    /// Update spinner message
     #[allow(dead_code)]
     pub fn set_message(&self, message: &str) {
         self.pb.set_message(message.to_string());
     }
 
-    /// 在基础消息后追加后缀
+    /// Append suffix after basic message
     pub fn append_suffix(&self, suffix: &str) {
         let full_message = format!("{} {}", self.base_message, suffix);
         self.pb.set_message(full_message);
     }
 
-    /// 完成并显示最终消息
+    /// Complete and display final message
     #[allow(dead_code)]
     pub fn finish_with_message(&self, message: &str) {
         self.pb.finish_with_message(message.to_string());
     }
 
-    /// 完成并清除
+    /// Complete and clear
     pub fn finish_and_clear(&self) {
         self.pb.finish_and_clear();
     }

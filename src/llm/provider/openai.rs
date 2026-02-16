@@ -15,16 +15,16 @@ use crate::llm::{StreamChunk, StreamHandle};
 
 /// OpenAI API provider
 ///
-/// 使用 OpenAI API（或兼容的 API）生成 commit message 和代码审查。
+/// Use the OpenAI API (or a compatible API) to generate commit messages and code reviews.
 ///
-/// # 支持的模型
-/// - **OpenAI 官方**：
-///   - `gpt-4` (推荐)
+/// # Supported models
+/// - **OpenAI Official**:
+///   - `gpt-4` (recommended)
 ///   - `gpt-4-turbo`
 ///   - `gpt-3.5-turbo`
-/// - **兼容 API**（如 Azure OpenAI, OpenRouter 等）
+/// - **Compatible with API** (such as Azure OpenAI, OpenRouter, etc.)
 ///
-/// # 配置示例
+/// # Configuration example
 /// ```toml
 /// [llm]
 /// default_provider = "openai"
@@ -32,23 +32,23 @@ use crate::llm::{StreamChunk, StreamHandle};
 /// [llm.providers.openai]
 /// api_key = "sk-..."
 /// model = "gpt-4"
-/// endpoint = "https://api.openai.com"  # 可选
-/// max_tokens = 1000  # 可选
-/// temperature = 0.7  # 可选
+/// endpoint = "https://api.openai.com" # optional
+/// max_tokens = 1000 # optional
+/// temperature = 0.7 # optional
 /// ```
 ///
-/// # 配置方式
+/// # Configuration method
 ///
-/// 在 `config.toml` 中设置 `api_key` 和可选的 `endpoint`。
-/// CI 模式下使用 `GCOP_CI_API_KEY` 和 `GCOP_CI_ENDPOINT` 环境变量。
+/// Set `api_key` and optional `endpoint` in `config.toml`.
+/// Use the `GCOP_CI_API_KEY` and `GCOP_CI_ENDPOINT` environment variables in CI mode.
 ///
-/// # 特性
-/// - 支持流式响应（SSE）
-/// - 自动重试（指数退避，默认 3 次，可通过 `network.max_retries` 配置）
-/// - 兼容 OpenAI API 的第三方服务
-/// - 自定义端点（支持代理或 Azure OpenAI）
+/// # Features
+/// - Supports streaming responses (SSE)
+/// - Automatic retries (exponential backoff, default 3 times, configurable through `network.max_retries`)
+/// - Third-party services compatible with OpenAI API
+/// - Custom endpoint (supports proxy or Azure OpenAI)
 ///
-/// # Azure OpenAI 示例
+/// #Azure OpenAI Example
 /// ```toml
 /// [llm.providers.openai]
 /// api_key = "your-azure-key"
@@ -56,7 +56,7 @@ use crate::llm::{StreamChunk, StreamHandle};
 /// endpoint = "https://your-resource.openai.azure.com/v1/chat/completions"
 /// ```
 ///
-/// # 示例
+/// # Example
 /// ```ignore
 /// use gcop_rs::llm::{LLMProvider, provider::openai::OpenAIProvider};
 /// use gcop_rs::config::{ProviderConfig, NetworkConfig};
@@ -70,7 +70,7 @@ use crate::llm::{StreamChunk, StreamHandle};
 /// let network_config = NetworkConfig::default();
 /// let provider = OpenAIProvider::new(&config, "openai", &network_config, false)?;
 ///
-/// // 生成 commit message
+/// // Generate commit message
 /// let diff = "diff --git a/main.rs...";
 /// let message = provider.generate_commit_message(diff, None, None).await?;
 /// println!("Generated: {}", message);
@@ -124,6 +124,7 @@ struct MessageContent {
 }
 
 impl OpenAIProvider {
+    /// Builds an OpenAI-compatible provider from runtime configuration.
     pub fn new(
         config: &ProviderConfig,
         provider_name: &str,
@@ -266,8 +267,8 @@ impl ApiBackend for OpenAIProvider {
             });
         }
 
-        // 在后台任务中处理流
-        // tx 会在任务结束时自动 drop，从而关闭 channel
+        // Process streams in background tasks
+        // tx will automatically drop at the end of the task, thus closing the channel
         let colored = self.colored;
         tokio::spawn(async move {
             let error_tx = tx.clone();

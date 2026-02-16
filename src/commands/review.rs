@@ -11,7 +11,7 @@ use crate::llm::{
 };
 use crate::ui;
 
-/// 执行 review 命令（公开接口）
+/// Execute review command (public interface)
 pub async fn run(options: &ReviewOptions<'_>, config: &AppConfig) -> Result<()> {
     let repo = GitRepository::open(Some(&config.file))?;
     let provider = create_provider(config, options.provider_override)?;
@@ -24,7 +24,7 @@ pub async fn run(options: &ReviewOptions<'_>, config: &AppConfig) -> Result<()> 
     result
 }
 
-/// 内部实现，接受依赖注入（用于测试）
+/// Internal implementation, accepts dependency injection (for testing)
 #[cfg_attr(not(feature = "test-utils"), allow(dead_code))]
 pub async fn run_internal(
     options: &ReviewOptions<'_>,
@@ -35,7 +35,7 @@ pub async fn run_internal(
     let skip_ui = options.format.is_machine_readable();
     let colored = options.effective_colored(config);
 
-    // 根据目标类型路由
+    // Route based on destination type
     let (diff, description) = match options.target {
         ReviewTarget::Changes => {
             if !skip_ui {
@@ -96,7 +96,7 @@ pub async fn run_internal(
                 );
             }
             let content = git.get_file_content(path)?;
-            // 文件审查需要特殊处理，将内容包装成 diff 格式
+            // File review requires special handling, wrapping content into diff format
             let diff = format!("--- {}\n+++ {}\n{}", path, path, content);
             (
                 diff,
@@ -105,7 +105,7 @@ pub async fn run_internal(
         }
     };
 
-    // 调用 LLM 进行审查（截断过大的 diff）
+    // Call LLM for review (truncate overly large diffs)
     let (diff, truncated) = smart_truncate_diff(&diff, config.llm.max_diff_size);
     if truncated && !skip_ui {
         ui::warning(&rust_i18n::t!("diff.truncated"), colored);
@@ -117,7 +117,7 @@ pub async fn run_internal(
         ReviewTarget::File { path } => ReviewType::FileOrDir(path.clone()),
     };
 
-    // 机器可读格式不显示 spinner
+    // Machine-readable format does not display spinner
     let spinner = if skip_ui {
         None
     } else {
@@ -140,7 +140,7 @@ pub async fn run_internal(
         s.finish_and_clear();
     }
 
-    // 格式化输出
+    // Formatted output
     if !skip_ui {
         ui::step(
             &rust_i18n::t!("review.step3"),
@@ -159,7 +159,7 @@ pub async fn run_internal(
     Ok(())
 }
 
-/// 以文本格式输出审查结果
+/// Output review result in text format
 fn print_text(result: &ReviewResult, description: &str, config: &AppConfig) {
     let colored = config.ui.colored;
 
@@ -172,26 +172,26 @@ fn print_text(result: &ReviewResult, description: &str, config: &AppConfig) {
     );
     println!();
 
-    // 输出摘要
+    // Output summary
     println!("{}", rust_i18n::t!("review.summary_title"));
     println!("{}", result.summary);
     println!();
 
-    // 输出问题
+    // Output problem
     if !result.issues.is_empty() {
         println!("{}", rust_i18n::t!("review.issues_found"));
         println!();
 
         for (i, issue) in result.issues.iter().enumerate() {
-            // 根据配置过滤严重性
+            // Filter severity based on configuration
             let min_severity = IssueSeverity::from_config_str(&config.review.min_severity);
 
-            // 跳过低于最小严重性的问题
+            // Skip issues below minimum severity
             if issue.severity.level() > min_severity.level() {
                 continue;
             }
 
-            // 输出问题
+            // Output problem
             print!("  {}. ", i + 1);
 
             if colored {
@@ -202,7 +202,7 @@ fn print_text(result: &ReviewResult, description: &str, config: &AppConfig) {
 
             println!(" {}", issue.description);
 
-            // 输出位置信息
+            // Output location information
             if let Some(file) = &issue.file {
                 if let Some(line) = issue.line {
                     println!(
@@ -223,7 +223,7 @@ fn print_text(result: &ReviewResult, description: &str, config: &AppConfig) {
         println!();
     }
 
-    // 输出建议
+    // Output suggestions
     if !result.suggestions.is_empty() {
         println!("{}", rust_i18n::t!("review.suggestions_title"));
         println!();
@@ -234,7 +234,7 @@ fn print_text(result: &ReviewResult, description: &str, config: &AppConfig) {
     }
 }
 
-/// 以 JSON 格式输出审查结果
+/// Output review result in JSON format
 fn print_json(result: &ReviewResult) -> Result<()> {
     let output = JsonOutput {
         success: true,
@@ -245,7 +245,7 @@ fn print_json(result: &ReviewResult) -> Result<()> {
     Ok(())
 }
 
-/// 以 Markdown 格式输出审查结果
+/// Output review result in Markdown format
 fn print_markdown(result: &ReviewResult, description: &str, _colored: bool) {
     println!(
         "{}",
@@ -253,13 +253,13 @@ fn print_markdown(result: &ReviewResult, description: &str, _colored: bool) {
     );
     println!();
 
-    // 摘要
+    // summary
     println!("{}", rust_i18n::t!("review.md.summary"));
     println!();
     println!("{}", result.summary);
     println!();
 
-    // 问题
+    // question
     if !result.issues.is_empty() {
         println!("{}", rust_i18n::t!("review.md.issues"));
         println!();
@@ -304,7 +304,7 @@ fn print_markdown(result: &ReviewResult, description: &str, _colored: bool) {
         println!();
     }
 
-    // 建议
+    // suggestion
     if !result.suggestions.is_empty() {
         println!("{}", rust_i18n::t!("review.md.suggestions"));
         println!();

@@ -1,4 +1,4 @@
-//! Workspace 配置文件检测与解析
+//! Workspace configuration file detection and parsing
 
 use std::path::Path;
 
@@ -6,7 +6,7 @@ use crate::error::Result;
 
 use super::{WorkspaceInfo, WorkspaceMember, WorkspaceType, glob_pattern_to_prefix};
 
-/// 检测 workspace 配置，返回 None 表示不是 monorepo
+/// Detect workspace configuration, return None to indicate it is not a monorepo
 pub fn detect_workspace(root: &Path) -> Result<Option<WorkspaceInfo>> {
     let mut workspace_types = Vec::new();
     let mut members = Vec::new();
@@ -23,7 +23,7 @@ pub fn detect_workspace(root: &Path) -> Result<Option<WorkspaceInfo>> {
         members.extend(pnpm_members);
     }
 
-    // package.json workspaces + nx.json / turbo.json 检测
+    // package.json workspaces + nx.json / turbo.json detection
     if let Some((npm_members, extra_type)) = detect_npm_workspace(root)? {
         workspace_types.push(WorkspaceType::Npm);
         if let Some(t) = extra_type {
@@ -47,11 +47,11 @@ pub fn detect_workspace(root: &Path) -> Result<Option<WorkspaceInfo>> {
         return Ok(None);
     }
 
-    // 去重：按 prefix 排序后去重
+    // Deduplication: sort by prefix and then deduplicate
     members.sort_by(|a, b| a.prefix.cmp(&b.prefix));
     members.dedup_by(|a, b| a.prefix == b.prefix);
 
-    // 移除空 prefix
+    // Remove empty prefix
     members.retain(|m| !m.prefix.is_empty());
 
     Ok(Some(WorkspaceInfo {
@@ -61,7 +61,7 @@ pub fn detect_workspace(root: &Path) -> Result<Option<WorkspaceInfo>> {
     }))
 }
 
-/// 检测 Cargo.toml [workspace] members
+/// Detect Cargo.toml [workspace] members
 fn detect_cargo_workspace(root: &Path) -> Result<Option<Vec<WorkspaceMember>>> {
     let cargo_path = root.join("Cargo.toml");
     if !cargo_path.exists() {
@@ -103,7 +103,7 @@ fn detect_cargo_workspace(root: &Path) -> Result<Option<Vec<WorkspaceMember>>> {
     Ok(Some(members))
 }
 
-/// 检测 pnpm-workspace.yaml
+/// Detect pnpm-workspace.yaml
 fn detect_pnpm_workspace(root: &Path) -> Result<Option<Vec<WorkspaceMember>>> {
     let yaml_path = root.join("pnpm-workspace.yaml");
     if !yaml_path.exists() {
@@ -144,7 +144,7 @@ fn detect_pnpm_workspace(root: &Path) -> Result<Option<Vec<WorkspaceMember>>> {
     }
 }
 
-/// 检测 package.json workspaces，同时检测 nx.json / turbo.json
+/// Detect package.json workspaces, also detect nx.json / turbo.json
 fn detect_npm_workspace(
     root: &Path,
 ) -> Result<Option<(Vec<WorkspaceMember>, Option<WorkspaceType>)>> {
@@ -162,7 +162,7 @@ fn detect_npm_workspace(
         }
     };
 
-    // workspaces 可以是数组或 { packages: [...] }（yarn 风格）
+    // workspaces can be an array or { packages: [...] } (yarn style)
     let workspace_patterns = match value.get("workspaces") {
         Some(serde_json::Value::Array(arr)) => arr.clone(),
         Some(serde_json::Value::Object(obj)) => {
@@ -187,7 +187,7 @@ fn detect_npm_workspace(
         return Ok(None);
     }
 
-    // 检测 nx / turbo
+    // Detect nx/turbo
     let extra_type = if root.join("nx.json").exists() {
         Some(WorkspaceType::Nx)
     } else if root.join("turbo.json").exists() {
@@ -199,7 +199,7 @@ fn detect_npm_workspace(
     Ok(Some((members, extra_type)))
 }
 
-/// 检测 lerna.json packages
+/// Detect lerna.json packages
 fn detect_lerna_workspace(root: &Path) -> Result<Option<Vec<WorkspaceMember>>> {
     let lerna_path = root.join("lerna.json");
     if !lerna_path.exists() {
@@ -371,7 +371,7 @@ version = "0.1.0"
     #[test]
     fn test_detect_deduplicates_members() {
         let dir = tempdir().unwrap();
-        // pnpm 和 npm 都定义了 packages/*
+        // Both pnpm and npm define packages/*
         std::fs::write(
             dir.path().join("pnpm-workspace.yaml"),
             "packages:\n  - 'packages/*'\n",
@@ -384,7 +384,7 @@ version = "0.1.0"
         .unwrap();
 
         let info = detect_workspace(dir.path()).unwrap().unwrap();
-        // prefix "packages/" 应只出现一次
+        // prefix "packages/" should appear only once
         let count = info
             .members
             .iter()

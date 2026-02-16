@@ -14,40 +14,40 @@ use tokio::runtime::Runtime;
 i18n!("locales", fallback = "en");
 
 fn main() -> Result<()> {
-    // 0. 安装 rustls crypto provider
+    // 0. Install rustls crypto provider
     rustls::crypto::ring::default_provider()
         .install_default()
         .map_err(|_| anyhow::anyhow!("Failed to install rustls crypto provider"))?;
 
-    // 1. 加载配置（一次加载，全局复用）
-    //    保存 Result，成功时复用，失败时按命令决定是否报错
+    // 1. Load configuration (load once, reuse globally)
+    //    Save the Result and reuse it when successful. When it fails, follow the command to decide whether to report an error.
     let config_result = config::load_config();
 
-    // locale 初始化用默认值兜底，确保不会因配置损坏而失败
+    // Locale initialization uses default values ​​to ensure that it does not fail due to configuration corruption.
     let early_config = config_result.as_ref().cloned().unwrap_or_default();
 
-    // 2. 初始化语言（需要在 CLI 解析前完成，支持多语言 help text）
+    // 2. Initialize language (needs to be completed before CLI parsing, supports multi-language help text)
     init_locale(&early_config);
 
-    // 3. 解析 CLI 参数并注入国际化 help text
+    // 3. Parse CLI parameters and inject internationalized help text
     let cli = parse_cli_localized()?;
 
-    // 根据 verbose 标志设置日志级别
+    // Set log level based on verbose flag
     let log_level = if cli.verbose {
         tracing::Level::DEBUG
     } else {
         tracing::Level::INFO
     };
 
-    // 初始化 tracing 日志
+    // Initialize tracing log
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env().add_directive(log_level.into()),
         )
         .init();
 
-    // 4. commit/review 命令需要完整配置（provider 等），配置损坏时报错
-    //    其他命令使用 fallback 默认值即可
+    // 4. The commit/review command requires complete configuration (provider, etc.), and an error will occur if the configuration is damaged.
+    //    Other commands can use the fallback default value.
     let config = if matches!(
         &cli.command,
         Commands::Commit { .. } | Commands::Review { .. } | Commands::Hook { .. }
@@ -57,10 +57,10 @@ fn main() -> Result<()> {
         early_config
     };
 
-    // 创建 tokio 运行时
+    // Create tokio runtime
     let rt = Runtime::new()?;
 
-    // 根据子命令路由
+    // Route based on subcommand
     rt.block_on(async {
         match cli.command {
             Commands::Commit {
@@ -77,7 +77,7 @@ fn main() -> Result<()> {
                 let is_json = options.format.is_json();
                 if let Err(e) = commands::commit::run(&options, &config).await {
                     if is_json {
-                        // JSON 错误已在 commit 命令内部输出
+                        // JSON errors are printed inside the commit command
                         std::process::exit(1);
                     }
                     match e {
@@ -96,7 +96,7 @@ fn main() -> Result<()> {
                 let options = commands::ReviewOptions::from_cli(&cli, target, format, json);
                 if let Err(e) = commands::review::run(&options, &config).await {
                     if options.format.is_json() {
-                        // JSON 错误已在 review 命令内部输出
+                        // JSON errors are printed inside the review command
                         std::process::exit(1);
                     }
                     if matches!(e, error::GcopError::UserCancelled) {
@@ -136,7 +136,7 @@ fn main() -> Result<()> {
                 let options = commands::StatsOptions::from_cli(format, json, author.as_deref());
                 if let Err(e) = commands::stats::run(&options, config.ui.colored) {
                     if options.format.is_json() {
-                        // JSON 错误已在 stats 命令内部输出
+                        // JSON errors have been printed inside the stats command
                         std::process::exit(1);
                     }
                     handle_command_error(&e, config.ui.colored);
@@ -305,7 +305,7 @@ fn parse_cli_localized() -> Result<Cli> {
 /// Initialize locale from loaded config
 ///
 /// Priority order:
-/// 1. config.ui.language（已包含环境变量 GCOP__UI__LANGUAGE 覆盖）
+/// 1. `config.ui.language` (already includes `GCOP__UI__LANGUAGE` override)
 /// 2. System locale detection
 /// 3. Fallback to English
 fn init_locale(config: &config::AppConfig) {
@@ -329,7 +329,7 @@ fn detect_system_locale() -> Option<String> {
     })
 }
 
-/// 显示错误信息 + 建议，然后退出
+/// Show error message + suggestions, then exit
 fn handle_command_error(e: &error::GcopError, colored: bool) -> ! {
     ui::error(&e.localized_message(), colored);
     if let Some(suggestion) = e.localized_suggestion() {

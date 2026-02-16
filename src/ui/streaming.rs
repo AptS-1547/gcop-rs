@@ -1,6 +1,6 @@
-//! 流式输出 UI 组件
+//! Streaming output UI components
 //!
-//! 用于实时显示 LLM 流式响应（类似 ChatGPT 打字效果）
+//! Used to display LLM streaming responses in real time (similar to ChatGPT typing effect)
 
 use std::io::{self, Write};
 
@@ -10,13 +10,14 @@ use tokio::sync::mpsc;
 use crate::error::{GcopError, Result};
 use crate::llm::StreamChunk;
 
-/// 流式文本输出器
+/// Streaming text output
 pub struct StreamingOutput {
     buffer: String,
     colored: bool,
 }
 
 impl StreamingOutput {
+    /// Creates a streaming renderer with optional colored output.
     pub fn new(colored: bool) -> Self {
         Self {
             buffer: String::new(),
@@ -24,9 +25,9 @@ impl StreamingOutput {
         }
     }
 
-    /// 处理流式响应，实时输出到终端
+    /// Process streaming responses and output to the terminal in real time
     ///
-    /// 返回完整的响应文本
+    /// Return the complete response text
     pub async fn process(&mut self, mut receiver: mpsc::Receiver<StreamChunk>) -> Result<String> {
         while let Some(chunk) = receiver.recv().await {
             match chunk {
@@ -43,8 +44,8 @@ impl StreamingOutput {
                     break;
                 }
                 StreamChunk::Error(e) => {
-                    println!(); // 换行
-                    // 显示错误提示
+                    println!(); // newline
+                    // Show error message
                     if self.colored {
                         eprintln!(
                             "{} {}",

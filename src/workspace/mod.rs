@@ -1,7 +1,7 @@
-//! Monorepo workspace 检测与 scope 推断
+//! Monorepo workspace detection and scope inference
 //!
-//! 自动检测 Cargo workspace、pnpm、npm/yarn、Lerna 等 monorepo 结构，
-//! 将 changed files 映射到对应的 package，推断 commit scope。
+//! Automatically detect monorepo structures such as Cargo workspace, pnpm, npm/yarn, Lerna, etc.
+//! Map changed files to corresponding packages and infer commit scope.
 
 pub mod detector;
 pub mod matcher;
@@ -11,15 +11,21 @@ use std::path::PathBuf;
 
 use serde::Serialize;
 
-/// 检测到的 workspace 类型
+/// Detected workspace type
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum WorkspaceType {
+    /// Rust Cargo workspace (`Cargo.toml [workspace]`).
     Cargo,
+    /// pnpm workspace (`pnpm-workspace.yaml`).
     Pnpm,
+    /// npm/yarn workspaces (`package.json#workspaces`).
     Npm,
+    /// Lerna monorepo (`lerna.json`).
     Lerna,
+    /// Nx workspace (`nx.json`).
     Nx,
+    /// Turborepo workspace (`turbo.json`).
     Turbo,
 }
 
@@ -36,47 +42,47 @@ impl std::fmt::Display for WorkspaceType {
     }
 }
 
-/// 已解析的 workspace member
+/// Resolved workspace member
 #[derive(Debug, Clone, Serialize)]
 pub struct WorkspaceMember {
-    /// 原始 glob pattern（如 `"packages/*"`）
+    /// Raw glob pattern (e.g. `"packages/*"`)
     pub pattern: String,
-    /// 匹配用前缀（如 `"packages/"`）
+    /// Match with prefix (such as `"packages/"`)
     pub prefix: String,
 }
 
-/// Workspace 检测结果
+/// Workspace detection result.
 #[derive(Debug, Clone, Serialize)]
 pub struct WorkspaceInfo {
-    /// 检测到的 workspace 类型
+    /// Detected workspace type
     pub workspace_types: Vec<WorkspaceType>,
-    /// 解析后的 member 列表
+    /// Parsed member list
     pub members: Vec<WorkspaceMember>,
-    /// 仓库根目录
+    /// Repository root directory.
     pub root: PathBuf,
 }
 
-/// 包 scope 推断结果
+/// Package scope inference results
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct PackageScope {
-    /// 受影响的包路径
+    /// Affected package paths
     pub packages: Vec<String>,
-    /// 不属于任何包的文件
+    /// File that does not belong to any package
     pub root_files: Vec<String>,
-    /// 建议的 scope 字符串（None 表示无建议）
+    /// Suggested scope string (None means no suggestion)
     pub suggested_scope: Option<String>,
 }
 
-/// 将 glob pattern 转换为匹配前缀
+/// Convert glob pattern to matching prefix
 ///
 /// - `"packages/*"` → `"packages/"`
 /// - `"crates/**"` → `"crates/"`
-/// - `"apps/cli"` → `"apps/cli/"`（视为精确目录）
+/// - `"apps/cli"` → `"apps/cli/"` (treated as the exact directory)
 /// - `"*"` → `""`
 pub fn glob_pattern_to_prefix(pattern: &str) -> String {
     let trimmed = pattern.trim_matches('\'').trim_matches('"');
 
-    // 跳过否定 pattern
+    // skip negation pattern
     if trimmed.starts_with('!') {
         return String::new();
     }
@@ -92,7 +98,7 @@ pub fn glob_pattern_to_prefix(pattern: &str) -> String {
             format!("{prefix}/")
         }
     } else {
-        // 无 glob 字符 → 视为精确目录
+        // no glob characters → treat as exact directory
         if trimmed.ends_with('/') {
             trimmed.to_string()
         } else {
@@ -101,10 +107,10 @@ pub fn glob_pattern_to_prefix(pattern: &str) -> String {
     }
 }
 
-/// 从仓库根目录检测 workspace 配置
+/// Detect workspace configuration from repository root directory
 ///
-/// 返回 `None` 表示不是 monorepo。
-/// 检测失败时 log warning 并返回 `None`（非致命）。
+/// Returns `None` to indicate it is not a monorepo.
+/// Log warning and return `None` (non-fatal) when detection fails.
 pub fn detect_workspace(root: &std::path::Path) -> Option<WorkspaceInfo> {
     match detector::detect_workspace(root) {
         Ok(info) => info,

@@ -1,15 +1,15 @@
-//! Commit scope 推断
+//! Commit scope inference
 
 use super::matcher::map_files_to_packages;
 use super::{PackageScope, WorkspaceInfo};
 
-/// 从 changed files 和 workspace 信息推断 commit scope
+/// Infer commit scope from changed files and workspace information
 ///
-/// 规则：
-/// - 手动 scope 优先
-/// - 1 个包 → scope = 包短名（最后一段路径）
-/// - 2-3 个包 → scope = 逗号分隔短名
-/// - 4+ 个包或仅 root 文件 → None
+/// rule:
+/// - Manual scope priority
+/// - 1 package → scope = package short name (last segment of path)
+/// - 2-3 packages → scope = comma separated short names
+/// - 4+ packages or root files only → None
 pub fn infer_scope(
     files_changed: &[String],
     workspace: &WorkspaceInfo,

@@ -1,44 +1,54 @@
-//! 命令实现
+//! Command implementations.
 //!
-//! 包含所有 gcop-rs CLI 命令的实现。
+//! Contains implementations of all gcop-rs CLI commands.
 //!
-//! # 模块
-//! - [`commit`] - Commit message 生成
-//! - [`review`] - 代码审查
-//! - [`config`] - 配置管理
-//! - [`alias`] - Git alias 管理
-//! - [`init`] - 项目初始化
-//! - [`stats`] - 仓库统计
-//! - [`hook`] - Git hook 管理（prepare-commit-msg）
-//! - [`commit_state_machine`] - Commit 流程状态机
-//! - [`format`] - 输出格式定义
-//! - [`options`] - 命令选项结构体
-//! - [`json`] - JSON 输出工具
+//! # Modules
+//! - `commit` - Commit message generation flow.
+//! - `review` - Code review.
+//! - `config` - Configuration management.
+//! - `alias` - Git alias management.
+//! - `init` - Project initialization.
+//! - `stats` - Repository statistics.
+//! - `hook` - Git hook management (`prepare-commit-msg`).
+//! - `commit_state_machine` - Commit workflow state machine.
+//! - `format` - Output format definition.
+//! - `options` - Command option structs.
+//! - `json` - JSON output helpers.
 //!
-//! # 架构
+//! # Architecture
 //! ```text
 //! CLI (cli.rs)
 //!   ├── commands/commit.rs ─> commit_state_machine.rs
 //!   ├── commands/review.rs
 //!   ├── commands/config.rs
 //!   ├── commands/stats.rs
-//!   └── commands/hook.rs
-//!        └── options.rs (CommitOptions, ReviewOptions, etc.)
+//!   └── shared command options (commands/options.rs)
 //! ```
 
+/// Git alias management commands.
 pub mod alias;
+/// Commit generation command flow.
 pub mod commit;
+/// Commit workflow state machine.
 pub mod commit_state_machine;
+/// Configuration edit/validation commands.
 pub mod config;
+/// Output format types and parsing helpers.
 pub mod format;
+/// Git hook install/uninstall command.
 pub mod hook;
+/// Configuration initialization commands.
 pub mod init;
+/// Shared JSON output helpers.
 pub mod json;
+/// Shared command option structs.
 pub mod options;
+/// Code review command flow.
 pub mod review;
+/// Repository statistics command flow.
 pub mod stats;
 
-// Re-export for external use (tests, lib users)
+// Re-export for external use (tests, library users).
 #[allow(unused_imports)]
 pub use format::OutputFormat;
 pub use options::{CommitOptions, ReviewOptions, StatsOptions};
@@ -46,16 +56,16 @@ pub use options::{CommitOptions, ReviewOptions, StatsOptions};
 use crate::git::diff::{FileDiff, split_diff_by_file};
 use std::fmt::Write;
 
-/// 自动生成文件的匹配模式
+/// Filename suffixes that are typically auto-generated artifacts.
 const AUTO_GENERATED_SUFFIXES: &[&str] = &[".lock", ".min.js", ".min.css"];
 
-/// 自动生成文件的精确文件名匹配（basename）
+/// Exact auto-generated basenames.
 const AUTO_GENERATED_BASENAMES: &[&str] = &["package-lock.json", "pnpm-lock.yaml", "go.sum"];
 
-/// 自动生成文件的子串匹配
+/// Substrings that usually indicate generated files.
 const AUTO_GENERATED_SUBSTRINGS: &[&str] = &[".generated."];
 
-/// 检查文件名是否匹配自动生成文件模式
+/// Returns `true` if `filename` matches an auto-generated file pattern.
 fn is_auto_generated(filename: &str) -> bool {
     let basename = filename.rsplit('/').next().unwrap_or(filename);
 
@@ -77,12 +87,12 @@ fn is_auto_generated(filename: &str) -> bool {
     false
 }
 
-/// 按文件粒度智能截断 diff，防止 LLM token 超限
+/// Truncates diffs at file granularity to reduce LLM token usage.
 ///
-/// 替代旧的字节级一刀切截断。所有文件至少保留统计信息，
-/// 重要文件保留完整 diff，自动生成文件和超预算文件降级为仅统计。
+/// Replaces previous byte-level truncation. Every file keeps at least summary stats.
+/// Important files keep full patches, while generated or over-budget files are downgraded to summary-only entries.
 ///
-/// 返回 (格式化后的 diff 文本, 是否有文件被降级)。
+/// Returns `(formatted_diff, had_downgraded_files)`.
 pub(crate) fn smart_truncate_diff(diff: &str, max_size: usize) -> (String, bool) {
     let files = split_diff_by_file(diff);
 
@@ -90,16 +100,16 @@ pub(crate) fn smart_truncate_diff(diff: &str, max_size: usize) -> (String, bool)
         return (diff.to_string(), false);
     }
 
-    // 快速路径：总大小在预算内且无自动生成文件需要降级
+    // Fast path: total diff size is within budget.
     if diff.len() <= max_size {
         return (diff.to_string(), false);
     }
 
-    // 分类：auto-generated vs normal
+    // Classify files into auto-generated and regular files.
     let mut full_files: Vec<&FileDiff> = Vec::new();
     let mut summary_files: Vec<(&FileDiff, &str)> = Vec::new(); // (file, reason)
 
-    // auto-generated 直接降级
+    // Auto-generated files are always downgraded to summary-only mode.
     let mut normal_files: Vec<&FileDiff> = Vec::new();
     for file in &files {
         if is_auto_generated(&file.filename) {
@@ -109,10 +119,10 @@ pub(crate) fn smart_truncate_diff(diff: &str, max_size: usize) -> (String, bool)
         }
     }
 
-    // normal 文件按 content 大小从小到大排序（小文件优先保留完整 diff）
+    // Sort normal files by ascending patch size (small files are kept first).
     normal_files.sort_by_key(|f| f.content.len());
 
-    // 贪心装箱
+    // Greedy packing into remaining budget.
     let mut budget_used = 0usize;
     for file in &normal_files {
         if budget_used + file.content.len() <= max_size {
@@ -125,12 +135,12 @@ pub(crate) fn smart_truncate_diff(diff: &str, max_size: usize) -> (String, bool)
 
     let was_truncated = !summary_files.is_empty();
 
-    // 计算总统计
+    // Calculate total statistics
     let total_files = files.len();
     let total_ins: usize = files.iter().map(|f| f.insertions).sum();
     let total_del: usize = files.iter().map(|f| f.deletions).sum();
 
-    // 格式化输出
+    // Formatted output
     let mut output = String::new();
     let _ = writeln!(
         output,
@@ -140,7 +150,7 @@ pub(crate) fn smart_truncate_diff(diff: &str, max_size: usize) -> (String, bool)
 
     if !full_files.is_empty() {
         let _ = writeln!(output, "## Full diff ({} files):\n", full_files.len());
-        // 按原始顺序输出 full diff
+        // Output full diff in original order
         for file in &files {
             if full_files.iter().any(|f| std::ptr::eq(*f, file)) {
                 let _ = writeln!(output, "{}", file.content);
@@ -189,7 +199,7 @@ mod tests {
         assert!(!is_auto_generated("src/main.rs"));
         assert!(!is_auto_generated("README.md"));
         assert!(!is_auto_generated("Cargo.toml"));
-        assert!(!is_auto_generated("src/locksmith.rs")); // 包含 "lock" 但不以 .lock 结尾
+        assert!(!is_auto_generated("src/locksmith.rs")); // Contains "lock" but does not end with .lock
     }
 
     #[test]
@@ -198,7 +208,7 @@ mod tests {
                      --- a/src/main.rs\n\
                      +++ b/src/main.rs\n\
                      +hello";
-        // 预算足够大
+        // budget is big enough
         let (result, truncated) = smart_truncate_diff(diff, 10000);
         assert!(!truncated);
         assert_eq!(result, diff);
@@ -214,8 +224,8 @@ mod tests {
                      --- a/Cargo.lock\n\
                      +++ b/Cargo.lock\n\
                      +lots of lock content";
-        // 预算足够放下所有内容，但因为总大小 > max_size 才会触发智能截断
-        // 设置一个刚好不够的预算
+        // The budget is enough to fit everything, but smart truncation is triggered because the total size > max_size
+        // Set a budget that’s just enough
         let (result, truncated) = smart_truncate_diff(diff, diff.len() - 1);
         assert!(truncated);
         assert!(result.contains("## Full diff"));
@@ -227,7 +237,7 @@ mod tests {
 
     #[test]
     fn test_smart_truncate_budget_overflow() {
-        // 创建一个小文件和一个大文件
+        // Create a small file and a large file
         let small_diff = "diff --git a/small.rs b/small.rs\n--- a/small.rs\n+++ b/small.rs\n+x";
         let big_content = "+".repeat(500);
         let big_diff = format!(
@@ -236,7 +246,7 @@ mod tests {
         );
         let diff = format!("{}\n{}", small_diff, big_diff);
 
-        // 预算只够放小文件
+        // The budget is only enough for small files
         let (result, truncated) = smart_truncate_diff(&diff, small_diff.len() + 100);
         assert!(truncated);
         assert!(result.contains("## Full diff"));
@@ -258,7 +268,7 @@ mod tests {
         );
         let diff = format!("{}\n{}", big1, big2);
 
-        // 预算极小，两个文件都放不下
+        // The budget is extremely small and there is no room for both files.
         let (result, truncated) = smart_truncate_diff(&diff, 10);
         assert!(truncated);
         assert!(result.contains("## Summary only (2 files)"));
@@ -275,19 +285,19 @@ mod tests {
 
     #[test]
     fn test_smart_truncate_preserves_file_boundary() {
-        // 创建两个文件，预算只够放一个
+        // Create two files, budget only enough for one
         let file_a = "diff --git a/a.rs b/a.rs\n--- a/a.rs\n+++ b/a.rs\n+line1\n+line2";
         let file_b = "diff --git a/b.rs b/b.rs\n--- a/b.rs\n+++ b/b.rs\n+line3";
         let diff = format!("{}\n{}", file_a, file_b);
-        // 预算只够放 file_b（较小的那个），不够放两个
+        // The budget is only enough for file_b (the smaller one), not enough for two
         let (result, truncated) = smart_truncate_diff(&diff, file_a.len());
         assert!(truncated);
-        // full diff 中的文件内容应该完整（不会被切到一半）
+        // The file content in full diff should be complete (not cut in half)
         if result.contains("+line1") {
-            // 如果 a.rs 在 full diff 中，line2 也必须在
+            // If a.rs is in full diff, line2 must also be in
             assert!(result.contains("+line2"));
         }
-        // b.rs 较小，应该在 full diff 中
+        // b.rs is smaller and should be in full diff
         assert!(result.contains("## Full diff"));
         assert!(result.contains("## Summary only"));
     }

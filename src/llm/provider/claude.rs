@@ -16,14 +16,14 @@ use crate::llm::{StreamChunk, StreamHandle};
 
 /// Claude API provider
 ///
-/// 使用 Anthropic Claude API 生成 commit message 和代码审查。
+/// Use the Anthropic Claude API to generate commit messages and code reviews.
 ///
-/// # 支持的模型
-/// - `claude-sonnet-4-5-20250929` (推荐，默认)
+/// # Supported models
+/// - `claude-sonnet-4-5-20250929` (recommended, default)
 /// - `claude-opus-4-20241229`
 /// - `claude-haiku-4-20250110`
 ///
-/// # 配置示例
+/// # Configuration example
 /// ```toml
 /// [llm]
 /// default_provider = "claude"
@@ -31,23 +31,23 @@ use crate::llm::{StreamChunk, StreamHandle};
 /// [llm.providers.claude]
 /// api_key = "sk-ant-..."
 /// model = "claude-sonnet-4-5-20250929"
-/// endpoint = "https://api.anthropic.com"  # 可选
-/// max_tokens = 1000  # 可选
-/// temperature = 0.7  # 可选
+/// endpoint = "https://api.anthropic.com" # optional
+/// max_tokens = 1000 # optional
+/// temperature = 0.7 # optional
 /// ```
 ///
-/// # 配置方式
+/// # Configuration method
 ///
-/// 在 `config.toml` 中设置 `api_key` 和可选的 `endpoint`。
-/// CI 模式下使用 `GCOP_CI_API_KEY` 和 `GCOP_CI_ENDPOINT` 环境变量。
+/// Set `api_key` and optional `endpoint` in `config.toml`.
+/// Use the `GCOP_CI_API_KEY` and `GCOP_CI_ENDPOINT` environment variables in CI mode.
 ///
-/// # 特性
-/// - 支持流式响应（SSE）
-/// - 自动重试（指数退避，默认 3 次，可通过 `network.max_retries` 配置）
-/// - 支持 prompt caching（自动优化 API 成本）
-/// - 自定义端点（支持代理或兼容 API）
+/// # Features
+/// - Supports streaming responses (SSE)
+/// - Automatic retries (exponential backoff, default 3 times, configurable through `network.max_retries`)
+/// -Support prompt caching (automatically optimize API costs)
+/// - Custom endpoint (supports proxy or compatible API)
 ///
-/// # 示例
+/// # Example
 /// ```ignore
 /// use gcop_rs::llm::{LLMProvider, provider::claude::ClaudeProvider};
 /// use gcop_rs::config::{ProviderConfig, NetworkConfig};
@@ -61,7 +61,7 @@ use crate::llm::{StreamChunk, StreamHandle};
 /// let network_config = NetworkConfig::default();
 /// let provider = ClaudeProvider::new(&config, "claude", &network_config, false)?;
 ///
-/// // 生成 commit message
+/// // Generate commit message
 /// let diff = "diff --git a/main.rs...";
 /// let message = provider.generate_commit_message(diff, None, None).await?;
 /// println!("Generated: {}", message);
@@ -113,6 +113,7 @@ struct ContentBlock {
 }
 
 impl ClaudeProvider {
+    /// Builds a Claude provider from runtime configuration.
     pub fn new(
         config: &ProviderConfig,
         provider_name: &str,
@@ -255,7 +256,7 @@ impl ApiBackend for ClaudeProvider {
             });
         }
 
-        // 在后台任务中处理流
+        // Process streams in background tasks
         let colored = self.colored;
         tokio::spawn(async move {
             let error_tx = tx.clone();

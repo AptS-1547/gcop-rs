@@ -1,6 +1,6 @@
-//! SSE (Server-Sent Events) 解析模块
+//! SSE (Server-Sent Events) parsing module
 //!
-//! 用于解析 OpenAI/Claude/Gemini 等 API 的流式响应
+//! Used to parse streaming responses from APIs such as OpenAI/Claude/Gemini
 
 use futures_util::StreamExt;
 use reqwest::Response;
@@ -11,7 +11,7 @@ use crate::error::{GcopError, Result};
 use crate::llm::StreamChunk;
 use crate::ui::colors;
 
-/// OpenAI 流式响应的 delta 结构
+/// delta structure of OpenAI streaming response
 #[derive(Debug, serde::Deserialize)]
 struct OpenAIDelta {
     pub choices: Vec<OpenAIDeltaChoice>,
@@ -28,14 +28,14 @@ struct OpenAIDeltaContent {
     pub content: Option<String>,
 }
 
-/// 解析 SSE 行，提取 data 内容
+/// Parse SSE lines and extract data content
 fn parse_sse_line(line: &str) -> Option<&str> {
     line.strip_prefix("data: ")
 }
 
-/// 处理 OpenAI 流式响应
+/// Handling OpenAI streaming responses
 ///
-/// SSE 格式:
+/// SSE format:
 /// ```text
 /// data: {"id":"...","choices":[{"delta":{"content":"Hello"}}]}
 ///
@@ -56,7 +56,7 @@ pub async fn process_openai_stream(
         let chunk = chunk_result.map_err(GcopError::Network)?;
         buffer.push_str(&String::from_utf8_lossy(&chunk));
 
-        // 按行处理
+        // Process by row
         while let Some(pos) = buffer.find('\n') {
             let line = buffer[..pos].trim().to_string();
             buffer = buffer[pos + 1..].to_string();
@@ -80,7 +80,7 @@ pub async fn process_openai_stream(
                     return Ok(());
                 }
 
-                // 解析 JSON
+                // Parse JSON
                 match serde_json::from_str::<OpenAIDelta>(data) {
                     Ok(delta) => {
                         if let Some(choice) = delta.choices.first() {
@@ -113,7 +113,7 @@ pub async fn process_openai_stream(
         }
     }
 
-    // 流结束但没有收到 [DONE]
+    // Stream ended without [DONE] received
     if parse_errors > 0 {
         colors::warning(
             &rust_i18n::t!("provider.stream.openai_parse_errors", count = parse_errors),
@@ -125,10 +125,10 @@ pub async fn process_openai_stream(
 }
 
 // ============================================================================
-// Claude SSE 解析
+// Claude SSE Analysis
 // ============================================================================
 
-/// Claude SSE 事件类型
+/// Claude SSE event type
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type")]
 enum ClaudeSSEEvent {
@@ -140,7 +140,7 @@ enum ClaudeSSEEvent {
     Other,
 }
 
-/// Claude 文本增量
+/// Claude text increment
 #[derive(Debug, Deserialize)]
 struct ClaudeTextDelta {
     #[serde(rename = "type")]
@@ -149,9 +149,9 @@ struct ClaudeTextDelta {
     pub text: String,
 }
 
-/// 处理 Claude 流式响应
+/// Handling Claude streaming responses
 ///
-/// Claude SSE 格式:
+/// Claude SSE format:
 /// ```text
 /// event: message_start
 /// data: {"type":"message_start","message":{"id":"..."}}
@@ -175,12 +175,12 @@ pub async fn process_claude_stream(
         let chunk = chunk_result.map_err(GcopError::Network)?;
         buffer.push_str(&String::from_utf8_lossy(&chunk));
 
-        // Claude SSE 使用双换行分隔事件块
+        // Claude SSE uses double newlines to delimit event blocks
         while let Some(pos) = buffer.find("\n\n") {
             let event_block = buffer[..pos].to_string();
             buffer = buffer[pos + 2..].to_string();
 
-            // 查找 data: 行
+            // Find data: rows
             for line in event_block.lines() {
                 if let Some(data) = line.strip_prefix("data: ") {
                     match serde_json::from_str::<ClaudeSSEEvent>(data) {
@@ -203,7 +203,7 @@ pub async fn process_claude_stream(
                             return Ok(());
                         }
                         Ok(ClaudeSSEEvent::Other) => {
-                            // 忽略其他事件类型
+                            // Ignore other event types
                         }
                         Err(e) => {
                             parse_errors += 1;
@@ -219,7 +219,7 @@ pub async fn process_claude_stream(
         }
     }
 
-    // 流结束但没有收到 message_stop
+    // Stream ended but message_stop was not received
     if parse_errors > 0 {
         colors::warning(
             &rust_i18n::t!(
@@ -239,10 +239,10 @@ pub async fn process_claude_stream(
 }
 
 // ============================================================================
-// Gemini SSE 解析
+// Gemini SSE Analysis
 // ============================================================================
 
-/// Gemini 流式响应块
+/// Gemini streaming response block
 #[derive(Debug, Deserialize)]
 struct GeminiStreamChunk {
     pub candidates: Option<Vec<GeminiStreamCandidate>>,
@@ -265,9 +265,9 @@ struct GeminiStreamPart {
     pub text: Option<String>,
 }
 
-/// 处理 Gemini 流式响应
+/// Handling Gemini streaming responses
 ///
-/// Gemini SSE 格式 (使用 `?alt=sse`):
+/// Gemini SSE format (use `?alt=sse`):
 /// ```text
 /// data: {"candidates":[{"content":{"parts":[{"text":"Hello"}],"role":"model"}}]}
 ///
@@ -286,7 +286,7 @@ pub async fn process_gemini_stream(
         let chunk = chunk_result.map_err(GcopError::Network)?;
         buffer.push_str(&String::from_utf8_lossy(&chunk));
 
-        // 按行处理
+        // Process by row
         while let Some(pos) = buffer.find('\n') {
             let line = buffer[..pos].trim().to_string();
             buffer = buffer[pos + 1..].to_string();
@@ -301,7 +301,7 @@ pub async fn process_gemini_stream(
                         if let Some(candidates) = &chunk.candidates
                             && let Some(candidate) = candidates.first()
                         {
-                            // 提取文本
+                            // Extract text
                             if let Some(content) = &candidate.content
                                 && let Some(parts) = &content.parts
                             {
@@ -314,7 +314,7 @@ pub async fn process_gemini_stream(
                                 }
                             }
 
-                            // 检查是否结束（任意 finishReason 都表示流结束）
+                            // Check if it is finished (any finishReason indicates the end of the stream)
                             if let Some(reason) = &candidate.finish_reason {
                                 if reason != "STOP" {
                                     tracing::warn!(
@@ -352,7 +352,7 @@ pub async fn process_gemini_stream(
         }
     }
 
-    // 流结束但没有收到 finishReason: STOP
+    // The stream ended without receiving finishReason: STOP
     if parse_errors > 0 {
         colors::warning(
             &rust_i18n::t!("provider.stream.gemini_parse_errors", count = parse_errors),
@@ -373,7 +373,7 @@ mod tests {
         assert_eq!(parse_sse_line("data: hello"), Some("hello"));
         assert_eq!(parse_sse_line("data: [DONE]"), Some("[DONE]"));
 
-        // 不符合 "data: " 前缀的行应返回 None
+        // Rows that do not match the "data: " prefix should return None
         assert_eq!(parse_sse_line("event: message_start"), None);
         assert_eq!(parse_sse_line("data:").is_some(), false);
     }

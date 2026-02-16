@@ -1,30 +1,31 @@
-// 配置结构定义
-//
-// 此文件包含所有配置相关的数据结构。
+//! Configuration data structures and validation logic.
+//!
+//! Defines the runtime config schema used by file loading, environment
+//! overrides, and command execution.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::error::{GcopError, Result};
 
-/// 应用配置
+/// Application configuration.
 ///
-/// gcop-rs 的顶层配置结构。
+/// Top-level runtime configuration for `gcop-rs`.
 ///
-/// 实际生效配置由多来源合并得到（从低到高）：
-/// 1. 默认值
-/// 2. 用户级配置文件（平台相关目录）
-/// 3. 项目级配置文件（`.gcop/config.toml`，从当前目录向上查找）
-/// 4. `GCOP__*` 环境变量
-/// 5. CI 模式覆盖（`CI=1` + `GCOP_CI_*`）
+/// Effective configuration is merged from multiple sources (low to high):
+/// 1. Rust defaults (`Default` + `serde(default)`)
+/// 2. User-level config file (platform-specific config directory)
+/// 3. Project-level config (`.gcop/config.toml`, discovered from repository root)
+/// 4. `GCOP__*` environment variables
+/// 5. CI mode overrides (`CI=1` + `GCOP_CI_*`)
 ///
-/// # 配置文件位置
+/// # Configuration File Locations
 /// - Linux: `~/.config/gcop/config.toml`
 /// - macOS: `~/Library/Application Support/gcop/config.toml`
 /// - Windows: `%APPDATA%\gcop\config\config.toml`
-/// - 项目级（可选）: `<repo>/.gcop/config.toml`
+/// - Project level (optional): `<repo>/.gcop/config.toml`
 ///
-/// # 配置示例
+/// # Example
 /// ```toml
 /// [llm]
 /// default_provider = "claude"
@@ -43,46 +44,46 @@ use crate::error::{GcopError, Result};
 /// ```
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct AppConfig {
-    /// LLM 配置
+    /// LLM provider and prompt settings.
     #[serde(default)]
     pub llm: LLMConfig,
 
-    /// Commit 配置
+    /// Commit command behavior.
     #[serde(default)]
     pub commit: CommitConfig,
 
-    /// Review 配置
+    /// Review command behavior.
     #[serde(default)]
     pub review: ReviewConfig,
 
-    /// UI 配置
+    /// Terminal UI behavior.
     #[serde(default)]
     pub ui: UIConfig,
 
-    /// 网络配置
+    /// HTTP timeout and retry settings.
     #[serde(default)]
     pub network: NetworkConfig,
 
-    /// 文件配置
+    /// File I/O limits.
     #[serde(default)]
     pub file: FileConfig,
 
-    /// Workspace 配置（monorepo 支持）
+    /// Workspace detection and scope inference (monorepo support).
     #[serde(default)]
     pub workspace: WorkspaceConfig,
 }
 
-/// LLM 配置
+/// LLM configuration.
 ///
-/// 管理 LLM provider 的选择和配置。
+/// Selects providers and controls prompt input size.
 ///
-/// # 字段
-/// - `default_provider`: 默认 provider 名称（对应 `[llm.providers.<name>]` 的 key）
-/// - `fallback_providers`: 备用 provider 列表（按顺序尝试）
-/// - `providers`: 各 provider 的详细配置
-/// - `max_diff_size`: 发送给 LLM 的最大 diff 大小（字节，默认 100KB）
+/// # Fields
+/// - `default_provider`: provider name, matching a key under `[llm.providers.<name>]`
+/// - `fallback_providers`: providers to try in order if the primary provider fails
+/// - `providers`: per-provider settings map
+/// - `max_diff_size`: maximum diff size sent to the LLM in bytes (default: 100 KiB)
 ///
-/// # 示例
+/// # Example
 /// ```toml
 /// [llm]
 /// default_provider = "claude"
@@ -99,37 +100,41 @@ pub struct AppConfig {
 /// ```
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct LLMConfig {
-    /// 默认使用的 provider 名称（对应 `[llm.providers.<name>]` 的 key）
+    /// Provider name used by default.
+    ///
+    /// Must match a key under `[llm.providers.<name>]`.
     pub default_provider: String,
 
-    /// 备用 provider 列表，当主 provider 失败时按顺序尝试
+    /// Providers tried in order when `default_provider` fails.
     #[serde(default)]
     pub fallback_providers: Vec<String>,
 
-    /// 各 provider 的配置
+    /// Provider settings keyed by provider name.
     #[serde(default)]
     pub providers: HashMap<String, ProviderConfig>,
 
-    /// 发送给 LLM 的最大 diff 大小（字节），超出部分会被截断
+    /// Maximum diff size in bytes sent to the LLM.
+    ///
+    /// Oversized diffs are truncated before prompt generation.
     #[serde(default = "default_max_diff_size")]
     pub max_diff_size: usize,
 }
 
-/// API 风格枚举
+/// LLM API backend type.
 ///
-/// 决定使用哪种 LLM API 实现。
-/// 如果 `ProviderConfig::api_style` 为 `None`，将根据 provider 名称推断。
+/// Determines which provider implementation to instantiate.
+/// If [`ProviderConfig::api_style`] is `None`, the style is inferred from the provider name.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ApiStyle {
-    /// Anthropic Claude API
+    /// Anthropic Claude API.
     Claude,
-    /// OpenAI API（及兼容 API）
+    /// OpenAI API (and OpenAI-compatible APIs).
     #[serde(rename = "openai")]
     OpenAI,
-    /// Ollama 本地模型 API
+    /// Ollama local model API.
     Ollama,
-    /// Google Gemini API
+    /// Google Gemini API.
     Gemini,
 }
 
@@ -159,7 +164,7 @@ impl std::str::FromStr for ApiStyle {
 }
 
 impl ApiStyle {
-    /// 返回该 API 风格的默认模型名称
+    /// Returns the default model name for this API style.
     pub fn default_model(&self) -> &'static str {
         match self {
             ApiStyle::Claude => "claude-sonnet-4-5-20250929",
@@ -170,54 +175,55 @@ impl ApiStyle {
     }
 }
 
-/// Provider 配置
+/// Provider configuration.
 ///
-/// 单个 LLM provider 的配置。
+/// Settings for one entry under `[llm.providers.<name>]`.
 ///
-/// # 字段
-/// - `api_style`: API 风格（见 [`ApiStyle`]）
-/// - `endpoint`: 自定义 API 端点（可选）
-/// - `api_key`: API key（可选；Claude/OpenAI 风格通常需要，Ollama 不需要）
-/// - `model`: 模型名称
-/// - `max_tokens`: 最大生成 token 数（可选）
-/// - `temperature`: 温度参数 0.0-2.0（可选）
-/// - `extra`: 其他自定义参数
+/// # Fields
+/// - `api_style`: API style (see [`ApiStyle`])
+/// - `endpoint`: custom API endpoint (optional)
+/// - `api_key`: API key (optional; usually required for Claude/OpenAI, optional for Ollama)
+/// - `model`: model name
+/// - `max_tokens`: maximum generated token count (optional)
+/// - `temperature`: sampling temperature in `0.0..=2.0` (optional)
+/// - `extra`: additional provider-specific parameters
 ///
-/// # 示例
+/// # Example
 /// ```toml
 /// [llm.providers.claude]
 /// model = "claude-sonnet-4-5-20250929"
 /// api_key = "sk-ant-..."
 /// max_tokens = 1000
 /// temperature = 0.7
-/// endpoint = "https://api.anthropic.com"  # 可选
+/// endpoint = "https://api.anthropic.com" # optional
 /// ```
 #[derive(Clone, Deserialize, Serialize)]
 pub struct ProviderConfig {
-    /// API 风格，决定使用哪种 API 实现
-    /// 如果未指定，将使用 provider 名称推断
+    /// API style used to select the backend implementation.
+    ///
+    /// If omitted, it is inferred from the provider name.
     #[serde(default)]
     pub api_style: Option<ApiStyle>,
 
-    /// API endpoint
+    /// API endpoint.
     pub endpoint: Option<String>,
 
-    /// API key（当前从 provider 配置读取）
+    /// API key.
     ///
-    /// 对 Claude/OpenAI 风格通常必需；Ollama 风格可为空。
+    /// Usually required for Claude/OpenAI; optional for Ollama.
     #[serde(skip_serializing)]
     pub api_key: Option<String>,
 
-    /// 模型名称
+    /// Model name.
     pub model: String,
 
-    /// 最大生成 token 数
+    /// Maximum generated token count.
     pub max_tokens: Option<u32>,
 
-    /// 温度参数（0.0-2.0）
+    /// Sampling temperature in `0.0..=2.0`.
     pub temperature: Option<f32>,
 
-    /// 其他参数
+    /// Additional provider-specific parameters.
     #[serde(flatten)]
     pub extra: HashMap<String, serde_json::Value>,
 }
@@ -237,27 +243,26 @@ impl std::fmt::Debug for ProviderConfig {
     }
 }
 
-/// Commit 规范风格
+/// Commit message convention style.
 ///
-/// 决定 commit message 遵循的规范格式。
-/// 该信息会注入到 LLM prompt 中引导生成，不做硬校验。
+/// Controls the target format requested from the LLM.
 #[derive(Debug, Clone, Deserialize, Serialize, Default, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum ConventionStyle {
-    /// Conventional Commits: type(scope): description
+    /// Conventional Commits: `type(scope): description`.
     #[default]
     Conventional,
-    /// Gitmoji: :emoji: description
+    /// Gitmoji: `:emoji: description`.
     Gitmoji,
-    /// 自定义格式（需配合 template 字段）
+    /// Custom format defined by [`CommitConvention::template`].
     Custom,
 }
 
-/// Commit 规范配置
+/// Commit convention configuration.
 ///
-/// 定义团队统一的 commit message 规范，注入到 LLM prompt 中引导生成。
+/// Defines team-specific commit rules injected into prompt generation.
 ///
-/// # 示例
+/// # Example
 /// ```toml
 /// [commit.convention]
 /// style = "conventional"
@@ -266,33 +271,33 @@ pub enum ConventionStyle {
 /// ```
 #[derive(Debug, Clone, Deserialize, Serialize, Default, PartialEq)]
 pub struct CommitConvention {
-    /// 规范风格
+    /// Convention style.
     #[serde(default)]
     pub style: ConventionStyle,
 
-    /// 允许的 type 列表（style = "conventional" 或 "custom" 时生效）
+    /// Allowed commit types (used when `style = "conventional"` or `style = "custom"`).
     pub types: Option<Vec<String>>,
 
-    /// 自定义模板（style = "custom" 时生效）
-    /// 占位符：{type}, {scope}, {subject}, {body}
+    /// Custom template (used when `style = "custom"`).
+    /// Placeholders: `{type}`, `{scope}`, `{subject}`, `{body}`.
     pub template: Option<String>,
 
-    /// 附加 prompt 指令，追加到默认 prompt 之后
+    /// Additional prompt text appended after built-in instructions.
     pub extra_prompt: Option<String>,
 }
 
-/// Commit 命令配置
+/// Commit command configuration.
 ///
-/// 控制 commit message 生成的行为。
+/// Controls commit message generation behavior.
 ///
-/// # 字段
-/// - `show_diff_preview`: 生成前是否显示 diff 预览（默认 true）
-/// - `allow_edit`: 是否允许编辑生成的消息（默认 true）
-/// - `custom_prompt`: 自定义 prompt 模板（可选）
-/// - `max_retries`: 最大生成尝试次数（默认 10，包含首次生成）
-/// - `convention`: commit 规范配置（可选）
+/// # Fields
+/// - `show_diff_preview`: show diff preview before generation (default: `true`)
+/// - `allow_edit`: allow editing generated messages (default: `true`)
+/// - `custom_prompt`: extra prompt text (optional)
+/// - `max_retries`: maximum generation attempts, including the first one (default: `10`)
+/// - `convention`: optional commit convention config
 ///
-/// # 示例
+/// # Example
 /// ```toml
 /// [commit]
 /// show_diff_preview = true
@@ -306,37 +311,38 @@ pub struct CommitConvention {
 /// ```
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct CommitConfig {
-    /// 生成前是否显示 diff 预览
+    /// Whether to show a diff preview before generation.
     #[serde(default = "default_true")]
     pub show_diff_preview: bool,
 
-    /// 是否允许编辑生成的消息
+    /// Whether to allow editing generated messages.
     #[serde(default = "default_true")]
     pub allow_edit: bool,
 
-    /// 自定义 commit message 生成的 system prompt 文本
-    /// 不做占位符替换（如 `{diff}` 会按字面量传递）
+    /// Additional prompt text appended to the commit system prompt.
+    ///
+    /// No placeholder substitution is performed (`{diff}` is passed literally).
     #[serde(default)]
     pub custom_prompt: Option<String>,
 
-    /// 最大生成尝试次数（包含首次生成）
+    /// Maximum generation attempts, including the first attempt.
     #[serde(default = "default_commit_max_retries")]
     pub max_retries: usize,
 
-    /// Commit 规范配置（可选，通常在项目级 .gcop/config.toml 中设置）
+    /// Optional commit convention config, usually set in `.gcop/config.toml`.
     #[serde(default)]
     pub convention: Option<CommitConvention>,
 }
 
-/// Review 命令配置
+/// Review command configuration.
 ///
-/// 控制代码审查的行为。
+/// Controls code-review behavior.
 ///
-/// # 字段
-/// - `min_severity`: 文本输出时最低显示的问题严重性（"info", "warning", "critical"）
-/// - `custom_prompt`: 自定义 prompt 模板（可选）
+/// # Fields
+/// - `min_severity`: minimum issue severity shown in text output (`"info"`, `"warning"`, `"critical"`)
+/// - `custom_prompt`: additional prompt text (optional)
 ///
-/// # 示例
+/// # Example
 /// ```toml
 /// [review]
 /// min_severity = "warning"
@@ -344,29 +350,30 @@ pub struct CommitConfig {
 /// ```
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ReviewConfig {
-    /// 文本输出时最低显示的问题严重性
+    /// Minimum issue severity displayed in text output.
     ///
-    /// 说明：当前仅 `review --format text` 会应用该过滤；
-    /// `json` / `markdown` 会保留完整问题列表。
+    /// Note: this filter currently applies only to `review --format text`.
+    /// `json` and `markdown` output keep the full issue list.
     #[serde(default = "default_severity")]
     pub min_severity: String,
 
-    /// 自定义 code review 的 system prompt 文本
-    /// 不做占位符替换（如 `{diff}` 会按字面量传递）
+    /// Additional prompt text appended to the review system prompt.
+    ///
+    /// No placeholder substitution is performed (`{diff}` is passed literally).
     #[serde(default)]
     pub custom_prompt: Option<String>,
 }
 
-/// UI 配置
+/// UI configuration.
 ///
-/// 控制用户界面的显示行为。
+/// Controls terminal display behavior.
 ///
-/// # 字段
-/// - `colored`: 是否启用彩色输出（默认 true）
-/// - `streaming`: 是否启用流式输出（打字机效果，默认 true）
-/// - `language`: 界面语言（BCP 47 格式，如 "en", "zh-CN"，默认自动检测）
+/// # Fields
+/// - `colored`: enable colored output (default: `true`)
+/// - `streaming`: enable streaming output (typewriter effect, default: `true`)
+/// - `language`: UI language in BCP 47 format (for example `"en"`, `"zh-CN"`), auto-detected by default
 ///
-/// # 示例
+/// # Example
 /// ```toml
 /// [ui]
 /// colored = true
@@ -375,32 +382,32 @@ pub struct ReviewConfig {
 /// ```
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct UIConfig {
-    /// 是否启用彩色输出
+    /// Whether to enable color output.
     #[serde(default = "default_true")]
     pub colored: bool,
 
-    /// 是否启用流式输出（实时打字效果）
+    /// Whether to enable streaming output (real-time typing effect).
     #[serde(default = "default_true")]
     pub streaming: bool,
 
-    /// 界面语言（BCP 47 格式，如 "en", "zh-CN"）
-    /// None 表示自动检测系统语言
+    /// UI language in BCP 47 format (for example `"en"`, `"zh-CN"`).
+    /// `None` means auto-detect from system locale.
     #[serde(default)]
     pub language: Option<String>,
 }
 
-/// 网络配置
+/// Network configuration.
 ///
-/// 控制 HTTP 请求的超时和重试行为。
+/// Controls timeout and retry behavior for HTTP requests.
 ///
-/// # 字段
-/// - `request_timeout`: HTTP 请求超时时间（秒，默认 120）
-/// - `connect_timeout`: HTTP 连接超时时间（秒，默认 10）
-/// - `max_retries`: LLM API 请求最大重试次数（默认 3）
-/// - `retry_delay_ms`: 重试初始延迟（毫秒，默认 1000）
-/// - `max_retry_delay_ms`: 重试最大延迟（毫秒，默认 60000）
+/// # Fields
+/// - `request_timeout`: HTTP request timeout in seconds (default: `120`)
+/// - `connect_timeout`: HTTP connect timeout in seconds (default: `10`)
+/// - `max_retries`: max retries for LLM API requests (default: `3`)
+/// - `retry_delay_ms`: initial retry delay in milliseconds (default: `1000`)
+/// - `max_retry_delay_ms`: max retry delay in milliseconds (default: `60000`)
 ///
-/// # 示例
+/// # Example
 /// ```toml
 /// [network]
 /// request_timeout = 30
@@ -411,45 +418,45 @@ pub struct UIConfig {
 /// ```
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct NetworkConfig {
-    /// HTTP 请求超时时间（秒）
+    /// HTTP request timeout in seconds.
     #[serde(default = "default_request_timeout")]
     pub request_timeout: u64,
 
-    /// HTTP 连接超时时间（秒）
+    /// HTTP connect timeout in seconds.
     #[serde(default = "default_connect_timeout")]
     pub connect_timeout: u64,
 
-    /// LLM API 请求最大重试次数
+    /// Maximum retries for LLM API requests.
     #[serde(default = "default_network_max_retries")]
     pub max_retries: usize,
 
-    /// 重试初始延迟（毫秒）
+    /// Initial retry delay in milliseconds.
     #[serde(default = "default_retry_delay_ms")]
     pub retry_delay_ms: u64,
 
-    /// 重试最大延迟（毫秒）
+    /// Maximum retry delay in milliseconds.
     #[serde(default = "default_max_retry_delay_ms")]
     pub max_retry_delay_ms: u64,
 }
 
-/// 文件配置
+/// File configuration.
 ///
-/// 控制本地文件读取的限制。
+/// Controls local file-read limits.
 ///
-/// # 字段
-/// - `max_size`: 最大文件大小（字节，默认 10MB）
-///   - 目前用于 `review file <PATH>` 读取工作区文件时的保护阈值
+/// # Fields
+/// - `max_size`: max file size in bytes (default: 10 MiB)
+///   Used by `review file <PATH>` when reading workspace files.
 ///
-/// # 示例
+/// # Example
 /// ```toml
 /// [file]
 /// max_size = 10485760  # 10MB
 /// ```
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct FileConfig {
-    /// 最大文件大小（字节）
+    /// Maximum file size in bytes.
     ///
-    /// 当前用于 `review file <PATH>` 的文件读取上限。
+    /// Current read limit for `review file <PATH>`.
     #[serde(default = "default_max_file_size")]
     pub max_size: u64,
 }
@@ -458,12 +465,12 @@ fn default_true() -> bool {
     true
 }
 
-/// Workspace 配置（monorepo 支持）
+/// Workspace configuration (monorepo support).
 ///
-/// 控制 workspace 检测和 scope 推断行为。
-/// 默认自动检测，零配置即可使用；此段用于手动覆盖。
+/// Controls workspace detection and scope inference.
+/// Auto-detection is enabled by default; this section is for manual overrides.
 ///
-/// # 示例
+/// # Example
 /// ```toml
 /// [workspace]
 /// enabled = true
@@ -472,19 +479,19 @@ fn default_true() -> bool {
 /// ```
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct WorkspaceConfig {
-    /// 是否启用 workspace 检测（默认 true）
+    /// Whether workspace detection is enabled (default: `true`).
     #[serde(default = "default_true")]
     pub enabled: bool,
 
-    /// 手动 scope 映射：包路径 → scope 名
+    /// Manual scope mapping: package path -> scope name.
     ///
-    /// 覆盖自动推断的包短名。
+    /// Overrides automatically inferred package short names.
     #[serde(default)]
     pub scope_mappings: HashMap<String, String>,
 
-    /// 手动指定 workspace member patterns
+    /// Explicit workspace member globs.
     ///
-    /// 设置后跳过自动检测，直接使用此列表。
+    /// When set, auto-detection is skipped and this list is used directly.
     #[serde(default)]
     pub members: Option<Vec<String>>,
 }
@@ -524,7 +531,7 @@ fn default_retry_delay_ms() -> u64 {
 }
 
 fn default_max_retry_delay_ms() -> u64 {
-    60_000 // 60 秒
+    60_000 // 60 seconds
 }
 
 fn default_max_file_size() -> u64 {
@@ -597,12 +604,12 @@ impl Default for FileConfig {
     }
 }
 
-// === 验证逻辑 ===
+// Validation logic.
 
 impl AppConfig {
-    /// 验证配置的合法性
+    /// Validates configuration consistency.
     pub fn validate(&self) -> Result<()> {
-        // 验证 default_provider 引用的 provider 存在
+        // Ensure the configured default provider exists.
         if !self.llm.providers.is_empty()
             && !self.llm.providers.contains_key(&self.llm.default_provider)
         {
@@ -612,7 +619,7 @@ impl AppConfig {
             )));
         }
 
-        // 验证 fallback_providers 引用的 provider 都存在
+        // Ensure all configured fallback providers exist.
         for name in &self.llm.fallback_providers {
             if !self.llm.providers.contains_key(name) {
                 return Err(GcopError::Config(format!(
@@ -631,7 +638,7 @@ impl AppConfig {
 }
 
 impl ProviderConfig {
-    /// 验证 provider 配置
+    /// Validates provider configuration.
     pub fn validate(&self, name: &str) -> Result<()> {
         if let Some(temp) = self.temperature
             && !(0.0..=2.0).contains(&temp)
@@ -654,7 +661,7 @@ impl ProviderConfig {
 }
 
 impl NetworkConfig {
-    /// 验证网络配置
+    /// Validates network configuration.
     pub fn validate(&self) -> Result<()> {
         if self.request_timeout == 0 {
             return Err(GcopError::Config(

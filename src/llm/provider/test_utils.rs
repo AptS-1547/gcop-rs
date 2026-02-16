@@ -6,11 +6,11 @@
 use crate::config::{NetworkConfig, ProviderConfig};
 use std::collections::HashMap;
 
-/// 在测试中安装 rustls crypto provider
+/// Install rustls crypto provider in tests
 ///
-/// reqwest 0.13 + rustls-no-provider 需要手动安装 crypto provider，
-/// 生产代码在 main.rs 中完成，测试需要单独调用。
-/// 多次调用是安全的（install_default 失败时忽略即可）。
+/// reqwest 0.13 + rustls-no-provider requires manual installation of crypto provider,
+/// Production code is done in main.rs and tests need to be called separately.
+/// It is safe to call it multiple times (just ignore install_default if it fails).
 pub fn ensure_crypto_provider() {
     let _ = rustls::crypto::ring::default_provider().install_default();
 }

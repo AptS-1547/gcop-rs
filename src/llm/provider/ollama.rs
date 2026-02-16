@@ -9,45 +9,45 @@ use crate::error::{GcopError, Result};
 
 /// Ollama API provider
 ///
-/// 使用本地运行的 Ollama 模型生成 commit message 和代码审查。
+/// Generate commit messages and code reviews using locally running Ollama models.
 ///
-/// # 支持的模型
-/// - `llama3.2` (推荐)
+/// # Supported models
+/// - `llama3.2` (recommended)
 /// - `llama3.1`
 /// - `codellama`
 /// - `qwen2.5-coder`
 /// - `deepseek-coder-v2`
-/// - 其他 Ollama 支持的模型
+/// - Other Ollama supported models
 ///
-/// # 配置示例
+/// # Configuration example
 /// ```toml
 /// [llm]
 /// default_provider = "ollama"
 ///
 /// [llm.providers.ollama]
 /// model = "llama3.2"
-/// endpoint = "http://localhost:11434"  # 可选，默认值
-/// temperature = 0.7  # 可选
+/// endpoint = "http://localhost:11434" # Optional, default value
+/// temperature = 0.7 # optional
 /// ```
 ///
-/// # 配置方式
+/// # Configuration method
 ///
-/// 在 `config.toml` 中设置可选的 `endpoint`（默认 `http://localhost:11434`）。
-/// Ollama 本地运行，无需 API key。
-/// CI 模式下使用 `GCOP_CI_ENDPOINT` 环境变量。
+/// Set optional `endpoint` in `config.toml` (default `http://localhost:11434`).
+/// Ollama runs natively and requires no API key.
+/// Use the `GCOP_CI_ENDPOINT` environment variable in CI mode.
 ///
-/// # 特性
-/// - 完全本地运行（无需 API key）
-/// - 支持自定义模型
-/// - 自动重试（指数退避，默认 3 次，可通过 `network.max_retries` 配置）
-/// - 无流式支持（计划中）
+/// # Features
+/// - Runs completely natively (no API key required)
+/// - Support custom models
+/// - Automatic retries (exponential backoff, default 3 times, configurable through `network.max_retries`)
+/// - No streaming support (planned)
 ///
-/// # 使用前提
-/// 1. 安装 Ollama：<https://ollama.ai>
-/// 2. 拉取模型：`ollama pull llama3.2`
-/// 3. 确保 Ollama 服务运行中：`ollama serve`
+/// # Prerequisites for use
+/// 1. Install Ollama: <https://ollama.ai>
+/// 2. Pull model: `ollama pull llama3.2`
+/// 3. Make sure the Ollama service is running: `ollama serve`
 ///
-/// # 示例
+/// # Example
 /// ```ignore
 /// use gcop_rs::llm::{LLMProvider, provider::ollama::OllamaProvider};
 /// use gcop_rs::config::{ProviderConfig, NetworkConfig};
@@ -61,7 +61,7 @@ use crate::error::{GcopError, Result};
 /// let network_config = NetworkConfig::default();
 /// let provider = OllamaProvider::new(&config, "ollama", &network_config, false)?;
 ///
-/// // 生成 commit message
+/// // Generate commit message
 /// let diff = "diff --git a/main.rs...";
 /// let message = provider.generate_commit_message(diff, None, None).await?;
 /// println!("Generated: {}", message);
@@ -77,7 +77,7 @@ pub struct OllamaProvider {
     max_retries: usize,
     retry_delay_ms: u64,
     max_retry_delay_ms: u64,
-    #[allow(dead_code)] // 保留用于未来流式输出支持
+    #[allow(dead_code)] // Reserved for future streaming output support
     colored: bool,
 }
 
@@ -101,18 +101,19 @@ struct OllamaOptions {
 #[derive(Deserialize)]
 struct OllamaResponse {
     response: String,
-    #[allow(dead_code)] // 保留用于完整性验证
+    #[allow(dead_code)] // Reserved for integrity verification
     done: bool,
 }
 
 impl OllamaProvider {
+    /// Builds an Ollama provider from runtime configuration.
     pub fn new(
         config: &ProviderConfig,
         provider_name: &str,
         network_config: &NetworkConfig,
         colored: bool,
     ) -> Result<Self> {
-        // Ollama 本地部署，无需 API key
+        // Ollama local deployment, no API key required
         let endpoint = build_endpoint(config, DEFAULT_OLLAMA_BASE, OLLAMA_API_SUFFIX);
         let model = config.model.clone();
         let temperature = get_temperature_optional(config);
@@ -166,7 +167,7 @@ impl ApiBackend for OllamaProvider {
         let response: OllamaResponse = send_llm_request(
             &self.client,
             &self.endpoint,
-            &[], // Ollama 无需 auth headers
+            &[], // Ollama does not require auth headers
             &request,
             "Ollama",
             progress,

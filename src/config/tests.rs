@@ -1,13 +1,13 @@
-// 配置模块测试
+// Configure module testing
 //
-// 此文件包含所有配置相关的测试。
+// This file contains all configuration related tests.
 
 use super::*;
 use pretty_assertions::assert_eq;
 use serial_test::serial;
 use std::env;
 
-/// RAII 环境变量 guard，确保测试后清理
+/// RAII environment variable guard to ensure cleanup after testing
 struct EnvGuard {
     key: String,
     original: Option<String>,
@@ -16,7 +16,7 @@ struct EnvGuard {
 impl EnvGuard {
     fn set(key: &str, value: &str) -> Self {
         let original = env::var(key).ok();
-        // SAFETY: 测试环境中修改环境变量是安全的，且使用 serial_test 确保串行执行
+        // SAFETY: It is safe to modify environment variables in the test environment, and use serial_test to ensure serial execution
         unsafe { env::set_var(key, value) };
         Self {
             key: key.to_string(),
@@ -27,7 +27,7 @@ impl EnvGuard {
 
 impl Drop for EnvGuard {
     fn drop(&mut self) {
-        // SAFETY: 测试环境中修改环境变量是安全的
+        // SAFETY: It is safe to modify environment variables in the test environment
         match &self.original {
             Some(v) => unsafe { env::set_var(&self.key, v) },
             None => unsafe { env::remove_var(&self.key) },
@@ -35,7 +35,7 @@ impl Drop for EnvGuard {
     }
 }
 
-// === 默认值测试（测试 structs.rs 的 Default 实现）===
+// === Default value testing (testing the Default implementation of structs.rs) ===
 
 #[test]
 fn test_app_config_default_llm() {
@@ -80,12 +80,12 @@ fn test_app_config_default_file() {
     assert_eq!(config.file.max_size, 10 * 1024 * 1024);
 }
 
-// === 配置加载测试 ===
+// === Configuration loading test ===
 
 #[test]
 #[serial]
 fn test_load_config_succeeds() {
-    // 验证 load_config 不会崩溃（不读用户配置文件）
+    // Verify that load_config does not crash (without reading user configuration files)
     let result = loader::load_config_from_path(None, None);
     assert!(result.is_ok());
 }
@@ -94,20 +94,20 @@ fn test_load_config_succeeds() {
 #[serial]
 fn test_load_config_returns_valid_config() {
     let config = loader::load_config_from_path(None, None).unwrap();
-    // 验证配置有合理的值
+    // Verify that the configuration has reasonable values
     assert!(!config.llm.default_provider.is_empty());
     assert!(config.commit.max_retries > 0);
     assert!(config.network.request_timeout > 0);
 }
 
-// === 路径函数测试 ===
+// === Path function test ===
 
 #[test]
 fn test_get_config_dir_returns_valid_path() {
     let config_dir = loader::get_config_dir();
     assert!(config_dir.is_some());
     let path = config_dir.unwrap();
-    // 路径应该包含 "gcop"
+    // The path should contain "gcop"
     assert!(path.to_string_lossy().contains("gcop"));
 }
 
@@ -115,20 +115,20 @@ fn test_get_config_dir_returns_valid_path() {
 fn test_get_config_path_has_toml_suffix() {
     let config_dir = loader::get_config_dir();
     assert!(config_dir.is_some());
-    // config.toml 应该在配置目录下
+    // config.toml should be in the configuration directory
     let config_path = config_dir.unwrap().join("config.toml");
     assert!(config_path.to_string_lossy().ends_with("config.toml"));
 }
 
-// === 环境变量覆盖测试 ===
+// === Environment variable coverage test ===
 
 #[test]
 #[serial]
 fn test_env_guard_sets_and_restores() {
     let key = "GCOP_TEST_VAR";
 
-    // 确保测试前不存在
-    // SAFETY: 测试环境
+    // Make sure it doesn't exist before testing
+    // SAFETY: test environment
     unsafe { env::remove_var(key) };
 
     {
@@ -136,7 +136,7 @@ fn test_env_guard_sets_and_restores() {
         assert_eq!(env::var(key).unwrap(), "test_value");
     }
 
-    // guard 释放后应该恢复（删除）
+    // guard should be restored (deleted) after release
     assert!(env::var(key).is_err());
 }
 
@@ -144,22 +144,22 @@ fn test_env_guard_sets_and_restores() {
 #[serial]
 fn test_env_var_can_be_read() {
     let _guard = EnvGuard::set("GCOP__UI__COLORED", "false");
-    // 验证环境变量被正确设置
+    // Verify environment variables are set correctly
     assert_eq!(env::var("GCOP__UI__COLORED").unwrap(), "false");
 }
 
 #[test]
 #[serial]
 fn test_env_var_llm_default_provider() {
-    // 验证 GCOP__LLM__DEFAULT_PROVIDER 环境变量是否生效
-    // 注意：使用双下划线表示嵌套层级
+    // Verify whether the GCOP__LLM__DEFAULT_PROVIDER environment variable is effective
+    // Note: Use double underscores to indicate nesting levels
     let _guard = EnvGuard::set("GCOP__LLM__DEFAULT_PROVIDER", "test_provider");
     let config = loader::load_config_from_path(None, None).unwrap();
-    // 环境变量优先级最高，应该覆盖配置文件
+    // Environment variables have the highest priority and should override configuration files.
     assert_eq!(config.llm.default_provider, "test_provider");
 }
 
-// === CI 模式测试 ===
+// === CI mode testing ===
 
 #[test]
 #[serial]
@@ -170,16 +170,16 @@ fn test_ci_mode_enabled_with_ci_env() {
 
     let config = loader::load_config_from_path(None, None).unwrap();
 
-    // CI 模式应该设置 default_provider 为 "ci"
+    // CI mode should set default_provider to "ci"
     assert_eq!(config.llm.default_provider, "ci");
 
-    // 应该有一个名为 "ci" 的 provider
+    // There should be a provider named "ci"
     assert!(config.llm.providers.contains_key("ci"));
 
     let ci_provider = &config.llm.providers["ci"];
     assert_eq!(ci_provider.api_style, Some(structs::ApiStyle::Claude));
     assert_eq!(ci_provider.api_key, Some("sk-test".to_string()));
-    assert_eq!(ci_provider.model, "claude-sonnet-4-5-20250929"); // 默认值
+    assert_eq!(ci_provider.model, "claude-sonnet-4-5-20250929"); // default value
 }
 
 #[test]
@@ -194,7 +194,7 @@ fn test_ci_mode_with_custom_model() {
 
     let ci_provider = &config.llm.providers["ci"];
     assert_eq!(ci_provider.api_style, Some(structs::ApiStyle::Ollama));
-    assert_eq!(ci_provider.model, "llama3.1"); // 自定义值
+    assert_eq!(ci_provider.model, "llama3.1"); // custom value
 }
 
 #[test]
@@ -219,7 +219,7 @@ fn test_ci_mode_with_custom_endpoint() {
 fn test_ci_mode_missing_provider_type() {
     let _ci = EnvGuard::set("CI", "1");
     let _key = EnvGuard::set("GCOP_CI_API_KEY", "sk-test");
-    // 没有设置 GCOP_CI_PROVIDER
+    // GCOP_CI_PROVIDER not set
 
     let result = loader::load_config_from_path(None, None);
     assert!(result.is_err());
@@ -236,7 +236,7 @@ fn test_ci_mode_missing_provider_type() {
 fn test_ci_mode_missing_api_key() {
     let _ci = EnvGuard::set("CI", "1");
     let _type = EnvGuard::set("GCOP_CI_PROVIDER", "claude");
-    // 没有设置 GCOP_CI_API_KEY
+    // GCOP_CI_API_KEY not set
 
     let result = loader::load_config_from_path(None, None);
     assert!(result.is_err());
@@ -268,13 +268,13 @@ fn test_ci_mode_invalid_provider_type() {
 #[test]
 #[serial]
 fn test_ci_mode_disabled_by_default() {
-    // 没有设置 CI=1，不应该创建 "ci" provider
+    // Without setting CI=1, the "ci" provider should not be created
     let config = loader::load_config_from_path(None, None).unwrap();
     assert!(!config.llm.providers.contains_key("ci"));
-    assert_eq!(config.llm.default_provider, "claude"); // 默认值
+    assert_eq!(config.llm.default_provider, "claude"); // default value
 }
 
-// === validate: default_provider / fallback_providers 存在性检查 ===
+// === validate: default_provider / fallback_providers existence check ===
 
 #[test]
 fn test_validate_default_provider_not_in_providers() {
@@ -294,8 +294,8 @@ fn test_validate_default_provider_not_in_providers() {
 
 #[test]
 fn test_validate_default_provider_ok_when_providers_empty() {
-    // 默认配置：default_provider = "claude"，providers = {}
-    // providers 为空时不报错（用户还没配置，延迟到运行时处理）
+    // Default configuration: default_provider = "claude", providers = {}
+    // No error will be reported when providers is empty (the user has not configured it yet, so processing is delayed until runtime)
     let config = AppConfig::default();
     assert!(config.validate().is_ok());
 }
@@ -359,7 +359,7 @@ fn test_validate_fallback_providers_empty_is_ok() {
     assert!(config.validate().is_ok());
 }
 
-/// 构造一个最小合法的 ProviderConfig 用于测试
+/// Construct a minimally legal ProviderConfig for testing
 fn make_test_provider() -> structs::ProviderConfig {
     structs::ProviderConfig {
         api_style: None,
@@ -372,12 +372,12 @@ fn make_test_provider() -> structs::ProviderConfig {
     }
 }
 
-// === 默认值一致性测试 ===
+// === Default value consistency test ===
 
 #[test]
 fn test_serde_empty_config_matches_default() {
-    // 通过 config crate 的空 builder 反序列化，验证与 AppConfig::default() 一致
-    // 这是 load_config() 的真实路径：无配置文件、无环境变量时走 config crate -> serde(default)
+    // Deserialize through the empty builder of the config crate and verify that it is consistent with AppConfig::default()
+    // This is the real path of load_config(): when there is no configuration file or environment variables, go to config crate -> serde(default)
     let config = config::Config::builder().build().unwrap();
     let deserialized: AppConfig = config.try_deserialize().unwrap();
     let default_config = AppConfig::default();
@@ -448,7 +448,7 @@ fn test_serde_empty_config_matches_default() {
     );
 }
 
-// === CommitConvention 测试 ===
+// === CommitConvention Test ===
 
 #[test]
 fn test_commit_convention_default() {
@@ -467,7 +467,7 @@ fn test_commit_config_default_convention_is_none() {
 
 #[test]
 fn test_convention_style_serde_roundtrip() {
-    // 验证 ConventionStyle 的序列化/反序列化
+    // Verify serialization/deserialization of ConventionStyle
     let styles = vec![
         (structs::ConventionStyle::Conventional, "\"conventional\""),
         (structs::ConventionStyle::Gitmoji, "\"gitmoji\""),
@@ -481,7 +481,7 @@ fn test_convention_style_serde_roundtrip() {
     }
 }
 
-// === 项目配置三层优先级测试 ===
+// === Project configuration three-tier priority testing ===
 
 #[test]
 #[serial]
@@ -491,19 +491,19 @@ fn test_project_config_overrides_user_config() {
     let user_dir = tempfile::tempdir().unwrap();
     let project_dir = tempfile::tempdir().unwrap();
 
-    // 用户配置：default_provider = "claude"
+    // User configuration: default_provider = "claude"
     let user_config = user_dir.path().join("config.toml");
     let mut f = std::fs::File::create(&user_config).unwrap();
     writeln!(f, "[llm]\ndefault_provider = \"claude\"").unwrap();
 
-    // 项目配置：default_provider = "openai"
+    // Project configuration: default_provider = "openai"
     let project_config = project_dir.path().join("config.toml");
     let mut f = std::fs::File::create(&project_config).unwrap();
     writeln!(f, "[llm]\ndefault_provider = \"openai\"").unwrap();
 
     let config = loader::load_config_from_path(Some(user_config), Some(project_config)).unwrap();
 
-    // 项目配置应覆盖用户配置
+    // Project configuration should override user configuration
     assert_eq!(config.llm.default_provider, "openai");
 }
 
@@ -514,29 +514,29 @@ fn test_env_overrides_project_config() {
 
     let project_dir = tempfile::tempdir().unwrap();
 
-    // 项目配置：default_provider = "openai"
+    // Project configuration: default_provider = "openai"
     let project_config = project_dir.path().join("config.toml");
     let mut f = std::fs::File::create(&project_config).unwrap();
     writeln!(f, "[llm]\ndefault_provider = \"openai\"").unwrap();
 
-    // 环境变量覆盖
+    // Environment variable override
     let _guard = EnvGuard::set("GCOP__LLM__DEFAULT_PROVIDER", "gemini");
 
     let config = loader::load_config_from_path(None, Some(project_config)).unwrap();
 
-    // 环境变量应覆盖项目配置
+    // Environment variables should override project configuration
     assert_eq!(config.llm.default_provider, "gemini");
 }
 
 #[test]
 #[serial]
 fn test_load_config_with_no_project_config() {
-    // 无项目配置时应正常工作
+    // Should work fine without project configuration
     let config = loader::load_config_from_path(None, None).unwrap();
-    assert_eq!(config.llm.default_provider, "claude"); // 默认值
+    assert_eq!(config.llm.default_provider, "claude"); // default value
 }
 
-// === CommitConvention TOML 解析测试 ===
+// === CommitConvention TOML parsing test ===
 
 #[test]
 fn test_convention_from_toml() {

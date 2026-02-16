@@ -1,6 +1,7 @@
-// 配置加载逻辑
-//
-// 此文件负责从文件、环境变量和 CI 模式加载配置。
+//! Configuration loading and precedence resolution.
+//!
+//! Configuration is assembled from user/project files, environment variables,
+//! and optional CI overrides.
 
 use config::{Config, Environment, File};
 use directories::ProjectDirs;
@@ -9,86 +10,90 @@ use std::path::{Path, PathBuf};
 use super::structs::{AppConfig, ProviderConfig};
 use crate::error::Result;
 
-/// 加载应用配置
+/// Loads application configuration.
 ///
-/// 配置加载优先级（从高到低）：
-/// 1. CI 模式覆盖（`CI=1` 时使用 `GCOP_CI_*`，直接修改反序列化后的结构体）
-/// 2. 环境变量（`GCOP__*` 前缀，双下划线表示嵌套）
-///    - 例如：`GCOP__LLM__DEFAULT_PROVIDER=openai`
-///    - 例如：`GCOP__UI__COLORED=false`
-/// 3. 项目级配置（`.gcop/config.toml`，从 CWD 向上查找，以 `.git` 为边界）
-/// 4. 用户级配置文件（平台相关路径下的 `config.toml`）
-/// 5. 默认值（来自 structs.rs 的 Default trait 和 serde(default) 属性）
+/// Effective precedence (high to low):
+/// 1. CI overrides (`CI=1` + `GCOP_CI_*`, applied after deserialization)
+/// 2. Environment variables (`GCOP__*`, with `__` as nesting separator)
+///    - For example: `GCOP__LLM__DEFAULT_PROVIDER=openai`
+///    - For example: `GCOP__UI__COLORED=false`
+/// 3. Project config (`.gcop/config.toml`, discovered from repo root)
+/// 4. User config file (`config.toml` in platform config directory)
+/// 5. Rust defaults (`Default` + `serde(default)`)
 ///
-/// 代码执行顺序：先加载低优先级源（用户文件→项目文件→环境变量），config-rs 后加的覆盖先加的；
-/// 再在反序列化后应用 CI 覆盖。
+/// Sources are added from low to high priority (`user -> project -> env`)
+/// because later `config-rs` sources override earlier ones.
+/// CI overrides are applied last.
 pub fn load_config() -> Result<AppConfig> {
     load_config_from_path(get_config_path(), find_project_config())
 }
 
-/// 从指定路径加载配置（可测试版本）
+/// Loads configuration from explicit paths (test-friendly entrypoint).
 ///
-/// 传入 `None` 跳过对应配置文件加载，仅使用其他源和默认值。
+/// Passing `None` skips the corresponding file source.
 pub(crate) fn load_config_from_path(
     config_path: Option<PathBuf>,
     project_config_path: Option<PathBuf>,
 ) -> Result<AppConfig> {
     let mut builder = Config::builder();
 
-    // 用户级配置文件（优先级最低，先加载；config-rs 后加的源覆盖先加的）
+    // User config (lowest priority source).
     if let Some(config_path) = config_path
         && config_path.exists()
     {
         builder = builder.add_source(File::from(config_path));
     }
 
-    // 项目级配置文件（优先级高于用户配置，后加载以实现覆盖）
+    // Project config (overrides user config).
     if let Some(ref project_path) = project_config_path
         && project_path.exists()
     {
-        // 安全检查：项目配置不应包含 api_key
+        // Security check: project config should not include `api_key`.
         check_project_config_security(project_path);
         builder = builder.add_source(File::from(project_path.clone()));
     }
 
-    // 环境变量（优先级最高，最后加载以实现覆盖）
-    // 使用双下划线作为嵌套层级分隔符，避免与字段名中的单下划线冲突
-    // 例如：GCOP__LLM__DEFAULT_PROVIDER -> llm.default_provider
+    // Environment variables (highest source priority in config-rs builder order).
+    // Double underscore is used as nesting separator:
+    // `GCOP__LLM__DEFAULT_PROVIDER` -> `llm.default_provider`.
     builder = builder.add_source(
         Environment::with_prefix("GCOP")
             .separator("__")
             .try_parsing(true),
     );
 
-    // 构建并反序列化配置
+    // Build and deserialize merged sources.
     let config = builder.build()?;
     let mut app_config: AppConfig = config.try_deserialize()?;
 
-    // CI 模式覆盖（优先级最高，直接修改反序列化后的结构体）
+    // CI mode overrides (highest effective priority).
     apply_ci_mode_overrides(&mut app_config)?;
 
-    // 验证配置合法性
+    // Validate final config.
     app_config.validate()?;
 
     Ok(app_config)
 }
 
-/// 从当前工作目录查找项目级配置 `.gcop/config.toml`
+/// Finds project-level `.gcop/config.toml`.
 ///
-/// 通过 `find_git_root()` 定位仓库根目录，再检查该目录下是否存在 `.gcop/config.toml`。
-/// `init --project` 始终在仓库根目录创建 `.gcop/`，因此只需检查根目录。
+/// Resolves the repository root via [`crate::git::find_git_root`], then checks
+/// for `.gcop/config.toml` at that root.
+/// `init --project` always creates `.gcop/` at the repository root, so no
+/// upward traversal is needed once the root is known.
 pub(crate) fn find_project_config() -> Option<PathBuf> {
     let root = crate::git::find_git_root()?;
     let candidate = root.join(".gcop").join("config.toml");
     candidate.exists().then_some(candidate)
 }
 
-/// 检查项目级配置文件的安全性
+/// Warns when project-level config contains secrets.
 ///
-/// 如果项目配置中包含 `api_key` 字段，输出 warning 提示用户迁移到用户级配置或环境变量。
+/// If project config contains an `api_key`, prints warnings encouraging users to
+/// move secrets into user-level config or environment variables.
 fn check_project_config_security(path: &Path) {
     if let Ok(content) = std::fs::read_to_string(path) {
-        // 检查非注释行中是否包含 api_key
+        // Detect `api_key` in non-comment lines.
         let has_api_key = content.lines().any(|line| {
             let trimmed = line.trim();
             !trimmed.starts_with('#') && trimmed.contains("api_key")
@@ -101,31 +106,31 @@ fn check_project_config_security(path: &Path) {
     }
 }
 
-/// 应用 CI 模式环境变量覆盖
+/// Applies CI-mode environment overrides.
 ///
-/// 当 `CI=1` 时，从以下环境变量构建 provider 配置：
-/// - `GCOP_CI_PROVIDER`: "claude", "openai", "ollama" 或 "gemini"（必需）
-/// - `GCOP_CI_API_KEY`: API key（必需）
-/// - `GCOP_CI_MODEL`: 模型名称（可选，有默认值）
-/// - `GCOP_CI_ENDPOINT`: 自定义端点（可选）
+/// When `CI=1`, provider config is built from:
+/// - `GCOP_CI_PROVIDER`: "claude", "openai", "ollama" or "gemini" (required)
+/// - `GCOP_CI_API_KEY`: API key (required)
+/// - `GCOP_CI_MODEL`: model name (optional, has a provider-specific default)
+/// - `GCOP_CI_ENDPOINT`: custom endpoint (optional)
 ///
-/// 该 provider 将被注入为 "ci" 并设为 default_provider。
+/// The resulting provider is inserted as `"ci"` and set as `default_provider`.
 fn apply_ci_mode_overrides(config: &mut AppConfig) -> Result<()> {
     use std::env;
 
-    // 检查是否启用 CI 模式
+    // Check whether CI mode is enabled.
     let ci_enabled = env::var("CI").ok().as_deref() == Some("1");
 
     if !ci_enabled {
         return Ok(());
     }
 
-    // 读取 GCOP_CI_PROVIDER（必需）
+    // Read GCOP_CI_PROVIDER (required).
     let provider_type = env::var("GCOP_CI_PROVIDER").map_err(|_| {
         crate::error::GcopError::Config(rust_i18n::t!("config.ci_provider_not_set").to_string())
     })?;
 
-    // 验证 provider_type
+    // Validate provider type.
     let api_style: super::structs::ApiStyle = provider_type.parse().map_err(|_| {
         crate::error::GcopError::Config(
             rust_i18n::t!(
@@ -136,18 +141,18 @@ fn apply_ci_mode_overrides(config: &mut AppConfig) -> Result<()> {
         )
     })?;
 
-    // 读取 GCOP_CI_API_KEY（必需）
+    // Read GCOP_CI_API_KEY (required).
     let api_key = env::var("GCOP_CI_API_KEY").map_err(|_| {
         crate::error::GcopError::Config(rust_i18n::t!("config.ci_api_key_not_set").to_string())
     })?;
 
-    // 读取 GCOP_CI_MODEL（可选，有默认值）
+    // Read GCOP_CI_MODEL (optional, with default).
     let model = env::var("GCOP_CI_MODEL").unwrap_or_else(|_| api_style.default_model().to_string());
 
-    // 读取 GCOP_CI_ENDPOINT（可选）
+    // Read GCOP_CI_ENDPOINT (optional).
     let endpoint = env::var("GCOP_CI_ENDPOINT").ok();
 
-    // 构建 ProviderConfig
+    // Build provider config.
     let provider_config = ProviderConfig {
         api_style: Some(api_style),
         endpoint,
@@ -158,7 +163,7 @@ fn apply_ci_mode_overrides(config: &mut AppConfig) -> Result<()> {
         extra: Default::default(),
     };
 
-    // 注入到配置中
+    // Inject into runtime config.
     config
         .llm
         .providers
@@ -170,16 +175,16 @@ fn apply_ci_mode_overrides(config: &mut AppConfig) -> Result<()> {
     Ok(())
 }
 
-/// 获取配置文件路径
+/// Returns platform-specific config file path.
 ///
-/// 返回平台相关的配置文件路径（`<config_dir>/config.toml`）
+/// Path format: `<config_dir>/config.toml`.
 fn get_config_path() -> Option<PathBuf> {
     ProjectDirs::from("", "", "gcop").map(|dirs| dirs.config_dir().join("config.toml"))
 }
 
-/// 获取配置目录路径
+/// Returns platform-specific config directory path.
 ///
-/// 用于需要访问配置目录的场景（如初始化、验证等）
+/// Used by commands that need direct directory access (for example, init and validate flows).
 pub fn get_config_dir() -> Option<PathBuf> {
     ProjectDirs::from("", "", "gcop").map(|dirs| dirs.config_dir().to_path_buf())
 }
