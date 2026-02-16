@@ -9,15 +9,22 @@ use std::time::{Duration, SystemTime};
 
 use crate::error::{GcopError, Result};
 
-/// Determine whether the error should be retried (currently only retrying for failed connections)
+/// Determine whether the error should be retried
 fn is_retryable_error(error: &GcopError) -> bool {
-    match error {
-        // Connection failed -> try again (case insensitive)
-        GcopError::Llm(msg) => msg.to_lowercase().contains("connection failed"),
+    matches!(
+        error,
+        GcopError::LlmTimeout { .. }
+            | GcopError::LlmConnectionFailed { .. }
+            | GcopError::Network(_)
+    )
+}
 
-        // Other errors -> No retry
-        _ => false,
-    }
+/// Determine whether an HTTP status code should trigger a retry.
+///
+/// Retryable: 408, 500, 502, 503, 504
+/// Note: 429 is handled separately with Retry-After header support.
+fn is_retryable_status(status: u16) -> bool {
+    matches!(status, 408 | 500 | 502 | 503 | 504)
 }
 
 /// Parse Retry-After header value
@@ -86,25 +93,17 @@ async fn try_send_request<Req: Serialize>(
             error_details
         );
 
-        // Provide more detailed error information for different types of network errors
+        // Map network errors to structured error types
         if e.is_timeout() {
-            GcopError::Llm(
-                rust_i18n::t!(
-                    "provider.api_request_timeout",
-                    provider = provider_name,
-                    detail = error_details.as_str()
-                )
-                .to_string(),
-            )
+            GcopError::LlmTimeout {
+                provider: provider_name.to_string(),
+                detail: error_details,
+            }
         } else if e.is_connect() {
-            GcopError::Llm(
-                rust_i18n::t!(
-                    "provider.api_connection_failed",
-                    provider = provider_name,
-                    detail = error_details.as_str()
-                )
-                .to_string(),
-            )
+            GcopError::LlmConnectionFailed {
+                provider: provider_name.to_string(),
+                detail: error_details,
+            }
         } else {
             GcopError::Network(e)
         }
@@ -273,7 +272,37 @@ where
         tracing::debug!("{} API response status: {}", provider_name, status);
         tracing::debug!("{} API response body: {}", provider_name, response_text);
 
-        // Other error status codes
+        // Retryable server errors (5xx, 408) -- retry with exponential backoff
+        if !status.is_success() && is_retryable_status(status.as_u16()) {
+            if attempt > max_retries {
+                return Err(GcopError::LlmApi {
+                    status: status.as_u16(),
+                    message: format!("{}: {}", provider_name, response_text),
+                });
+            }
+
+            if let Some(p) = progress {
+                p.append_suffix(&rust_i18n::t!(
+                    "provider.retrying_suffix",
+                    attempt = attempt,
+                    max = max_retries
+                ));
+            }
+
+            let delay = calculate_exponential_backoff(attempt, retry_delay_ms, max_retry_delay_ms);
+            tracing::debug!(
+                "{} API server error {} (attempt {}/{}). Retrying in {:.1}s...",
+                provider_name,
+                status.as_u16(),
+                attempt,
+                max_retries + 1,
+                delay.as_secs_f64()
+            );
+            tokio::time::sleep(delay).await;
+            continue;
+        }
+
+        // Non-retryable error status codes (4xx except 408/429)
         if !status.is_success() {
             return Err(GcopError::LlmApi {
                 status: status.as_u16(),
@@ -324,42 +353,87 @@ mod tests {
     use super::*;
     use crate::error::GcopError;
 
-    // === is_retryable_error test ===
+    // === is_retryable_error tests ===
 
     #[test]
-    fn test_is_retryable_connection_failed() {
-        let err = GcopError::Llm("connection failed: timeout".to_string());
+    fn test_is_retryable_timeout() {
+        let err = GcopError::LlmTimeout {
+            provider: "OpenAI".to_string(),
+            detail: "read timed out".to_string(),
+        };
         assert!(is_retryable_error(&err));
     }
 
     #[test]
-    fn test_is_retryable_other_errors() {
-        let err = GcopError::Llm("API error (500): Internal server error".to_string());
-        assert!(!is_retryable_error(&err));
+    fn test_is_retryable_connection_failed() {
+        let err = GcopError::LlmConnectionFailed {
+            provider: "Claude".to_string(),
+            detail: "DNS resolution error".to_string(),
+        };
+        assert!(is_retryable_error(&err));
+    }
 
+    #[test]
+    fn test_is_retryable_llm_not_retryable() {
+        let err = GcopError::Llm("API error: no candidates".to_string());
+        assert!(!is_retryable_error(&err));
+    }
+
+    #[test]
+    fn test_is_retryable_config_not_retryable() {
         let err = GcopError::Config("Missing API key".to_string());
         assert!(!is_retryable_error(&err));
     }
 
     #[test]
-    fn test_is_retryable_401_no_retry() {
-        let err = GcopError::Llm("API error (401): Unauthorized".to_string());
+    fn test_is_retryable_llm_api_not_retryable() {
+        // LlmApi errors are handled by is_retryable_status, not is_retryable_error
+        let err = GcopError::LlmApi {
+            status: 500,
+            message: "Internal Server Error".to_string(),
+        };
         assert!(!is_retryable_error(&err));
     }
 
-    #[test]
-    fn test_is_retryable_mixed_case() {
-        // Test that all case variations match
-        let cases = vec![
-            "Connection Failed",
-            "CONNECTION FAILED",
-            "connection failed",
-            "API connection failed: timeout",
-        ];
+    // === is_retryable_status tests ===
 
-        for msg in cases {
-            let err = GcopError::Llm(msg.to_string());
-            assert!(is_retryable_error(&err), "Should retry for: {}", msg);
-        }
+    #[test]
+    fn test_retryable_status_5xx() {
+        assert!(is_retryable_status(500));
+        assert!(is_retryable_status(502));
+        assert!(is_retryable_status(503));
+        assert!(is_retryable_status(504));
+    }
+
+    #[test]
+    fn test_retryable_status_408() {
+        assert!(is_retryable_status(408));
+    }
+
+    #[test]
+    fn test_non_retryable_status_429() {
+        // 429 is handled separately with Retry-After support
+        assert!(!is_retryable_status(429));
+    }
+
+    #[test]
+    fn test_non_retryable_status_4xx() {
+        assert!(!is_retryable_status(400));
+        assert!(!is_retryable_status(401));
+        assert!(!is_retryable_status(403));
+        assert!(!is_retryable_status(404));
+        assert!(!is_retryable_status(422));
+    }
+
+    #[test]
+    fn test_non_retryable_status_501() {
+        // 501 Not Implemented -- not transient
+        assert!(!is_retryable_status(501));
+    }
+
+    #[test]
+    fn test_non_retryable_status_2xx() {
+        assert!(!is_retryable_status(200));
+        assert!(!is_retryable_status(201));
     }
 }

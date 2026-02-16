@@ -44,7 +44,7 @@ use crate::llm::{StreamChunk, StreamHandle};
 /// # Features
 /// - Supports streaming responses (SSE)
 /// - Automatic retries (exponential backoff, default 3 times, configurable through `network.max_retries`)
-/// -Support prompt caching (automatically optimize API costs)
+/// - Support prompt caching (automatically optimize API costs)
 /// - Custom endpoint (supports proxy or compatible API)
 ///
 /// # Example

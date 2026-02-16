@@ -105,11 +105,32 @@ pub enum GcopError {
     /// Generic LLM errors (non-HTTP status code errors).
     ///
     /// # Common reasons
-    /// - time out
-    /// - Connection failed
     /// - Response parsing failed
+    /// - No candidates/choices in response
     #[error("LLM provider error: {0}")]
     Llm(String),
+
+    /// LLM request timeout
+    ///
+    /// The HTTP request to the LLM API timed out before receiving a response.
+    #[error("LLM request timeout ({provider}): {detail}")]
+    LlmTimeout {
+        /// Provider name (e.g. "Claude", "OpenAI")
+        provider: String,
+        /// Error detail from the HTTP client
+        detail: String,
+    },
+
+    /// LLM connection failed
+    ///
+    /// Could not establish a connection to the LLM API endpoint.
+    #[error("LLM connection failed ({provider}): {detail}")]
+    LlmConnectionFailed {
+        /// Provider name (e.g. "Claude", "OpenAI")
+        provider: String,
+        /// Error detail from the HTTP client
+        detail: String,
+    },
 
     /// LLM API HTTP Error
     ///
@@ -256,6 +277,16 @@ impl GcopError {
                 rust_i18n::t!("error.config", detail = msg.as_str()).to_string()
             }
             GcopError::Llm(msg) => rust_i18n::t!("error.llm", detail = msg.as_str()).to_string(),
+            GcopError::LlmTimeout { provider, detail } => rust_i18n::t!(
+                "error.llm",
+                detail = format!("{}: {}", provider, detail).as_str()
+            )
+            .to_string(),
+            GcopError::LlmConnectionFailed { provider, detail } => rust_i18n::t!(
+                "error.llm",
+                detail = format!("{}: {}", provider, detail).as_str()
+            )
+            .to_string(),
             GcopError::LlmApi { status, message } => {
                 rust_i18n::t!("error.llm_api", status = status, message = message.as_str())
                     .to_string()
@@ -351,12 +382,10 @@ impl GcopError {
             GcopError::LlmApi { status, .. } if *status >= 500 => {
                 Some(rust_i18n::t!("suggestion.llm_5xx").to_string())
             }
-            GcopError::Llm(msg) if msg.contains("timeout") || msg.contains("超时") => {
+            GcopError::LlmTimeout { .. } => {
                 Some(rust_i18n::t!("suggestion.llm_timeout").to_string())
             }
-            GcopError::Llm(msg)
-                if msg.contains("connection failed") || msg.contains("连接失败") =>
-            {
+            GcopError::LlmConnectionFailed { .. } => {
                 Some(rust_i18n::t!("suggestion.llm_connection").to_string())
             }
             GcopError::Llm(msg)
@@ -437,14 +466,20 @@ mod tests {
 
     #[test]
     fn test_suggestion_llm_timeout() {
-        let err = GcopError::Llm("Request timeout after 30s".to_string());
+        let err = GcopError::LlmTimeout {
+            provider: "OpenAI".to_string(),
+            detail: "read timed out after 30s".to_string(),
+        };
         let suggestion = err.localized_suggestion().unwrap();
         assert!(suggestion.contains("timed out"));
     }
 
     #[test]
     fn test_suggestion_llm_connection_failed() {
-        let err = GcopError::Llm("connection failed: DNS resolution error".to_string());
+        let err = GcopError::LlmConnectionFailed {
+            provider: "Claude".to_string(),
+            detail: "DNS resolution error".to_string(),
+        };
         let suggestion = err.localized_suggestion().unwrap();
         assert!(suggestion.contains("endpoint URL"));
         assert!(suggestion.contains("DNS"));
