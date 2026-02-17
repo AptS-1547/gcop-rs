@@ -108,6 +108,20 @@ impl<T: ApiBackend> LLMProvider for T {
         ApiBackend::validate(self).await
     }
 
+    async fn query(
+        &self,
+        system_prompt: &str,
+        user_prompt: &str,
+        progress: Option<&dyn ProgressReporter>,
+    ) -> Result<String> {
+        tracing::debug!(
+            "Direct query - system ({} chars), user ({} chars)",
+            system_prompt.len(),
+            user_prompt.len()
+        );
+        self.call_api(system_prompt, user_prompt, progress).await
+    }
+
     fn supports_streaming(&self) -> bool {
         ApiBackend::supports_streaming(self)
     }

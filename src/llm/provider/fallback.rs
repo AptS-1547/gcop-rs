@@ -178,6 +178,47 @@ impl LLMProvider for FallbackProvider {
         }))
     }
 
+    async fn query(
+        &self,
+        system_prompt: &str,
+        user_prompt: &str,
+        progress: Option<&dyn ProgressReporter>,
+    ) -> Result<String> {
+        let mut last_error = None;
+
+        for (i, provider) in self.providers.iter().enumerate() {
+            if i > 0
+                && let Some(p) = progress
+            {
+                p.append_suffix(&rust_i18n::t!(
+                    "provider.fallback_suffix",
+                    provider = provider.name()
+                ));
+            }
+
+            match provider.query(system_prompt, user_prompt, progress).await {
+                Ok(msg) => return Ok(msg),
+                Err(e) => {
+                    if i < self.providers.len() - 1 {
+                        colors::warning(
+                            &rust_i18n::t!(
+                                "provider.fallback_provider_failed",
+                                provider = provider.name(),
+                                error = e.to_string()
+                            ),
+                            self.colored,
+                        );
+                    }
+                    last_error = Some(e);
+                }
+            }
+        }
+
+        Err(last_error.unwrap_or_else(|| {
+            GcopError::Llm(rust_i18n::t!("provider.no_providers_available").to_string())
+        }))
+    }
+
     async fn review_code(
         &self,
         diff: &str,

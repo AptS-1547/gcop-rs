@@ -258,9 +258,23 @@ impl GitOperations for GitRepository {
     }
 
     fn get_staged_files(&self) -> Result<Vec<String>> {
-        let diff = self.get_staged_diff()?;
-        let stats = crate::git::diff::parse_diff_stats(&diff)?;
-        Ok(stats.files_changed)
+        let index = self.repo.index()?;
+        let tree = if self.is_empty()? {
+            None
+        } else {
+            let head = self.repo.head()?;
+            Some(head.peel_to_tree()?)
+        };
+        let mut opts = DiffOptions::new();
+        let diff = self
+            .repo
+            .diff_tree_to_index(tree.as_ref(), Some(&index), Some(&mut opts))?;
+
+        Ok(diff
+            .deltas()
+            .filter_map(|delta| delta.new_file().path())
+            .map(|p| p.to_string_lossy().into_owned())
+            .collect())
     }
 
     fn unstage_all(&self) -> Result<()> {

@@ -217,14 +217,16 @@ async fn generate_groups(
         scope_info: scope_info.clone(),
     };
 
+    // Build split prompt (system + user)
+    let (system, user) = crate::llm::prompt::build_split_commit_prompt(
+        file_diffs,
+        &context,
+        context.custom_prompt.as_deref(),
+        context.convention.as_ref(),
+    );
+
     // Verbose: show prompt
     if verbose {
-        let (system, user) = crate::llm::prompt::build_split_commit_prompt(
-            file_diffs,
-            &context,
-            context.custom_prompt.as_deref(),
-            context.convention.as_ref(),
-        );
         if colored {
             eprintln!(
                 "\n{}",
@@ -250,19 +252,6 @@ async fn generate_groups(
         }
     }
 
-    // Build the full diff from file_diffs for the LLM call
-    // We use the split prompt format which includes per-file sections
-    let (system, user) = crate::llm::prompt::build_split_commit_prompt(
-        file_diffs,
-        &context,
-        context.custom_prompt.as_deref(),
-        context.convention.as_ref(),
-    );
-
-    // Combine into a single diff string for the provider interface
-    // The provider expects a diff string, but we pass the formatted user message as the diff
-    let combined_prompt = format!("{}\n\n{}", system, user);
-
     // Use non-streaming mode (we need complete JSON)
     let step_msg = if attempt == 0 {
         rust_i18n::t!("spinner.generating")
@@ -275,21 +264,9 @@ async fn generate_groups(
     let mut spinner = ui::Spinner::new_with_cancel_hint(&spinner_msg, colored);
     spinner.start_time_display();
 
-    // Use generate_commit_message with a modified context that includes the split system prompt
-    let split_context = CommitContext {
-        files_changed: stats.files_changed.clone(),
-        insertions: stats.insertions,
-        deletions: stats.deletions,
-        branch_name: branch_name.clone(),
-        custom_prompt: Some(combined_prompt),
-        user_feedback: vec![],
-        convention: None,
-        scope_info: None,
-    };
-
-    let raw_response = provider
-        .generate_commit_message(&user, Some(split_context), Some(&spinner))
-        .await?;
+    // Direct query with pre-built prompts (bypasses generate_commit_message's
+    // automatic prompt construction which would double-wrap the content)
+    let raw_response = provider.query(&system, &user, Some(&spinner)).await?;
 
     spinner.finish_and_clear();
 
@@ -309,10 +286,11 @@ pub fn parse_split_response(raw: &str, expected_files: &[String]) -> Result<Vec<
 
     // Parse JSON
     let response: SplitResponse = serde_json::from_str(json_str).map_err(|e| {
+        // Truncate preview at char boundary to avoid panic on multi-byte UTF-8
+        let preview: String = raw.chars().take(200).collect();
         GcopError::SplitParseFailed(format!(
             "JSON parse error: {}. Response preview: {}",
-            e,
-            &raw[..raw.len().min(200)]
+            e, preview
         ))
     })?;
 
