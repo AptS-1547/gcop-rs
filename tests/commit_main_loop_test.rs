@@ -109,6 +109,22 @@ impl GitOperations for MockGitOps {
     fn get_commit_history(&self) -> Result<Vec<CommitInfo>> {
         Ok(vec![])
     }
+
+    fn get_staged_files(&self) -> Result<Vec<String>> {
+        if self.has_staged {
+            Ok(vec!["test.rs".to_string()])
+        } else {
+            Ok(vec![])
+        }
+    }
+
+    fn unstage_all(&self) -> Result<()> {
+        Ok(())
+    }
+
+    fn stage_files(&self, _files: &[String]) -> Result<()> {
+        Ok(())
+    }
 }
 
 // === Mock LLMProvider ===
@@ -201,6 +217,7 @@ async fn test_commit_dry_run_mode() {
         dry_run: true,
         yes: false,
         no_edit: false,
+        split: false,
         format: gcop_rs::commands::format::OutputFormat::Text,
         feedback: &[],
         provider_override: None,
@@ -227,6 +244,7 @@ async fn test_commit_no_staged_changes() {
         dry_run: false,
         yes: false,
         no_edit: false,
+        split: false,
         format: gcop_rs::commands::format::OutputFormat::Text,
         feedback: &[],
         provider_override: None,
@@ -254,6 +272,7 @@ async fn test_commit_llm_failure() {
         dry_run: false,
         yes: true, // 自动接受
         no_edit: false,
+        split: false,
         format: gcop_rs::commands::format::OutputFormat::Text,
         feedback: &[],
         provider_override: None,
@@ -278,6 +297,7 @@ async fn test_commit_git_failure() {
         dry_run: false,
         yes: true,
         no_edit: false,
+        split: false,
         format: gcop_rs::commands::format::OutputFormat::Text,
         feedback: &[],
         provider_override: None,
@@ -301,6 +321,7 @@ async fn test_commit_json_output_mode() {
         dry_run: false,
         yes: false,
         no_edit: false,
+        split: false,
         format: gcop_rs::commands::format::OutputFormat::Json,
         feedback: &[],
         provider_override: None,
@@ -324,6 +345,7 @@ async fn test_commit_verbose_mode() {
         dry_run: true, // 使用 dry_run 避免交互
         yes: false,
         no_edit: false,
+        split: false,
         format: gcop_rs::commands::format::OutputFormat::Text,
         feedback: &[],
         provider_override: None,
@@ -347,6 +369,7 @@ async fn test_commit_with_feedback() {
         dry_run: true,
         yes: false,
         no_edit: false,
+        split: false,
         format: gcop_rs::commands::format::OutputFormat::Text,
         feedback: &feedback_vec,
         provider_override: None,
@@ -380,6 +403,7 @@ async fn test_display_message_no_panic() {
         dry_run: true,
         yes: false,
         no_edit: false,
+        split: false,
         format: gcop_rs::commands::format::OutputFormat::Text,
         feedback: &[],
         provider_override: None,
@@ -398,6 +422,7 @@ async fn test_handle_json_mode_no_panic() {
         dry_run: false,
         yes: false,
         no_edit: false,
+        split: false,
         format: gcop_rs::commands::format::OutputFormat::Json,
         feedback: &[],
         provider_override: None,
