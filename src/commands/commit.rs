@@ -78,6 +78,11 @@ async fn run_with_deps(
         vec![options.feedback.join(" ")]
     };
 
+    // Split mode: separate flow
+    if options.split {
+        return crate::commands::split::run_split_flow(options, config, repo, provider).await;
+    }
+
     // JSON Schema: Standalone Process
     if options.format.is_json() {
         return handle_json_mode(options, config, repo, provider, &initial_feedbacks).await;
@@ -573,6 +578,14 @@ fn print_verbose_prompt(system: &str, user: &str, to_stderr: bool, colored: bool
         vprintln!("{}", user);
         vprintln!("{}\n", rust_i18n::t!("commit.verbose.divider"));
     }
+}
+
+/// Public wrapper for `compute_scope_info` (used by split module).
+pub(crate) fn compute_scope_info_pub(
+    files_changed: &[String],
+    config: &AppConfig,
+) -> Option<ScopeInfo> {
+    compute_scope_info(files_changed, config)
 }
 
 /// Calculate workspace scope information

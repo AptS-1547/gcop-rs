@@ -227,6 +227,22 @@ pub trait GitOperations {
     /// - `Ok(false)` - repository has at least one commit
     /// - `Err(_)` - git operation failed
     fn is_empty(&self) -> Result<bool>;
+
+    /// Returns the list of currently staged file paths.
+    ///
+    /// Equivalent to collecting filenames from `git diff --cached --name-only`.
+    fn get_staged_files(&self) -> Result<Vec<String>>;
+
+    /// Unstages all currently staged files.
+    ///
+    /// Equivalent to `git reset HEAD`. For empty repositories (no commits),
+    /// uses `git rm --cached -r .` instead.
+    fn unstage_all(&self) -> Result<()>;
+
+    /// Stages the specified files.
+    ///
+    /// Equivalent to `git add <files>`.
+    fn stage_files(&self, files: &[String]) -> Result<()>;
 }
 
 /// Diff statistics.

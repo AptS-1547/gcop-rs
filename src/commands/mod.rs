@@ -45,6 +45,8 @@ pub mod json;
 pub mod options;
 /// Code review command flow.
 pub mod review;
+/// Atomic split commit logic.
+pub mod split;
 /// Repository statistics command flow.
 pub mod stats;
 

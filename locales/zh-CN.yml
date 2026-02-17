@@ -452,3 +452,23 @@ hook.generated_success: "提交消息已生成。"
 workspace.detected: "检测到 %{type} 工作区（%{count} 个包）"
 workspace.scope_suggestion: "Scope：%{scope}"
 workspace.detection_failed: "跳过工作区检测：%{error}"
+
+# 原子拆分提交消息
+split.generating_groups: "正在生成原子提交分组..."
+split.generated_groups: "已生成 %{count} 个原子提交分组："
+split.single_file: "仅有 1 个文件暂存 - 原子拆分效果有限"
+split.committing: "正在创建 %{total} 个原子提交..."
+split.success: "成功创建 %{count} 个原子提交！"
+split.menu.choose_action: "选择下一步操作："
+split.menu.accept_all: "全部接受 - 提交所有分组"
+split.menu.edit: "编辑 - 在编辑器中调整分组"
+split.menu.regenerate: "重新生成 - 重新分析分组"
+split.menu.regenerate_feedback: "带反馈重新生成 - 添加指示"
+split.menu.quit: "退出 - 取消全部"
+cli.commit.split: "将暂存的更改拆分为多个原子提交"
+
+# 拆分错误消息
+error.split_partial: "拆分提交在第 %{completed}/%{total} 组时失败：%{detail}"
+error.split_parse_failed: "解析拆分响应失败：%{detail}"
+suggestion.split_partial: "部分提交已成功。剩余文件已重新暂存。运行 'git log' 查看已完成的提交。"
+suggestion.split_parse_failed: "LLM 响应不是有效的 JSON。请使用 --verbose 查看原始输出，或重试。"

@@ -67,12 +67,13 @@ fn main() -> Result<()> {
                 no_edit,
                 yes,
                 dry_run,
+                split,
                 ref format,
                 json,
                 ref feedback,
             } => {
                 let options = commands::CommitOptions::from_cli(
-                    &cli, no_edit, yes, dry_run, format, json, feedback,
+                    &cli, no_edit, yes, dry_run, split, format, json, feedback, &config,
                 );
                 let is_json = options.format.is_json();
                 if let Err(e) = commands::commit::run(&options, &config).await {
@@ -207,6 +208,9 @@ fn parse_cli_localized() -> Result<Cli> {
                 })
                 .mut_arg("json", |arg| {
                     arg.help(rust_i18n::t!("cli.commit.json").to_string())
+                })
+                .mut_arg("split", |arg| {
+                    arg.help(rust_i18n::t!("cli.commit.split").to_string())
                 })
                 .mut_arg("feedback", |arg| {
                     arg.help(rust_i18n::t!("cli.commit.feedback").to_string())

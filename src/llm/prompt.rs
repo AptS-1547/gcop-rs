@@ -108,6 +108,28 @@ fn format_scope_info(scope: &ScopeInfo) -> String {
     format!("\n\n## Workspace:\n{}", parts.join("\n"))
 }
 
+/// Build context section shared by both normal and split commit prompts.
+fn build_context_section(context: &CommitContext) -> String {
+    let branch_info = context
+        .branch_name
+        .as_ref()
+        .map(|b| format!("\nBranch: {}", b))
+        .unwrap_or_default();
+
+    let scope_section = context
+        .scope_info
+        .as_ref()
+        .map(format_scope_info)
+        .unwrap_or_default();
+
+    format!(
+        "{}{}{}",
+        branch_info,
+        scope_section,
+        format_feedbacks(&context.user_feedback)
+    )
+}
+
 /// Build split commit prompt (system + user)
 ///
 /// Return (system_prompt, user_message)
@@ -128,27 +150,13 @@ pub fn build_commit_prompt_split(
     }
 
     // user message contains dynamic content
-    let branch_info = context
-        .branch_name
-        .as_ref()
-        .map(|b| format!("\nBranch: {}", b))
-        .unwrap_or_default();
-
-    let scope_section = context
-        .scope_info
-        .as_ref()
-        .map(format_scope_info)
-        .unwrap_or_default();
-
     let user = format!(
-        "## Diff:\n```\n{}\n```\n\n## Context:\nFiles: {}\nChanges: +{} -{}{}{}{}",
+        "## Diff:\n```\n{}\n```\n\n## Context:\nFiles: {}\nChanges: +{} -{}{}",
         diff,
         context.files_changed.join(", "),
         context.insertions,
         context.deletions,
-        branch_info,
-        scope_section,
-        format_feedbacks(&context.user_feedback)
+        build_context_section(context)
     );
 
     (system, user)
@@ -169,6 +177,79 @@ pub fn build_review_prompt_split(
     let system = format!("{}{}", base, REVIEW_JSON_CONSTRAINT);
 
     let user = format!("## Code to Review:\n```\n{}\n```", diff);
+
+    (system, user)
+}
+
+/// System prompt for split commit grouping
+/// Additional system directives for split (atomic) commit mode.
+/// Appended after `COMMIT_SYSTEM_PROMPT` to add grouping + JSON output requirements.
+const SPLIT_COMMIT_EXTRA_PROMPT: &str = r#"
+
+You are also a git commit analyzer that groups file changes into logical atomic commits.
+
+Additional rules for grouping:
+- Group related file changes together into logical commits
+- Each group represents ONE logical change (feature, bugfix, refactor, etc.)
+- Every file must appear in exactly one group
+- Order groups by dependency (foundational changes first)
+- If all files are logically related, put them in a single group
+- Output ONLY valid JSON, no explanation
+
+Output format:
+{
+  "groups": [
+    {
+      "files": ["path/to/file1.rs", "path/to/file2.rs"],
+      "message": "type(scope): description"
+    }
+  ]
+}"#;
+
+/// Build split commit prompt (system + user)
+///
+/// Returns `(system_prompt, user_message)`.
+/// The system prompt combines base commit rules with split-specific grouping instructions.
+/// The user message contains per-file diffs and context information.
+pub fn build_split_commit_prompt(
+    file_diffs: &[crate::git::diff::FileDiff],
+    context: &CommitContext,
+    custom_template: Option<&str>,
+    convention: Option<&CommitConvention>,
+) -> (String, String) {
+    // Base commit rules + split-specific grouping instructions
+    let mut system = format!("{}{}", COMMIT_SYSTEM_PROMPT, SPLIT_COMMIT_EXTRA_PROMPT);
+
+    // Append user's custom prompt as additional constraints (not replace)
+    if let Some(custom) = custom_template {
+        system.push_str("\n\nAdditional instructions:\n");
+        system.push_str(custom);
+    }
+
+    if let Some(conv) = convention {
+        system.push_str(&format_convention(conv));
+    }
+
+    // Build user message with per-file diffs
+    let mut user = String::from("## Files to group:\n\n");
+
+    for fd in file_diffs {
+        user.push_str(&format!(
+            "### File: {} (+{} -{})\n```diff\n{}\n```\n\n",
+            fd.filename, fd.insertions, fd.deletions, fd.content
+        ));
+    }
+
+    let total_insertions: usize = file_diffs.iter().map(|f| f.insertions).sum();
+    let total_deletions: usize = file_diffs.iter().map(|f| f.deletions).sum();
+
+    user.push_str(&format!(
+        "## Context:\nTotal files: {}\nTotal changes: +{} -{}{}",
+        file_diffs.len(),
+        total_insertions,
+        total_deletions,
+        build_context_section(context)
+    ));
 
     (system, user)
 }
@@ -244,7 +325,7 @@ mod tests {
         let (system, _) =
             build_commit_prompt_split("diff", &ctx, Some("Custom system prompt"), None);
 
-        // Custom template should be used as system prompt
+        // Custom template replaces system prompt for normal commit
         assert_eq!(system, "Custom system prompt");
     }
 
@@ -298,6 +379,30 @@ mod tests {
         let (system_with, _) = build_commit_prompt_split("diff", &ctx, None, None);
         // The Convention section should not be included when there is no convention
         assert!(!system_with.contains("## Convention:"));
+    }
+
+    // === build_split_commit_prompt custom template test ===
+
+    #[test]
+    fn test_split_commit_prompt_custom_template_appended() {
+        let ctx = create_context(vec!["a.rs"], 1, 1, None, vec![]);
+        let diffs = vec![crate::git::diff::FileDiff {
+            filename: "a.rs".to_string(),
+            content: "+code".to_string(),
+            insertions: 1,
+            deletions: 1,
+        }];
+        let (system, _) =
+            build_split_commit_prompt(&diffs, &ctx, Some("Use Japanese"), None);
+
+        // Base commit rules must be present
+        assert!(system.contains("conventional commits"));
+        // Split grouping rules must be present
+        assert!(system.contains("groups"));
+        assert!(system.contains("JSON"));
+        // Custom prompt appended, not replacing
+        assert!(system.contains("Additional instructions:"));
+        assert!(system.contains("Use Japanese"));
     }
 
     // === build_review_prompt_split test ===

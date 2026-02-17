@@ -319,6 +319,10 @@ pub struct CommitConfig {
     #[serde(default = "default_true")]
     pub allow_edit: bool,
 
+    /// Whether to use atomic split commit mode by default.
+    #[serde(default)]
+    pub split: bool,
+
     /// Additional prompt text appended to the commit system prompt.
     ///
     /// No placeholder substitution is performed (`{diff}` is passed literally).
@@ -558,6 +562,7 @@ impl Default for CommitConfig {
         Self {
             show_diff_preview: true,
             allow_edit: true,
+            split: false,
             custom_prompt: None,
             max_retries: default_commit_max_retries(),
             convention: None,

@@ -50,6 +50,10 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
 
+        /// Split staged changes into multiple atomic commits.
+        #[arg(short = 's', long)]
+        split: bool,
+
         /// Feedback or constraints passed to commit message generation.
         #[arg(trailing_var_arg = true)]
         feedback: Vec<String>,

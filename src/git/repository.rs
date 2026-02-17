@@ -256,6 +256,56 @@ impl GitOperations for GitRepository {
             Err(e) => Err(e.into()),
         }
     }
+
+    fn get_staged_files(&self) -> Result<Vec<String>> {
+        let diff = self.get_staged_diff()?;
+        let stats = crate::git::diff::parse_diff_stats(&diff)?;
+        Ok(stats.files_changed)
+    }
+
+    fn unstage_all(&self) -> Result<()> {
+        use std::process::Command;
+
+        if self.is_empty()? {
+            // Empty repo: no HEAD to reset to, use git rm --cached
+            let output = Command::new("git")
+                .args(["rm", "--cached", "-r", "."])
+                .output()?;
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                return Err(crate::error::GcopError::GitCommand(
+                    stderr.trim().to_string(),
+                ));
+            }
+        } else {
+            let output = Command::new("git").args(["reset", "HEAD"]).output()?;
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                return Err(crate::error::GcopError::GitCommand(
+                    stderr.trim().to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    fn stage_files(&self, files: &[String]) -> Result<()> {
+        use std::process::Command;
+
+        if files.is_empty() {
+            return Ok(());
+        }
+
+        let output = Command::new("git").arg("add").args(files).output()?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(crate::error::GcopError::GitCommand(
+                stderr.trim().to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
