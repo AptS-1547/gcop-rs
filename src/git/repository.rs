@@ -256,6 +256,70 @@ impl GitOperations for GitRepository {
             Err(e) => Err(e.into()),
         }
     }
+
+    fn get_staged_files(&self) -> Result<Vec<String>> {
+        let index = self.repo.index()?;
+        let tree = if self.is_empty()? {
+            None
+        } else {
+            let head = self.repo.head()?;
+            Some(head.peel_to_tree()?)
+        };
+        let mut opts = DiffOptions::new();
+        let diff = self
+            .repo
+            .diff_tree_to_index(tree.as_ref(), Some(&index), Some(&mut opts))?;
+
+        Ok(diff
+            .deltas()
+            .filter_map(|delta| delta.new_file().path())
+            .map(|p| p.to_string_lossy().into_owned())
+            .collect())
+    }
+
+    fn unstage_all(&self) -> Result<()> {
+        use std::process::Command;
+
+        if self.is_empty()? {
+            // Empty repo: no HEAD to reset to, use git rm --cached
+            let output = Command::new("git")
+                .args(["rm", "--cached", "-r", "."])
+                .output()?;
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                return Err(crate::error::GcopError::GitCommand(
+                    stderr.trim().to_string(),
+                ));
+            }
+        } else {
+            let output = Command::new("git").args(["reset", "HEAD"]).output()?;
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                return Err(crate::error::GcopError::GitCommand(
+                    stderr.trim().to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    fn stage_files(&self, files: &[String]) -> Result<()> {
+        use std::process::Command;
+
+        if files.is_empty() {
+            return Ok(());
+        }
+
+        let output = Command::new("git").arg("add").args(files).output()?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(crate::error::GcopError::GitCommand(
+                stderr.trim().to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]

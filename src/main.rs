@@ -50,7 +50,7 @@ fn main() -> Result<()> {
     //    Other commands can use the fallback default value.
     let config = if matches!(
         &cli.command,
-        Commands::Commit { .. } | Commands::Review { .. } | Commands::Hook { .. }
+        Commands::Commit(..) | Commands::Review { .. } | Commands::Hook { .. }
     ) {
         config_result?
     } else {
@@ -63,17 +63,8 @@ fn main() -> Result<()> {
     // Route based on subcommand
     rt.block_on(async {
         match cli.command {
-            Commands::Commit {
-                no_edit,
-                yes,
-                dry_run,
-                ref format,
-                json,
-                ref feedback,
-            } => {
-                let options = commands::CommitOptions::from_cli(
-                    &cli, no_edit, yes, dry_run, format, json, feedback,
-                );
+            Commands::Commit(ref args) => {
+                let options = commands::CommitOptions::from_cli(&cli, args, &config);
                 let is_json = options.format.is_json();
                 if let Err(e) = commands::commit::run(&options, &config).await {
                     if is_json {
@@ -207,6 +198,9 @@ fn parse_cli_localized() -> Result<Cli> {
                 })
                 .mut_arg("json", |arg| {
                     arg.help(rust_i18n::t!("cli.commit.json").to_string())
+                })
+                .mut_arg("split", |arg| {
+                    arg.help(rust_i18n::t!("cli.commit.split").to_string())
                 })
                 .mut_arg("feedback", |arg| {
                     arg.help(rust_i18n::t!("cli.commit.feedback").to_string())

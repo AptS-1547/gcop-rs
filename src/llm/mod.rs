@@ -245,6 +245,34 @@ pub trait LLMProvider: Send + Sync {
         false
     }
 
+    /// Sends a direct query with pre-built system and user prompts.
+    ///
+    /// Unlike [`generate_commit_message`], this method does **not** run automatic
+    /// prompt construction. The caller is responsible for building both prompts
+    /// (e.g., via [`build_split_commit_prompt`](crate::llm::prompt::build_split_commit_prompt)).
+    ///
+    /// # Parameters
+    /// - `system_prompt`: fully constructed system prompt
+    /// - `user_prompt`: fully constructed user message
+    /// - `progress`: optional progress reporter for retry/fallback feedback
+    ///
+    /// # Returns
+    /// - `Ok(response)` - raw LLM response text
+    /// - `Err(_)` - API error, network error, timeout, etc.
+    async fn query(
+        &self,
+        system_prompt: &str,
+        user_prompt: &str,
+        progress: Option<&dyn ProgressReporter>,
+    ) -> Result<String> {
+        // Default: not implemented. Overridden by the ApiBackend blanket impl
+        // and FallbackProvider.
+        let _ = (system_prompt, user_prompt, progress);
+        Err(crate::error::GcopError::Llm(
+            "query() not implemented for this provider".into(),
+        ))
+    }
+
     /// Generates a commit message as a stream.
     ///
     /// Returns a stream handle that yields text deltas in real time.

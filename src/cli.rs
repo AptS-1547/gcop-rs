@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand, builder::styling};
+use clap::{Args, Parser, Subcommand, builder::styling};
 
 const STYLES: styling::Styles = styling::Styles::styled()
     .header(styling::AnsiColor::Green.on_default().bold())
@@ -25,35 +25,43 @@ pub struct Cli {
     pub provider: Option<String>,
 }
 
+/// Arguments for the `commit` subcommand.
+#[derive(Args, Debug)]
+pub struct CommitArgs {
+    /// Skip the interactive editor.
+    #[arg(short, long)]
+    pub no_edit: bool,
+
+    /// Skip confirmation before committing.
+    #[arg(short = 'y', long)]
+    pub yes: bool,
+
+    /// Generate and print a commit message without creating a commit.
+    #[arg(short, long)]
+    pub dry_run: bool,
+
+    /// Output format: `text` or `json` (`json` implies `--dry-run`).
+    #[arg(short, long, default_value = "text")]
+    pub format: String,
+
+    /// Shortcut for `--format json`.
+    #[arg(long)]
+    pub json: bool,
+
+    /// Split staged changes into multiple atomic commits.
+    #[arg(short = 's', long)]
+    pub split: bool,
+
+    /// Feedback or constraints passed to commit message generation.
+    #[arg(trailing_var_arg = true)]
+    pub feedback: Vec<String>,
+}
+
 #[derive(Subcommand)]
 /// Supported gcop-rs subcommands.
 pub enum Commands {
     /// Generate a commit message for staged changes.
-    Commit {
-        /// Skip the interactive editor.
-        #[arg(short, long)]
-        no_edit: bool,
-
-        /// Skip confirmation before committing.
-        #[arg(short = 'y', long)]
-        yes: bool,
-
-        /// Generate and print a commit message without creating a commit.
-        #[arg(short, long)]
-        dry_run: bool,
-
-        /// Output format: `text` or `json` (`json` implies `--dry-run`).
-        #[arg(short, long, default_value = "text")]
-        format: String,
-
-        /// Shortcut for `--format json`.
-        #[arg(long)]
-        json: bool,
-
-        /// Feedback or constraints passed to commit message generation.
-        #[arg(trailing_var_arg = true)]
-        feedback: Vec<String>,
-    },
+    Commit(CommitArgs),
 
     /// Review code changes.
     Review {

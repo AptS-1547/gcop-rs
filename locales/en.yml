@@ -452,3 +452,23 @@ hook.generated_success: "Commit message generated."
 workspace.detected: "Detected %{type} workspace (%{count} packages)"
 workspace.scope_suggestion: "Scope: %{scope}"
 workspace.detection_failed: "Workspace detection skipped: %{error}"
+
+# Split commit messages
+split.generating_groups: "Generating atomic commit groups..."
+split.generated_groups: "Generated %{count} atomic commit group(s):"
+split.single_file: "Only 1 file staged - atomic split has limited benefit"
+split.committing: "Creating %{total} atomic commit(s)..."
+split.success: "Successfully created %{count} atomic commit(s)!"
+split.menu.choose_action: "Choose next action:"
+split.menu.accept_all: "Accept all - Commit all groups"
+split.menu.edit: "Edit - Adjust groups in editor"
+split.menu.regenerate: "Regenerate - Re-analyze grouping"
+split.menu.regenerate_feedback: "Regenerate with feedback - Add instructions"
+split.menu.quit: "Quit - Cancel all"
+cli.commit.split: "Split staged changes into multiple atomic commits"
+
+# Split error messages
+error.split_partial: "Split commit partially failed at group %{completed}/%{total}: %{detail}"
+error.split_parse_failed: "Failed to parse split response: %{detail}"
+suggestion.split_partial: "Some commits succeeded. Remaining files are re-staged. Run 'git log' to see completed commits."
+suggestion.split_parse_failed: "The LLM response was not valid JSON. Try using --verbose to inspect the raw output, or retry."

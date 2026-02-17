@@ -17,6 +17,7 @@
 # [commit]
 # custom_prompt = ""
 # show_diff_preview = true
+# split = true
 
 # [commit.convention]
 # style = "conventional"

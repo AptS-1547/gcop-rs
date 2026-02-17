@@ -16,6 +16,7 @@
 //!     no_edit: false,
 //!     yes: false,
 //!     dry_run: true,
+//!     split: false,
 //!     format: OutputFormat::Text,
 //!     feedback: &[],
 //!     verbose: false,
@@ -24,7 +25,7 @@
 //! ```
 
 use super::format::OutputFormat;
-use crate::cli::{Cli, ReviewTarget};
+use crate::cli::{Cli, CommitArgs, ReviewTarget};
 use crate::config::AppConfig;
 
 /// Commit command options
@@ -49,6 +50,7 @@ use crate::config::AppConfig;
 ///     no_edit: false,
 ///     yes: true, // automatically accepted
 ///     dry_run: false,
+///     split: false,
 ///     format: OutputFormat::Text,
 ///     feedback: &["use conventional commits".to_string()],
 ///     verbose: false,
@@ -65,6 +67,9 @@ pub struct CommitOptions<'a> {
 
     /// Whether to only generate and not submit
     pub dry_run: bool,
+
+    /// Whether to use split (atomic) commit mode
+    pub split: bool,
 
     /// Output format
     pub format: OutputFormat,
@@ -83,31 +88,20 @@ impl<'a> CommitOptions<'a> {
     /// Constructed from CLI parameters
     ///
     /// # Parameters
-    /// - `cli`: parsed CLI parameters
-    /// - `no_edit`: `--no-edit` flag
-    /// - `yes`: `--yes` flag
-    /// - `dry_run`: `--dry-run` flag
-    /// - `format`: `--format` parameter ("text", "json")
-    /// - `json`: `--json` flag (short for `--format json`)
-    /// - `feedback`: positional parameter `FEEDBACK...` (for additional generation instructions)
+    /// - `cli`: parsed CLI parameters (provides verbose, provider override)
+    /// - `args`: commit-specific CLI arguments
+    /// - `config`: application configuration
     ///
     /// # Returns
     /// Constructed `CommitOptions` instance
-    pub fn from_cli(
-        cli: &'a Cli,
-        no_edit: bool,
-        yes: bool,
-        dry_run: bool,
-        format: &str,
-        json: bool,
-        feedback: &'a [String],
-    ) -> Self {
+    pub fn from_cli(cli: &'a Cli, args: &'a CommitArgs, config: &AppConfig) -> Self {
         Self {
-            no_edit,
-            yes,
-            dry_run,
-            format: OutputFormat::from_cli(format, json),
-            feedback,
+            no_edit: args.no_edit,
+            yes: args.yes,
+            dry_run: args.dry_run,
+            split: args.split || config.commit.split,
+            format: OutputFormat::from_cli(&args.format, args.json),
+            feedback: &args.feedback,
             verbose: cli.verbose,
             provider_override: cli.provider.as_deref(),
         }
@@ -278,15 +272,41 @@ mod tests {
         }
     }
 
+    fn mock_config() -> AppConfig {
+        AppConfig::default()
+    }
+
+    fn mock_commit_args() -> CommitArgs {
+        CommitArgs {
+            no_edit: false,
+            yes: false,
+            dry_run: false,
+            split: false,
+            format: "text".to_string(),
+            json: false,
+            feedback: vec![],
+        }
+    }
+
     #[test]
     fn test_commit_options_from_cli() {
         let cli = mock_cli();
-        let feedback = vec!["use conventional commits".to_string()];
-        let opts = CommitOptions::from_cli(&cli, false, true, true, "text", false, &feedback);
+        let config = mock_config();
+        let args = CommitArgs {
+            no_edit: false,
+            yes: true,
+            dry_run: true,
+            split: false,
+            format: "text".to_string(),
+            json: false,
+            feedback: vec!["use conventional commits".to_string()],
+        };
+        let opts = CommitOptions::from_cli(&cli, &args, &config);
 
         assert!(!opts.no_edit);
         assert!(opts.yes);
         assert!(opts.dry_run);
+        assert!(!opts.split);
         assert_eq!(opts.format, OutputFormat::Text);
         assert_eq!(opts.feedback.len(), 1);
         assert!(opts.verbose);
@@ -296,10 +316,40 @@ mod tests {
     #[test]
     fn test_commit_options_json_flag() {
         let cli = mock_cli();
-        let feedback: Vec<String> = vec![];
-        let opts = CommitOptions::from_cli(&cli, false, false, false, "text", true, &feedback);
+        let config = mock_config();
+        let args = CommitArgs {
+            json: true,
+            ..mock_commit_args()
+        };
+        let opts = CommitOptions::from_cli(&cli, &args, &config);
 
         assert_eq!(opts.format, OutputFormat::Json);
+    }
+
+    #[test]
+    fn test_commit_options_split_from_config() {
+        let cli = mock_cli();
+        let mut config = mock_config();
+        config.commit.split = true;
+        let args = mock_commit_args();
+        let opts = CommitOptions::from_cli(&cli, &args, &config);
+
+        // CLI --split=false, but config.commit.split=true → split enabled
+        assert!(opts.split);
+    }
+
+    #[test]
+    fn test_commit_options_split_cli_overrides() {
+        let cli = mock_cli();
+        let config = mock_config(); // split defaults to false
+        let args = CommitArgs {
+            split: true,
+            ..mock_commit_args()
+        };
+        let opts = CommitOptions::from_cli(&cli, &args, &config);
+
+        // CLI --split=true overrides config
+        assert!(opts.split);
     }
 
     #[test]

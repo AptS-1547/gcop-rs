@@ -202,6 +202,25 @@ pub enum GcopError {
     #[error("Max retries exceeded after {0} attempts")]
     MaxRetriesExceeded(usize),
 
+    /// Split commit partially failed.
+    ///
+    /// Some commit groups succeeded while a later group failed.
+    #[error("Split commit partially failed at group {completed}/{total}: {detail}")]
+    SplitCommitPartial {
+        /// Number of groups that committed successfully.
+        completed: usize,
+        /// Total number of groups.
+        total: usize,
+        /// Error detail.
+        detail: String,
+    },
+
+    /// Split response parsing failed.
+    ///
+    /// The LLM response could not be parsed as valid commit groups.
+    #[error("Failed to parse split commit response: {0}")]
+    SplitParseFailed(String),
+
     /// Common error types
     ///
     /// Used for errors that do not fit into other categories.
@@ -310,6 +329,20 @@ impl GcopError {
             GcopError::MaxRetriesExceeded(n) => {
                 rust_i18n::t!("error.max_retries", count = n).to_string()
             }
+            GcopError::SplitCommitPartial {
+                completed,
+                total,
+                detail,
+            } => rust_i18n::t!(
+                "error.split_partial",
+                completed = completed,
+                total = total,
+                detail = detail.as_str()
+            )
+            .to_string(),
+            GcopError::SplitParseFailed(msg) => {
+                rust_i18n::t!("error.split_parse_failed", detail = msg.as_str()).to_string()
+            }
             GcopError::Other(msg) => msg.clone(),
         }
     }
@@ -396,6 +429,12 @@ impl GcopError {
             }
             GcopError::MaxRetriesExceeded(_) => {
                 Some(rust_i18n::t!("suggestion.max_retries").to_string())
+            }
+            GcopError::SplitCommitPartial { .. } => {
+                Some(rust_i18n::t!("suggestion.split_partial").to_string())
+            }
+            GcopError::SplitParseFailed(_) => {
+                Some(rust_i18n::t!("suggestion.split_parse_failed").to_string())
             }
             _ => None,
         }
