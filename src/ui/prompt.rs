@@ -1,5 +1,5 @@
 use colored::Colorize;
-use dialoguer::{Confirm, Input, Select};
+use inquire::InquireError;
 
 use crate::error::{GcopError, Result};
 
@@ -117,20 +117,16 @@ pub fn commit_action_menu(
         )
     };
 
-    let selection = Select::new()
-        .with_prompt(prompt)
-        .items(&options)
-        .default(0) // Accept is selected by default
-        .interact_opt()
-        .map_err(|_| GcopError::UserCancelled)?;
-
-    // ESC or 'q' key to cancel
-    let selection = match selection {
-        Some(idx) => idx,
-        None => {
-            // User presses ESC or 'q' to cancel
+    let selection = match inquire::Select::new(&prompt, options)
+        .with_starting_cursor(0)
+        .raw_prompt()
+    {
+        Ok(choice) => choice.index,
+        Err(InquireError::OperationCanceled | InquireError::OperationInterrupted) => {
+            // User presses ESC or Ctrl+C to cancel
             return Ok(CommitAction::Quit);
         }
+        Err(_) => return Err(GcopError::UserCancelled),
     };
 
     // Mapping selections to enumerations (need to consider the impact of allow_edit)
@@ -178,10 +174,9 @@ pub fn get_retry_feedback(colored: bool) -> Result<Option<String>> {
         println!("\n{}", hint);
     }
 
-    let feedback: String = Input::new()
-        .with_prompt(t!("commit.feedback.prompt").to_string())
-        .allow_empty(true)
-        .interact_text()
+    let prompt_text = t!("commit.feedback.prompt");
+    let feedback = inquire::Text::new(&prompt_text)
+        .prompt()
         .map_err(|_| GcopError::UserCancelled)?;
 
     let trimmed = feedback.trim();
@@ -220,10 +215,9 @@ pub fn get_retry_feedback(colored: bool) -> Result<Option<String>> {
 /// * `Ok(false)` - user selected No
 /// * `Err(_)` - An error occurred
 pub fn confirm(message: &str, default: bool) -> Result<bool> {
-    let result = Confirm::new()
-        .with_prompt(message)
-        .default(default)
-        .interact()?;
+    let result = inquire::Confirm::new(message)
+        .with_default(default)
+        .prompt()?;
 
     Ok(result)
 }

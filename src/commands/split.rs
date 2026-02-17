@@ -490,7 +490,7 @@ enum SplitAction {
 
 /// Show the split commit action menu.
 fn split_action_menu(colored: bool, retry_count: usize) -> Result<SplitAction> {
-    use dialoguer::Select;
+    use inquire::InquireError;
     use rust_i18n::t;
 
     let mut options = Vec::new();
@@ -557,16 +557,15 @@ fn split_action_menu(colored: bool, retry_count: usize) -> Result<SplitAction> {
         )
     };
 
-    let selection = Select::new()
-        .with_prompt(prompt)
-        .items(&options)
-        .default(0)
-        .interact_opt()
-        .map_err(|_| GcopError::UserCancelled)?;
-
-    let selection = match selection {
-        Some(idx) => idx,
-        None => return Ok(SplitAction::Quit),
+    let selection = match inquire::Select::new(&prompt, options)
+        .with_starting_cursor(0)
+        .raw_prompt()
+    {
+        Ok(choice) => choice.index,
+        Err(InquireError::OperationCanceled | InquireError::OperationInterrupted) => {
+            return Ok(SplitAction::Quit);
+        }
+        Err(_) => return Err(GcopError::UserCancelled),
     };
 
     Ok(match selection {

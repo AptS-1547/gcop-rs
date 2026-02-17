@@ -176,7 +176,7 @@ pub enum GcopError {
     ///
     /// Terminal interaction failed (user input error, terminal unavailable, etc.).
     #[error("UI error: {0}")]
-    Dialoguer(#[from] dialoguer::Error),
+    Inquire(#[from] inquire::InquireError),
 
     /// No staged changes
     ///
@@ -318,9 +318,7 @@ impl GcopError {
             GcopError::ConfigParse(e) => {
                 rust_i18n::t!("error.config_parse", detail = e.to_string()).to_string()
             }
-            GcopError::Dialoguer(e) => {
-                rust_i18n::t!("error.ui", detail = e.to_string()).to_string()
-            }
+            GcopError::Inquire(e) => rust_i18n::t!("error.ui", detail = e.to_string()).to_string(),
             GcopError::NoStagedChanges => rust_i18n::t!("error.no_staged_changes").to_string(),
             GcopError::UserCancelled => rust_i18n::t!("error.user_cancelled").to_string(),
             GcopError::InvalidInput(msg) => {

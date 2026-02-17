@@ -65,10 +65,46 @@ pub fn parse_review_response(response: &str) -> Result<ReviewResult> {
     })
 }
 
-/// Process commit message response and log
+/// Clean commit message response (remove markdown code block fences)
+///
+/// LLMs sometimes wrap commit messages in code fences like:
+/// ````text
+/// ```
+/// feat(auth): add login
+/// ```
+/// ````
+/// This function strips those fences.
+pub fn clean_commit_response(response: &str) -> String {
+    let trimmed = response.trim();
+
+    // Try ```<lang>\n...\n``` pattern (with optional language tag)
+    if let Some(rest) = trimmed.strip_prefix("```") {
+        // Skip optional language tag (e.g., "text", "markdown", etc.)
+        let after_lang = if let Some(newline_pos) = rest.find('\n') {
+            let lang_part = &rest[..newline_pos];
+            // Only skip if it looks like a language tag (no spaces, short)
+            if lang_part.trim().len() <= 20 && !lang_part.contains(' ') {
+                &rest[newline_pos + 1..]
+            } else {
+                rest
+            }
+        } else {
+            rest
+        };
+
+        if let Some(inner) = after_lang.strip_suffix("```") {
+            return inner.trim().to_string();
+        }
+    }
+
+    trimmed.to_string()
+}
+
+/// Process commit message response: clean code fences and log
 pub fn process_commit_response(response: String) -> String {
-    tracing::debug!("Generated commit message: {}", response);
-    response
+    let cleaned = clean_commit_response(&response);
+    tracing::debug!("Generated commit message: {}", cleaned);
+    cleaned
 }
 
 /// Process review responses and log them
@@ -287,5 +323,80 @@ Let me know if you need more."#;
         let result = parse_review_response(json).unwrap();
         assert_eq!(result.issues[0].file, Some("main.rs".to_string()));
         assert_eq!(result.issues[0].line, Some(42));
+    }
+
+    // === clean_commit_response tests ===
+
+    #[test]
+    fn test_clean_commit_plain_message() {
+        let input = "feat(auth): add login validation";
+        assert_eq!(
+            clean_commit_response(input),
+            "feat(auth): add login validation"
+        );
+    }
+
+    #[test]
+    fn test_clean_commit_bare_fences() {
+        let input = "```\nfeat(auth): add login validation\n```";
+        assert_eq!(
+            clean_commit_response(input),
+            "feat(auth): add login validation"
+        );
+    }
+
+    #[test]
+    fn test_clean_commit_text_lang_tag() {
+        let input = "```text\nfeat(auth): add login validation\n```";
+        assert_eq!(
+            clean_commit_response(input),
+            "feat(auth): add login validation"
+        );
+    }
+
+    #[test]
+    fn test_clean_commit_markdown_lang_tag() {
+        let input = "```markdown\nfix(ui): resolve button alignment\n```";
+        assert_eq!(
+            clean_commit_response(input),
+            "fix(ui): resolve button alignment"
+        );
+    }
+
+    #[test]
+    fn test_clean_commit_multiline_body() {
+        let input = "```\nfeat(auth): add login validation\n\nAdded email and password validation.\nCloses #42\n```";
+        assert_eq!(
+            clean_commit_response(input),
+            "feat(auth): add login validation\n\nAdded email and password validation.\nCloses #42"
+        );
+    }
+
+    #[test]
+    fn test_clean_commit_no_closing_fence() {
+        // Only opening fence, no closing — should not strip
+        let input = "```\nfeat(auth): add login validation";
+        assert_eq!(
+            clean_commit_response(input),
+            "```\nfeat(auth): add login validation"
+        );
+    }
+
+    #[test]
+    fn test_clean_commit_with_whitespace() {
+        let input = "  \n```\nfeat: update deps\n```\n  ";
+        assert_eq!(clean_commit_response(input), "feat: update deps");
+    }
+
+    #[test]
+    fn test_clean_commit_already_clean() {
+        let input = "chore: bump version to 1.2.3";
+        assert_eq!(clean_commit_response(input), "chore: bump version to 1.2.3");
+    }
+
+    #[test]
+    fn test_process_commit_response_strips_fences() {
+        let input = "```\nfeat: new feature\n```".to_string();
+        assert_eq!(process_commit_response(input), "feat: new feature");
     }
 }

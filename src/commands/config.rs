@@ -3,7 +3,6 @@ use crate::error::{GcopError, Result};
 use crate::llm::provider::create_provider;
 use crate::ui;
 use colored::Colorize;
-use dialoguer::Select;
 
 /// User-optional operations after editing
 enum EditAction {
@@ -132,16 +131,17 @@ fn prompt_edit_action(colored: bool) -> Result<EditAction> {
         rust_i18n::t!("config.action_prompt").to_string()
     };
 
-    let selection = Select::new()
-        .with_prompt(prompt)
-        .items(&items)
-        .default(0)
-        .interact()
-        .map_err(|e| {
-            GcopError::Other(
+    let selection = match inquire::Select::new(&prompt, items)
+        .with_starting_cursor(0)
+        .raw_prompt()
+    {
+        Ok(choice) => choice.index,
+        Err(e) => {
+            return Err(GcopError::Other(
                 rust_i18n::t!("config.input_failed", error = e.to_string()).to_string(),
-            )
-        })?;
+            ));
+        }
+    };
 
     Ok(match selection {
         0 => EditAction::Retry,
