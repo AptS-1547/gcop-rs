@@ -153,6 +153,19 @@ impl MockLLM {
 
 #[async_trait]
 impl LLMProvider for MockLLM {
+    async fn send_prompt(
+        &self,
+        _system_prompt: &str,
+        _user_prompt: &str,
+        _progress: Option<&dyn gcop_rs::llm::ProgressReporter>,
+    ) -> Result<String> {
+        if self.should_fail {
+            Err(GcopError::Llm("LLM API error".to_string()))
+        } else {
+            Ok(self.message.clone())
+        }
+    }
+
     async fn generate_commit_message(
         &self,
         _diff: &str,

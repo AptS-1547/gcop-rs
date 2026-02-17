@@ -264,9 +264,8 @@ async fn generate_groups(
     let mut spinner = ui::Spinner::new_with_cancel_hint(&spinner_msg, colored);
     spinner.start_time_display();
 
-    // Direct query with pre-built prompts (bypasses generate_commit_message's
-    // automatic prompt construction which would double-wrap the content)
-    let raw_response = provider.query(&system, &user, Some(&spinner)).await?;
+    // Direct query with pre-built prompts
+    let raw_response = provider.send_prompt(&system, &user, Some(&spinner)).await?;
 
     spinner.finish_and_clear();
 

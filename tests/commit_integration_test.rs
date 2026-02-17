@@ -20,6 +20,15 @@ impl MockLLMProvider {
 
 #[async_trait]
 impl LLMProvider for MockLLMProvider {
+    async fn send_prompt(
+        &self,
+        _system_prompt: &str,
+        _user_prompt: &str,
+        _progress: Option<&dyn gcop_rs::llm::ProgressReporter>,
+    ) -> Result<String> {
+        Ok(self.message.clone())
+    }
+
     async fn generate_commit_message(
         &self,
         _diff: &str,

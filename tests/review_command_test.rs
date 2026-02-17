@@ -39,6 +39,15 @@ impl MockReviewLLM {
 
 #[async_trait]
 impl LLMProvider for MockReviewLLM {
+    async fn send_prompt(
+        &self,
+        _system_prompt: &str,
+        _user_prompt: &str,
+        _progress: Option<&dyn gcop_rs::llm::ProgressReporter>,
+    ) -> Result<String> {
+        Ok(String::new())
+    }
+
     async fn review_code(
         &self,
         _diff: &str,

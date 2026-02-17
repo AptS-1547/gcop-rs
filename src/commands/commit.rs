@@ -395,14 +395,16 @@ async fn generate_message(
         scope_info: scope_info.clone(),
     };
 
+    // Build prompt once
+    let (system, user) = crate::llm::prompt::build_commit_prompt_split(
+        diff,
+        &context,
+        context.custom_prompt.as_deref(),
+        context.convention.as_ref(),
+    );
+
     // Show prompts in verbose mode.
     if verbose {
-        let (system, user) = crate::llm::prompt::build_commit_prompt_split(
-            diff,
-            &context,
-            context.custom_prompt.as_deref(),
-            context.convention.as_ref(),
-        );
         print_verbose_prompt(&system, &user, false, true);
     }
 
@@ -420,9 +422,7 @@ async fn generate_message(
         ui::step(&rust_i18n::t!("commit.step2"), &step_msg, colored);
         println!("\n{}", ui::info(&format_message_header(attempt), colored));
 
-        let stream_handle = provider
-            .generate_commit_message_streaming(diff, Some(context))
-            .await?;
+        let stream_handle = provider.send_prompt_streaming(&system, &user).await?;
 
         let mut output = ui::StreamingOutput::new(colored);
         let message = output.process(stream_handle.receiver).await?;
@@ -438,9 +438,7 @@ async fn generate_message(
         let mut spinner = ui::Spinner::new_with_cancel_hint(&spinner_message, colored);
         spinner.start_time_display();
 
-        let message = provider
-            .generate_commit_message(diff, Some(context), Some(&spinner))
-            .await?;
+        let message = provider.send_prompt(&system, &user, Some(&spinner)).await?;
 
         spinner.finish_and_clear();
         Ok((message, false)) // Not shown yet
@@ -507,22 +505,22 @@ async fn generate_message_no_streaming(
         scope_info: scope_info.clone(),
     };
 
+    // Build prompt
+    let (system, user) = crate::llm::prompt::build_commit_prompt_split(
+        diff,
+        &context,
+        context.custom_prompt.as_deref(),
+        context.convention.as_ref(),
+    );
+
     // Display prompt in verbose mode
     if verbose {
-        let (system, user) = crate::llm::prompt::build_commit_prompt_split(
-            diff,
-            &context,
-            context.custom_prompt.as_deref(),
-            context.convention.as_ref(),
-        );
         // JSON mode: output to stderr (stdout reserved for JSON), no color
         print_verbose_prompt(&system, &user, true, false);
     }
 
     // Use the non-streaming API directly
-    provider
-        .generate_commit_message(diff, Some(context), None)
-        .await
+    provider.send_prompt(&system, &user, None).await
 }
 
 /// JSON format successfully output

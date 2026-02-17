@@ -7,8 +7,7 @@ use tracing::debug;
 use crate::config::AppConfig;
 use crate::error::{GcopError, Result};
 use crate::llm::{
-    CommitContext, LLMProvider, ProgressReporter, ReviewResult, ReviewType, StreamChunk,
-    StreamHandle,
+    LLMProvider, ProgressReporter, ReviewResult, ReviewType, StreamChunk, StreamHandle,
 };
 use crate::ui::colors;
 
@@ -88,7 +87,6 @@ impl LLMProvider for FallbackProvider {
     }
 
     fn supports_streaming(&self) -> bool {
-        // Ability to use the first provider
         self.providers
             .first()
             .map(|p| p.supports_streaming())
@@ -102,7 +100,6 @@ impl LLMProvider for FallbackProvider {
             ));
         }
 
-        // Validate all providers and collect results
         let mut all_failed = true;
 
         for provider in &self.providers {
@@ -132,53 +129,7 @@ impl LLMProvider for FallbackProvider {
         Ok(())
     }
 
-    async fn generate_commit_message(
-        &self,
-        diff: &str,
-        context: Option<CommitContext>,
-        progress: Option<&dyn ProgressReporter>,
-    ) -> Result<String> {
-        let mut last_error = None;
-
-        for (i, provider) in self.providers.iter().enumerate() {
-            // If it is fallback (not the first provider), update the spinner display
-            if i > 0
-                && let Some(p) = progress
-            {
-                p.append_suffix(&rust_i18n::t!(
-                    "provider.fallback_suffix",
-                    provider = provider.name()
-                ));
-            }
-
-            match provider
-                .generate_commit_message(diff, context.clone(), progress)
-                .await
-            {
-                Ok(msg) => return Ok(msg),
-                Err(e) => {
-                    // If it is not the last provider, show a warning and continue
-                    if i < self.providers.len() - 1 {
-                        colors::warning(
-                            &rust_i18n::t!(
-                                "provider.fallback_provider_failed",
-                                provider = provider.name(),
-                                error = e.to_string()
-                            ),
-                            self.colored,
-                        );
-                    }
-                    last_error = Some(e);
-                }
-            }
-        }
-
-        Err(last_error.unwrap_or_else(|| {
-            GcopError::Llm(rust_i18n::t!("provider.no_providers_available").to_string())
-        }))
-    }
-
-    async fn query(
+    async fn send_prompt(
         &self,
         system_prompt: &str,
         user_prompt: &str,
@@ -196,7 +147,10 @@ impl LLMProvider for FallbackProvider {
                 ));
             }
 
-            match provider.query(system_prompt, user_prompt, progress).await {
+            match provider
+                .send_prompt(system_prompt, user_prompt, progress)
+                .await
+            {
                 Ok(msg) => return Ok(msg),
                 Err(e) => {
                     if i < self.providers.len() - 1 {
@@ -219,6 +173,65 @@ impl LLMProvider for FallbackProvider {
         }))
     }
 
+    async fn send_prompt_streaming(
+        &self,
+        system_prompt: &str,
+        user_prompt: &str,
+    ) -> Result<StreamHandle> {
+        let mut last_error = None;
+        let mut tried_streaming = false;
+
+        for provider in &self.providers {
+            if !provider.supports_streaming() {
+                continue;
+            }
+            tried_streaming = true;
+
+            match provider
+                .send_prompt_streaming(system_prompt, user_prompt)
+                .await
+            {
+                Ok(handle) => return Ok(handle),
+                Err(e) => {
+                    colors::warning(
+                        &rust_i18n::t!(
+                            "provider.fallback_streaming_failed",
+                            provider = provider.name(),
+                            error = e.to_string()
+                        ),
+                        self.colored,
+                    );
+                    last_error = Some(e);
+                }
+            }
+        }
+
+        if tried_streaming {
+            colors::warning(
+                &rust_i18n::t!("provider.all_streaming_failed"),
+                self.colored,
+            );
+        }
+
+        let (tx, rx) = mpsc::channel(32);
+        let result = self.send_prompt(system_prompt, user_prompt, None).await;
+
+        match result {
+            Ok(message) => {
+                let _ = tx.send(StreamChunk::Delta(message)).await;
+                let _ = tx.send(StreamChunk::Done).await;
+            }
+            Err(e) => {
+                let error = last_error.map(|le| le.to_string()).unwrap_or(e.to_string());
+                let _ = tx.send(StreamChunk::Error(error)).await;
+            }
+        }
+
+        Ok(StreamHandle { receiver: rx })
+    }
+
+    // generate_commit_message: trait default (build prompt → send_prompt with fallback)
+
     async fn review_code(
         &self,
         diff: &str,
@@ -229,7 +242,6 @@ impl LLMProvider for FallbackProvider {
         let mut last_error = None;
 
         for (i, provider) in self.providers.iter().enumerate() {
-            // If it is fallback (not the first provider), update the spinner display
             if i > 0
                 && let Some(p) = progress
             {
@@ -265,72 +277,13 @@ impl LLMProvider for FallbackProvider {
         }))
     }
 
-    async fn generate_commit_message_streaming(
-        &self,
-        diff: &str,
-        context: Option<CommitContext>,
-    ) -> Result<StreamHandle> {
-        let mut last_error = None;
-        let mut tried_streaming = false;
-
-        // Try all providers that support streaming
-        for provider in &self.providers {
-            if !provider.supports_streaming() {
-                continue;
-            }
-            tried_streaming = true;
-
-            match provider
-                .generate_commit_message_streaming(diff, context.clone())
-                .await
-            {
-                Ok(handle) => return Ok(handle),
-                Err(e) => {
-                    colors::warning(
-                        &rust_i18n::t!(
-                            "provider.fallback_streaming_failed",
-                            provider = provider.name(),
-                            error = e.to_string()
-                        ),
-                        self.colored,
-                    );
-                    last_error = Some(e);
-                }
-            }
-        }
-
-        // All streaming providers failed and fellback to non-streaming mode
-        if tried_streaming {
-            colors::warning(
-                &rust_i18n::t!("provider.all_streaming_failed"),
-                self.colored,
-            );
-        }
-
-        let (tx, rx) = mpsc::channel(32);
-        let result = self.generate_commit_message(diff, context, None).await;
-
-        match result {
-            Ok(message) => {
-                let _ = tx.send(StreamChunk::Delta(message)).await;
-                let _ = tx.send(StreamChunk::Done).await;
-            }
-            Err(e) => {
-                // If the non-streaming method also fails, the streaming error will be returned first (more meaningful)
-                let error = last_error.map(|le| le.to_string()).unwrap_or(e.to_string());
-                let _ = tx.send(StreamChunk::Error(error)).await;
-            }
-        }
-
-        Ok(StreamHandle { receiver: rx })
-    }
+    // generate_commit_message_streaming: trait default (build prompt → send_prompt_streaming with fallback)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    /// Simple Mock Provider for testing
     struct TestProvider {
         name: String,
         should_fail: bool,
@@ -361,26 +314,10 @@ mod tests {
 
     #[async_trait]
     impl LLMProvider for TestProvider {
-        fn name(&self) -> &str {
-            &self.name
-        }
-
-        fn supports_streaming(&self) -> bool {
-            self.supports_streaming
-        }
-
-        async fn validate(&self) -> Result<()> {
-            if self.should_fail {
-                Err(GcopError::Config("validation failed".to_string()))
-            } else {
-                Ok(())
-            }
-        }
-
-        async fn generate_commit_message(
+        async fn send_prompt(
             &self,
-            _diff: &str,
-            _context: Option<CommitContext>,
+            _system_prompt: &str,
+            _user_prompt: &str,
             _progress: Option<&dyn ProgressReporter>,
         ) -> Result<String> {
             if self.should_fail {
@@ -389,6 +326,26 @@ mod tests {
                 Ok(self.message.clone())
             }
         }
+
+        async fn send_prompt_streaming(
+            &self,
+            _system_prompt: &str,
+            _user_prompt: &str,
+        ) -> Result<StreamHandle> {
+            if self.should_fail {
+                Err(GcopError::Llm(format!("{} streaming failed", self.name)))
+            } else {
+                let (tx, rx) = mpsc::channel(32);
+                let message = self.message.clone();
+                tokio::spawn(async move {
+                    let _ = tx.send(StreamChunk::Delta(message)).await;
+                    let _ = tx.send(StreamChunk::Done).await;
+                });
+                Ok(StreamHandle { receiver: rx })
+            }
+        }
+
+        // generate_commit_message: trait default (calls send_prompt)
 
         async fn review_code(
             &self,
@@ -408,21 +365,19 @@ mod tests {
             }
         }
 
-        async fn generate_commit_message_streaming(
-            &self,
-            _diff: &str,
-            _context: Option<CommitContext>,
-        ) -> Result<StreamHandle> {
+        fn name(&self) -> &str {
+            &self.name
+        }
+
+        fn supports_streaming(&self) -> bool {
+            self.supports_streaming
+        }
+
+        async fn validate(&self) -> Result<()> {
             if self.should_fail {
-                Err(GcopError::Llm(format!("{} streaming failed", self.name)))
+                Err(GcopError::Config("validation failed".to_string()))
             } else {
-                let (tx, rx) = mpsc::channel(32);
-                let message = self.message.clone();
-                tokio::spawn(async move {
-                    let _ = tx.send(StreamChunk::Delta(message)).await;
-                    let _ = tx.send(StreamChunk::Done).await;
-                });
-                Ok(StreamHandle { receiver: rx })
+                Ok(())
             }
         }
     }

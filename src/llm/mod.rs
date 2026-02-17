@@ -75,15 +75,22 @@ pub struct StreamHandle {
 
 /// Unified interface implemented by all LLM providers.
 ///
-/// Required capabilities:
-/// - Commit message generation
-/// - Code review
-/// - Optional streaming output
+/// # Architecture
+///
+/// The only **required** method is [`send_prompt`], which sends a pre-built
+/// `(system, user)` prompt pair to the LLM and returns the raw response.
+/// All higher-level methods (`generate_commit_message`, `review_code`,
+/// `generate_commit_message_streaming`) are default implementations that
+/// build prompts via [`llm::prompt`](crate::llm::prompt) and delegate to
+/// `send_prompt` / `send_prompt_streaming`.
+///
+/// Callers that need custom prompt construction (e.g., split-commit flow)
+/// call `send_prompt` directly, avoiding double-wrapping.
 ///
 /// # Implementer Notes
 /// 1. Implement `Send + Sync` (required in async contexts).
-/// 2. Handle network failures, timeouts, and rate limits.
-/// 3. If `supports_streaming()` returns `false`, `generate_commit_message_streaming()` falls back to non-streaming.
+/// 2. Handle network failures, timeouts, and rate limits inside `send_prompt`.
+/// 3. Override `send_prompt_streaming` if the backend supports SSE.
 ///
 /// # Built-In Implementations
 /// - [`ClaudeProvider`](provider::claude::ClaudeProvider) - Anthropic Claude
@@ -94,7 +101,7 @@ pub struct StreamHandle {
 /// # Custom Provider Example
 /// ```no_run
 /// use async_trait::async_trait;
-/// use gcop_rs::llm::{LLMProvider, CommitContext, ReviewResult, ReviewType};
+/// use gcop_rs::llm::{LLMProvider, ReviewResult, ReviewType};
 /// use gcop_rs::error::Result;
 ///
 /// struct MyProvider {
@@ -103,13 +110,13 @@ pub struct StreamHandle {
 ///
 /// #[async_trait]
 /// impl LLMProvider for MyProvider {
-///     async fn generate_commit_message(
+///     async fn send_prompt(
 ///         &self,
-///         diff: &str,
-///         context: Option<CommitContext>,
-///         progress: Option<&dyn gcop_rs::llm::ProgressReporter>,
+///         system_prompt: &str,
+///         user_prompt: &str,
+///         _progress: Option<&dyn gcop_rs::llm::ProgressReporter>,
 ///     ) -> Result<String> {
-///         // Call custom API...
+///         // Call custom API with system_prompt + user_prompt ...
 ///         todo!()
 ///     }
 ///
@@ -128,53 +135,74 @@ pub struct StreamHandle {
 ///     }
 ///
 ///     async fn validate(&self) -> Result<()> {
-///         // Validate API key validity...
 ///         Ok(())
 ///     }
 /// }
 /// ```
 #[async_trait]
 pub trait LLMProvider: Send + Sync {
-    /// Generates a commit message.
+    /// Sends a pre-built prompt pair to the LLM.
     ///
-    /// Generates a commit message from a diff and optional context.
+    /// This is the core method all providers must implement.
+    /// Callers are responsible for constructing the system and user prompts
+    /// (e.g., via [`build_commit_prompt_split`](crate::llm::prompt::build_commit_prompt_split)
+    /// or [`build_split_commit_prompt`](crate::llm::prompt::build_split_commit_prompt)).
     ///
     /// # Parameters
-    /// - `diff`: git diff content (typically from `git diff --staged`)
-    /// - `context`: optional context (branch, file list, user feedback, etc.)
+    /// - `system_prompt`: fully constructed system prompt
+    /// - `user_prompt`: fully constructed user message
     /// - `progress`: optional progress reporter for retry/fallback feedback
+    async fn send_prompt(
+        &self,
+        system_prompt: &str,
+        user_prompt: &str,
+        progress: Option<&dyn ProgressReporter>,
+    ) -> Result<String>;
+
+    /// Sends a pre-built prompt pair as a stream.
     ///
-    /// # Returns
-    /// - `Ok(message)` - generated commit message text
-    /// - `Err(_)` - API error, network error, timeout, etc.
+    /// Default: falls back to [`send_prompt`](Self::send_prompt) and emits
+    /// the full response as a single delta chunk.
+    async fn send_prompt_streaming(
+        &self,
+        system_prompt: &str,
+        user_prompt: &str,
+    ) -> Result<StreamHandle> {
+        let (tx, rx) = mpsc::channel(32);
+        let result = self.send_prompt(system_prompt, user_prompt, None).await;
+        match result {
+            Ok(message) => {
+                let _ = tx.send(StreamChunk::Delta(message)).await;
+                let _ = tx.send(StreamChunk::Done).await;
+            }
+            Err(e) => {
+                let _ = tx.send(StreamChunk::Error(e.to_string())).await;
+            }
+        }
+        Ok(StreamHandle { receiver: rx })
+    }
+
+    /// Convenience: generates a commit message from diff + context.
     ///
-    /// # Error Handling
-    /// Implementers should handle:
-    /// - Network errors (retry based on `network.max_retries`, default: 3)
-    /// - HTTP 429 (rate limiting, optionally using `Retry-After`)
-    /// - Timeouts and other HTTP failures
-    ///
-    /// # Example
-    /// ```ignore
-    /// use gcop_rs::llm::{LLMProvider, CommitContext, provider::openai::OpenAIProvider};
-    /// use gcop_rs::config::{ProviderConfig, NetworkConfig};
-    ///
-    /// # async fn example() -> anyhow::Result<()> {
-    /// let config = ProviderConfig::default();
-    /// let network_config = NetworkConfig::default();
-    /// let provider = OpenAIProvider::new(&config, "openai", &network_config, false)?;
-    /// let diff = "diff --git a/main.rs...";
-    /// let message = provider.generate_commit_message(diff, None, None).await?;
-    /// println!("Generated: {}", message);
-    /// # Ok(())
-    /// # }
-    /// ```
+    /// Builds the prompt via [`build_commit_prompt_split`](crate::llm::prompt::build_commit_prompt_split),
+    /// then delegates to [`send_prompt`](Self::send_prompt).
     async fn generate_commit_message(
         &self,
         diff: &str,
         context: Option<CommitContext>,
         progress: Option<&dyn ProgressReporter>,
-    ) -> Result<String>;
+    ) -> Result<String> {
+        let ctx = context.unwrap_or_default();
+        let (system, user) = crate::llm::prompt::build_commit_prompt_split(
+            diff,
+            &ctx,
+            ctx.custom_prompt.as_deref(),
+            ctx.convention.as_ref(),
+        );
+        let response = self.send_prompt(&system, &user, progress).await?;
+        tracing::debug!("Generated commit message: {}", response);
+        Ok(response)
+    }
 
     /// Runs code review.
     ///
@@ -185,16 +213,6 @@ pub trait LLMProvider: Send + Sync {
     /// - `review_type`: target scope (unstaged, single commit, range, file)
     /// - `custom_prompt`: optional user prompt appended to system guidance
     /// - `progress`: optional progress reporter
-    ///
-    /// # Returns
-    /// - `Ok(result)` - structured review result
-    /// - `Err(_)` - API error or network error
-    ///
-    /// # Review dimensions
-    /// - Code quality (duplicate code, complexity, naming, etc.)
-    /// - Potential bugs (null pointer, array out of bounds, resource leak, etc.)
-    /// - Security issues (SQL injection, XSS, sensitive information leakage, etc.)
-    /// - Performance issues (O(n²) algorithm, unnecessary copying, etc.)
     async fn review_code(
         &self,
         diff: &str,
@@ -203,135 +221,35 @@ pub trait LLMProvider: Send + Sync {
         progress: Option<&dyn ProgressReporter>,
     ) -> Result<ReviewResult>;
 
-    /// Provider name.
-    ///
-    /// Used for logs and error messages.
-    ///
-    /// # Example
-    /// ```ignore
-    /// use gcop_rs::llm::{LLMProvider, provider::openai::OpenAIProvider};
-    /// use gcop_rs::config::{ProviderConfig, NetworkConfig};
-    ///
-    /// let config = ProviderConfig::default();
-    /// let network_config = NetworkConfig::default();
-    /// let provider = OpenAIProvider::new(&config, "openai", &network_config, false).unwrap();
-    /// assert_eq!(provider.name(), "openai");
-    /// ```
+    /// Provider name (used for logs and error messages).
     #[allow(dead_code)]
     fn name(&self) -> &str;
 
     /// Validates provider configuration.
-    ///
-    /// Sends a lightweight test request to verify API key, endpoint, and model configuration.
-    ///
-    /// # Returns
-    /// - `Ok(())` - configuration is valid
-    /// - `Err(_)` - invalid configuration or network error
-    ///
-    /// # Error Types
-    /// - [`GcopError::Llm`] - API key is invalid, model does not exist, etc.
-    /// - [`GcopError::Network`] - Network errors, timeouts, etc.
-    ///
-    /// [`GcopError::Llm`]: crate::error::GcopError::Llm
-    /// [`GcopError::Network`]: crate::error::GcopError::Network
     async fn validate(&self) -> Result<()>;
 
     /// Whether streaming output is supported.
-    ///
-    /// # Returns
-    /// - `true` - supports streaming (SSE)
-    /// - `false` - only non-streaming is supported (default)
     fn supports_streaming(&self) -> bool {
         false
     }
 
-    /// Sends a direct query with pre-built system and user prompts.
+    /// Convenience: generates a commit message as a stream.
     ///
-    /// Unlike [`generate_commit_message`], this method does **not** run automatic
-    /// prompt construction. The caller is responsible for building both prompts
-    /// (e.g., via [`build_split_commit_prompt`](crate::llm::prompt::build_split_commit_prompt)).
-    ///
-    /// # Parameters
-    /// - `system_prompt`: fully constructed system prompt
-    /// - `user_prompt`: fully constructed user message
-    /// - `progress`: optional progress reporter for retry/fallback feedback
-    ///
-    /// # Returns
-    /// - `Ok(response)` - raw LLM response text
-    /// - `Err(_)` - API error, network error, timeout, etc.
-    async fn query(
-        &self,
-        system_prompt: &str,
-        user_prompt: &str,
-        progress: Option<&dyn ProgressReporter>,
-    ) -> Result<String> {
-        // Default: not implemented. Overridden by the ApiBackend blanket impl
-        // and FallbackProvider.
-        let _ = (system_prompt, user_prompt, progress);
-        Err(crate::error::GcopError::Llm(
-            "query() not implemented for this provider".into(),
-        ))
-    }
-
-    /// Generates a commit message as a stream.
-    ///
-    /// Returns a stream handle that yields text deltas in real time.
-    ///
-    /// # Parameters
-    /// - `diff`: Git diff content
-    /// - `context`: optional context information
-    ///
-    /// # Returns
-    /// - `Ok(handle)` - stream handle
-    /// - `Err(_)` - API error or network error
-    ///
-    /// # Default Implementation
-    /// If streaming is unsupported, this falls back to `generate_commit_message()`
-    /// and emits the full message as a single delta.
-    ///
-    /// # Example
-    /// ```ignore
-    /// use gcop_rs::llm::{LLMProvider, StreamChunk, provider::claude::ClaudeProvider};
-    /// use gcop_rs::config::{ProviderConfig, NetworkConfig};
-    ///
-    /// # async fn example() -> anyhow::Result<()> {
-    /// let config = ProviderConfig::default();
-    /// let network_config = NetworkConfig::default();
-    /// let provider = ClaudeProvider::new(&config, "claude", &network_config, false)?;
-    /// let diff = "diff --git a/main.rs...";
-    /// let mut handle = provider.generate_commit_message_streaming(diff, None).await?;
-    ///
-    /// while let Some(chunk) = handle.receiver.recv().await {
-    ///     match chunk {
-    ///         StreamChunk::Delta(text) => print!("{}", text),
-    ///         StreamChunk::Done => break,
-    ///         StreamChunk::Error(err) => eprintln!("Error: {}", err),
-    ///     }
-    /// }
-    /// # Ok(())
-    /// # }
-    /// ```
+    /// Builds the prompt via [`build_commit_prompt_split`](crate::llm::prompt::build_commit_prompt_split),
+    /// then delegates to [`send_prompt_streaming`](Self::send_prompt_streaming).
     async fn generate_commit_message_streaming(
         &self,
         diff: &str,
         context: Option<CommitContext>,
     ) -> Result<StreamHandle> {
-        let (tx, rx) = mpsc::channel(32);
-
-        // Fall back to non-streaming and emit one full-message chunk.
-        let result = self.generate_commit_message(diff, context, None).await;
-
-        match result {
-            Ok(message) => {
-                let _ = tx.send(StreamChunk::Delta(message)).await;
-                let _ = tx.send(StreamChunk::Done).await;
-            }
-            Err(e) => {
-                let _ = tx.send(StreamChunk::Error(e.to_string())).await;
-            }
-        }
-
-        Ok(StreamHandle { receiver: rx })
+        let ctx = context.unwrap_or_default();
+        let (system, user) = crate::llm::prompt::build_commit_prompt_split(
+            diff,
+            &ctx,
+            ctx.custom_prompt.as_deref(),
+            ctx.convention.as_ref(),
+        );
+        self.send_prompt_streaming(&system, &user).await
     }
 }
 

@@ -199,6 +199,14 @@ async fn run_hook_inner(
         scope_info: None, // Hook mode does not currently support workspace scope
     };
 
+    // Build prompt
+    let (system, user) = crate::llm::prompt::build_commit_prompt_split(
+        &diff,
+        &context,
+        context.custom_prompt.as_deref(),
+        context.convention.as_ref(),
+    );
+
     // Create LLM provider
     let provider = create_provider(config, provider_override)?;
 
@@ -206,9 +214,7 @@ async fn run_hook_inner(
     eprintln!("gcop-rs: {}", rust_i18n::t!("hook.generating"));
 
     // Generate commit message
-    let message = provider
-        .generate_commit_message(&diff, Some(context), None)
-        .await?;
+    let message = provider.send_prompt(&system, &user, None).await?;
 
     // Write generated message to the commit message file
     fs::write(commit_msg_file, &message)?;

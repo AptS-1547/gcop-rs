@@ -23,9 +23,7 @@ pub use validation::*;
 use async_trait::async_trait;
 
 use crate::error::{GcopError, Result};
-use crate::llm::{
-    CommitContext, LLMProvider, ProgressReporter, ReviewResult, ReviewType, StreamHandle,
-};
+use crate::llm::{LLMProvider, ProgressReporter, ReviewResult, ReviewType, StreamHandle};
 
 /// Internal traits: Each provider only needs to implement its own unique part
 ///
@@ -58,29 +56,58 @@ pub(crate) trait ApiBackend: Send + Sync {
     async fn validate(&self) -> Result<()>;
 }
 
+/// Blanket impl: every `ApiBackend` automatically becomes an `LLMProvider`.
+///
+/// `send_prompt` delegates to `call_api`.
+/// `send_prompt_streaming` delegates to `call_api_streaming` (with non-streaming fallback).
+/// `generate_commit_message` and `generate_commit_message_streaming` use the trait defaults
+/// (build prompt → `send_prompt` / `send_prompt_streaming`).
 #[async_trait]
 impl<T: ApiBackend> LLMProvider for T {
-    async fn generate_commit_message(
+    async fn send_prompt(
         &self,
-        diff: &str,
-        context: Option<CommitContext>,
+        system_prompt: &str,
+        user_prompt: &str,
         progress: Option<&dyn ProgressReporter>,
     ) -> Result<String> {
-        let ctx = context.unwrap_or_default();
-        let (system, user) = crate::llm::prompt::build_commit_prompt_split(
-            diff,
-            &ctx,
-            ctx.custom_prompt.as_deref(),
-            ctx.convention.as_ref(),
-        );
         tracing::debug!(
-            "Commit prompt split - system ({} chars), user ({} chars)",
-            system.len(),
-            user.len()
+            "send_prompt - system ({} chars), user ({} chars)",
+            system_prompt.len(),
+            user_prompt.len()
         );
-        let response = self.call_api(&system, &user, progress).await?;
-        Ok(process_commit_response(response))
+        self.call_api(system_prompt, user_prompt, progress).await
     }
+
+    async fn send_prompt_streaming(
+        &self,
+        system_prompt: &str,
+        user_prompt: &str,
+    ) -> Result<StreamHandle> {
+        if ApiBackend::supports_streaming(self) {
+            tracing::debug!(
+                "Streaming - system ({} chars), user ({} chars)",
+                system_prompt.len(),
+                user_prompt.len()
+            );
+            self.call_api_streaming(system_prompt, user_prompt).await
+        } else {
+            // Fallback to non-streaming, emit full response as single chunk.
+            let (tx, rx) = tokio::sync::mpsc::channel(32);
+            let result = self.send_prompt(system_prompt, user_prompt, None).await;
+            match result {
+                Ok(message) => {
+                    let _ = tx.send(crate::llm::StreamChunk::Delta(message)).await;
+                    let _ = tx.send(crate::llm::StreamChunk::Done).await;
+                }
+                Err(e) => {
+                    let _ = tx.send(crate::llm::StreamChunk::Error(e.to_string())).await;
+                }
+            }
+            Ok(StreamHandle { receiver: rx })
+        }
+    }
+
+    // generate_commit_message: uses trait default (build prompt → send_prompt)
 
     async fn review_code(
         &self,
@@ -108,57 +135,7 @@ impl<T: ApiBackend> LLMProvider for T {
         ApiBackend::validate(self).await
     }
 
-    async fn query(
-        &self,
-        system_prompt: &str,
-        user_prompt: &str,
-        progress: Option<&dyn ProgressReporter>,
-    ) -> Result<String> {
-        tracing::debug!(
-            "Direct query - system ({} chars), user ({} chars)",
-            system_prompt.len(),
-            user_prompt.len()
-        );
-        self.call_api(system_prompt, user_prompt, progress).await
-    }
-
     fn supports_streaming(&self) -> bool {
         ApiBackend::supports_streaming(self)
-    }
-
-    async fn generate_commit_message_streaming(
-        &self,
-        diff: &str,
-        context: Option<CommitContext>,
-    ) -> Result<StreamHandle> {
-        if !ApiBackend::supports_streaming(self) {
-            // Streaming is not supported, and the default fallback logic of the LLMProvider trait is used.
-            let (tx, rx) = tokio::sync::mpsc::channel(32);
-            let result = self.generate_commit_message(diff, context, None).await;
-            match result {
-                Ok(message) => {
-                    let _ = tx.send(crate::llm::StreamChunk::Delta(message)).await;
-                    let _ = tx.send(crate::llm::StreamChunk::Done).await;
-                }
-                Err(e) => {
-                    let _ = tx.send(crate::llm::StreamChunk::Error(e.to_string())).await;
-                }
-            }
-            return Ok(StreamHandle { receiver: rx });
-        }
-
-        let ctx = context.unwrap_or_default();
-        let (system, user) = crate::llm::prompt::build_commit_prompt_split(
-            diff,
-            &ctx,
-            ctx.custom_prompt.as_deref(),
-            ctx.convention.as_ref(),
-        );
-        tracing::debug!(
-            "Streaming - system ({} chars), user ({} chars)",
-            system.len(),
-            user.len()
-        );
-        self.call_api_streaming(&system, &user).await
     }
 }
