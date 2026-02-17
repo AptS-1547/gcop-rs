@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-02-17
+
+### Changed
+
+- **Interactive Prompts**: Replaced `dialoguer` with `inquire` 0.9 for all interactive prompts (Select, Confirm, Text)
+- **Commit Message Cleaning**: New `clean_commit_response()` strips markdown code fences from LLM responses, applied in both streaming and non-streaming paths
+- **Build Optimization**: Release `opt-level` changed to `"z"`, `config` crate trimmed to `toml`-only, `rustls` `logging` feature removed
+
 ## [0.13.0] - 2026-02-17
 
 ### Added
@@ -605,7 +613,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Edit action properly returns to menu without triggering regeneration
 - Commit message display no longer duplicates after editing
 
-[Unreleased]: https://github.com/AptS-1547/gcop-rs/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/AptS-1547/gcop-rs/compare/v0.13.1...HEAD
+[0.13.1]: https://github.com/AptS-1547/gcop-rs/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/AptS-1547/gcop-rs/compare/v0.12.2...v0.13.0
 [0.12.2]: https://github.com/AptS-1547/gcop-rs/compare/v0.12.1...v0.12.2
 [0.12.1]: https://github.com/AptS-1547/gcop-rs/compare/v0.12.0...v0.12.1
