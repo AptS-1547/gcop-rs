@@ -392,8 +392,7 @@ mod tests {
             insertions: 1,
             deletions: 1,
         }];
-        let (system, _) =
-            build_split_commit_prompt(&diffs, &ctx, Some("Use Japanese"), None);
+        let (system, _) = build_split_commit_prompt(&diffs, &ctx, Some("Use Japanese"), None);
 
         // Base commit rules must be present
         assert!(system.contains("conventional commits"));

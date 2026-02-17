@@ -156,8 +156,7 @@ pub async fn run_split_flow(
                     return execute_split_commits(repo, &current_groups, colored);
                 }
                 SplitAction::Edit => {
-                    let edited =
-                        edit_groups_in_editor(&current_groups, &stats.files_changed)?;
+                    let edited = edit_groups_in_editor(&current_groups, &stats.files_changed)?;
                     if let Some(edited_groups) = edited {
                         current_groups = edited_groups;
                         display_commit_groups(&current_groups, &file_diffs, colored);
@@ -641,9 +640,8 @@ fn format_groups_for_editor(groups: &[CommitGroup]) -> String {
 
 /// Parse groups from TOML editor output.
 fn parse_groups_from_editor(text: &str, expected_files: &[String]) -> Result<Vec<CommitGroup>> {
-    let editor_groups: EditorGroups = toml::from_str(text).map_err(|e| {
-        GcopError::SplitParseFailed(format!("TOML parse error: {}", e))
-    })?;
+    let editor_groups: EditorGroups = toml::from_str(text)
+        .map_err(|e| GcopError::SplitParseFailed(format!("TOML parse error: {}", e)))?;
 
     // Filter out empty groups (no files or empty message)
     let groups: Vec<CommitGroup> = editor_groups
@@ -862,8 +860,7 @@ mod tests {
     fn test_format_and_parse_editor_multiline_message() {
         let groups = vec![CommitGroup {
             files: vec!["src/auth.rs".to_string()],
-            message: "feat(auth): add login\n\nDetailed description.\n- bullet point"
-                .to_string(),
+            message: "feat(auth): add login\n\nDetailed description.\n- bullet point".to_string(),
         }];
 
         let editor_text = format_groups_for_editor(&groups);
