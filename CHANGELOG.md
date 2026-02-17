@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-02-17
+
+### Added
+
+- **Atomic Split Commit Mode**: New `gcop-rs commit --split` groups staged files into logical atomic commits via LLM, with interactive menu (Accept All / Edit / Regenerate / Quit) and partial failure recovery
+- **Split Error Types**: `SplitCommitPartial` and `SplitParseFailed` with localized messages and recovery suggestions
+- **Split i18n**: 21 new translation strings for split commit UI, errors, and suggestions (en + zh-CN)
+
+### Changed
+
+- **LLM Provider Interface Refactored**: New `send_prompt(system, user, progress)` as core trait method; high-level APIs now have default implementations, enabling caller-controlled prompt construction
+- **CLI Parameter Restructuring**: `CommitArgs` and `CommitOptions` restructured with `from_cli()` constructor; all command option structs unified in style
+- **Dependencies**: `clap` upgraded to 4.5.59, `toml` upgraded to 1.0, `reqwest` adds `system-proxy` feature
+- **MSRV**: Lowered to 1.88.0
+- **Code Quality**: All code comments unified to English; README fully rewritten (EN + ZH)
+
 ## [0.12.2] - 2026-02-13
 
 ### Changed
@@ -589,7 +605,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Edit action properly returns to menu without triggering regeneration
 - Commit message display no longer duplicates after editing
 
-[Unreleased]: https://github.com/AptS-1547/gcop-rs/compare/v0.12.2...HEAD
+[Unreleased]: https://github.com/AptS-1547/gcop-rs/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/AptS-1547/gcop-rs/compare/v0.12.2...v0.13.0
 [0.12.2]: https://github.com/AptS-1547/gcop-rs/compare/v0.12.1...v0.12.2
 [0.12.1]: https://github.com/AptS-1547/gcop-rs/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/AptS-1547/gcop-rs/compare/v0.11.1...v0.12.0
