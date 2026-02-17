@@ -9,18 +9,24 @@ gcop-rs uses a split prompt:
 - **System prompt**: instructions for the model
 - **User message**: the actual content to work on (diff/context)
 
-Your `custom_prompt` overrides the **system prompt**. The diff/context is always included in the **user message**.
+The diff/context is always included in the **user message**. `custom_prompt` behavior depends on mode:
+
+- **Normal commit mode**: `custom_prompt` replaces the base commit system prompt.
+- **Split commit mode** (`commit --split` or `[commit].split = true`): `custom_prompt` is appended as additional grouping instructions.
+- **Review mode**: `custom_prompt` is used as the base review system prompt, and JSON-output constraints are always appended.
 
 > **Important**: `custom_prompt` is treated as plain text instructions. There is **no** template/placeholder substitution. If you write `{diff}` in your custom prompt, it will be sent literally.
 
 ## Commit Prompts (`[commit].custom_prompt`)
 
-- Your `custom_prompt` becomes the **system prompt** for commit generation.
+- In normal commit mode, your `custom_prompt` becomes the **system prompt** for commit generation.
 - The **user message** always includes:
   - staged diff (`git diff --cached` equivalent)
   - context (changed files, insertions, deletions)
   - current branch name (if available)
   - accumulated feedback from “Retry with feedback” (if used)
+
+When split commit mode is enabled, gcop-rs uses built-in grouping rules and appends your `custom_prompt` as additional constraints.
 
 **Example**:
 

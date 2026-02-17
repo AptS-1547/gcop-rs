@@ -11,6 +11,8 @@ gcop-rs commit [OPTIONS] [FEEDBACK...]
 
 分析暂存的变更，使用 AI 生成提交信息（默认按 conventional，可通过 `commit.convention` 配置），并在你批准后创建 git 提交。
 
+当启用 `--split`（或配置 `[commit].split = true`）时，gcop-rs 会先将暂存文件分组为多个原子提交，再按顺序执行提交。
+
 **选项**:
 
 | 选项 | 说明 |
@@ -20,6 +22,7 @@ gcop-rs commit [OPTIONS] [FEEDBACK...]
 | `--no-edit`, `-n` | 跳过打开编辑器手动编辑 |
 | `--yes`, `-y` | 跳过确认菜单并接受生成的信息 |
 | `--dry-run`, `-d` | 仅生成并输出提交信息，不实际提交 |
+| `--split`, `-s` | 将暂存变更拆分为多个原子提交 |
 | `--provider <NAME>`, `-p` | 使用特定的 provider（覆盖默认值） |
 
 **反馈（可选）**:
@@ -36,9 +39,18 @@ gcop-rs commit 用中文 并 保持 简洁
 
 > **注意**：在 JSON 模式（`--json` / `--format json`）下，gcop-rs 会以非交互方式运行，且**不会创建提交**（只输出 JSON）。
 
+## Split 模式（`--split`）
+
+在 split 模式下，gcop-rs 会让 LLM 先把暂存文件分成多个逻辑提交组。
+
+- `--yes`：直接应用全部分组并提交（非交互）。
+- `--dry-run`：只预览分组结果，不创建提交。
+- `--json`：输出分组 JSON（包含 `groups`、`diff_stats`、`committed`），不创建提交。
+- 交互模式的操作为：`Accept All`、`Edit`、`Regenerate`、`Regenerate with feedback`、`Quit`。
+
 **交互式操作**:
 
-生成信息后，你会看到一个菜单：
+在普通模式（非 split）下，生成信息后你会看到一个菜单：
 
 1. **Accept（接受）** - 使用生成的信息并创建提交
 2. **Edit（编辑）** - 打开 `$VISUAL` / `$EDITOR`（未设置时使用系统默认编辑器）手动修改信息（编辑后返回菜单）
@@ -60,11 +72,17 @@ gcop-rs commit --no-edit --yes
 # 使用不同的 provider
 gcop-rs commit --provider openai
 
+# 原子拆分提交
+gcop-rs commit --split
+
 # 详细模式（查看 API 调用）
 gcop-rs -v commit
 
 # JSON 输出用于自动化（不会创建提交）
 gcop-rs commit --json > commit.json
+
+# split + JSON（不会创建提交）
+gcop-rs commit --split --json > split-commit.json
 ```
 
 **工作流**:
@@ -100,6 +118,7 @@ feat(auth): 实现 JWT 令牌验证
 - 运行前只暂存你想包含在此提交中的变更
 - 在 CI/CD 流水线中使用 `--yes` 跳过交互式提示
 - 使用 `--json` / `--format json` 生成提交信息用于脚本集成（不创建提交）
+- 当一次暂存里包含多个逻辑改动时，使用 `--split` 生成原子提交
 - 如果信息没有捕捉到你的意图，尝试"带反馈重试"
 
 **输出格式 (json)**:
@@ -114,6 +133,33 @@ feat(auth): 实现 JWT 令牌验证
       "insertions": 45,
       "deletions": 12,
       "total_changes": 57
+    },
+    "committed": false
+  }
+}
+```
+
+**输出格式 (json + split)**:
+
+```json
+{
+  "success": true,
+  "data": {
+    "groups": [
+      {
+        "files": ["src/auth.rs", "src/middleware.rs"],
+        "message": "feat(auth): add JWT validation middleware"
+      },
+      {
+        "files": ["tests/auth_test.rs"],
+        "message": "test(auth): add JWT validation tests"
+      }
+    ],
+    "diff_stats": {
+      "files_changed": ["src/auth.rs", "src/middleware.rs", "tests/auth_test.rs"],
+      "insertions": 58,
+      "deletions": 9,
+      "total_changes": 67
     },
     "committed": false
   }

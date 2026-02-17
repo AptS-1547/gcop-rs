@@ -130,7 +130,7 @@ fn build_context_section(context: &CommitContext) -> String {
     )
 }
 
-/// Build split commit prompt (system + user)
+/// Build normal commit prompt in system/user split format.
 ///
 /// Return (system_prompt, user_message)
 /// - system_prompt: static command, can be cached by LLM
@@ -162,7 +162,7 @@ pub fn build_commit_prompt_split(
     (system, user)
 }
 
-/// Build split review prompt (system + user)
+/// Build review prompt in system/user split format.
 ///
 /// Return (system_prompt, user_message)
 /// - system_prompt: custom template (or default) + JSON format constraints (always appended)

@@ -119,6 +119,7 @@ model = "gemini-3-flash-preview"
 [commit]
 show_diff_preview = true
 allow_edit = true
+split = false  # true 表示默认启用原子拆分提交模式
 max_retries = 10
 
 # 可选：提交规范引导（prompt 层）
@@ -190,8 +191,9 @@ scope_mappings = { "packages/core" = "core", "packages/ui" = "ui" }
 |------|------|--------|------|
 | `show_diff_preview` | Boolean | `true` | 生成前显示 diff 统计 |
 | `allow_edit` | Boolean | `true` | 允许编辑生成的消息 |
+| `split` | Boolean | `false` | 默认启用原子拆分提交模式（等价于总是传入 `commit --split`） |
 | `max_retries` | Integer | `10` | 最大生成尝试次数（包含首次生成） |
-| `custom_prompt` | String | 无 | 自定义 system prompt / 指令（用于提交信息生成） |
+| `custom_prompt` | String | 无 | 提交信息生成的自定义 prompt 指令（普通模式：替换基础 commit system prompt；split 模式：作为额外分组指令追加） |
 | `convention` | Table | 无 | 可选的提交规范引导，见下方 `[commit.convention]` |
 
 ### Commit 规范设置（`[commit.convention]`）

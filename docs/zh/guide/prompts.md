@@ -9,18 +9,24 @@ gcop-rs 使用“拆分 prompt”的方式：
 - **System prompt**：给模型的指令
 - **User message**：实际要处理的内容（diff / 上下文）
 
-`custom_prompt` 会覆盖 **system prompt**；diff/上下文始终会放在 **user message** 中。
+diff/上下文始终会放在 **user message** 中。`custom_prompt` 的行为取决于模式：
+
+- **普通 commit 模式**：`custom_prompt` 会替换基础 commit system prompt。
+- **split commit 模式**（`commit --split` 或 `[commit].split = true`）：`custom_prompt` 会作为额外分组约束追加到内置规则后。
+- **review 模式**：`custom_prompt` 作为 review system prompt 基础，并始终追加 JSON 输出约束。
 
 > **重要**：`custom_prompt` 只是纯文本指令，不支持 `{diff}` 之类的占位符替换。写在里面会原样发送。
 
 ## Commit Prompt（`[commit].custom_prompt`）
 
-- 你的 `custom_prompt` 会作为提交信息生成的 **system prompt**。
+- 在普通 commit 模式下，`custom_prompt` 会作为提交信息生成的 **system prompt**。
 - **User message** 总是包含：
   - 已暂存的 diff（等价于 `git diff --cached`）
   - 上下文（修改文件列表、插入/删除行数）
   - 当前分支名（如果能获取到）
   - “带反馈重试”累积的反馈（如果使用过）
+
+当启用 split commit 模式时，gcop-rs 会使用内置分组规则，并将你的 `custom_prompt` 作为附加约束追加。
 
 **示例**：
 

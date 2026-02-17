@@ -119,6 +119,7 @@ model = "gemini-3-flash-preview"
 [commit]
 show_diff_preview = true
 allow_edit = true
+split = false  # true = enable atomic split commit mode by default
 max_retries = 10
 
 # Optional commit convention guidance (prompt-level)
@@ -190,8 +191,9 @@ Each provider under `[llm.providers.<name>]` supports:
 |--------|------|---------|-------------|
 | `show_diff_preview` | Boolean | `true` | Show diff stats before generating |
 | `allow_edit` | Boolean | `true` | Allow editing generated message |
+| `split` | Boolean | `false` | Enable atomic split commit mode by default (same effect as always passing `commit --split`) |
 | `max_retries` | Integer | `10` | Max generation attempts (including the first generation) |
-| `custom_prompt` | String | No | Custom system prompt / instructions for commit generation |
+| `custom_prompt` | String | No | Custom prompt instructions for commit generation (normal mode: replaces base commit system prompt; split mode: appended as additional grouping instructions) |
 | `convention` | Table | No | Optional prompt-level convention guidance; see `[commit.convention]` below |
 
 ### Commit Convention Settings (`[commit.convention]`)

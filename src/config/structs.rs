@@ -293,6 +293,7 @@ pub struct CommitConvention {
 /// # Fields
 /// - `show_diff_preview`: show diff preview before generation (default: `true`)
 /// - `allow_edit`: allow editing generated messages (default: `true`)
+/// - `split`: enable atomic split commit mode by default (default: `false`)
 /// - `custom_prompt`: extra prompt text (optional)
 /// - `max_retries`: maximum generation attempts, including the first one (default: `10`)
 /// - `convention`: optional commit convention config
@@ -302,6 +303,7 @@ pub struct CommitConvention {
 /// [commit]
 /// show_diff_preview = true
 /// allow_edit = true
+/// split = false
 /// max_retries = 10
 /// custom_prompt = "Generate a concise commit message"
 ///

@@ -36,6 +36,7 @@ use crate::config::AppConfig;
 /// - `no_edit`: skip editor interaction (use the generated message directly)
 /// - `yes`: automatically accept the generated message (skip confirmation)
 /// - `dry_run`: only generates message and does not execute commit
+/// - `split`: use atomic split commit flow
 /// - `format`: output format (Text/JSON)
 /// - `feedback`: initial feedback/instruction (such as "use Chinese", "be concise")
 /// - `verbose`: verbose mode (display API requests/responses)
@@ -93,7 +94,11 @@ impl<'a> CommitOptions<'a> {
     /// - `config`: application configuration
     ///
     /// # Returns
-    /// Constructed `CommitOptions` instance
+    /// Constructed `CommitOptions` instance.
+    ///
+    /// `split` is enabled when either:
+    /// - CLI flag `--split` is set, or
+    /// - config `[commit].split = true`.
     pub fn from_cli(cli: &'a Cli, args: &'a CommitArgs, config: &AppConfig) -> Self {
         Self {
             no_edit: args.no_edit,
