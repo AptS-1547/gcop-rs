@@ -68,6 +68,7 @@ mockall = { version = "0.14", optional = true }  # 测试工具
 which = "8.0.0"
 edit = { version = "0.1.5", features = ["better-path", "quoted-env"] }
 serde_yaml_ng = "0.10.0"
+human-panic = "2.0.6"
 
 [lib]
 name = "gcop_rs"

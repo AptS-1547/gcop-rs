@@ -14,6 +14,8 @@ use tokio::runtime::Runtime;
 i18n!("locales", fallback = "en");
 
 fn main() -> Result<()> {
+    human_panic::setup_panic!();
+
     // 0. Install rustls crypto provider
     rustls::crypto::ring::default_provider()
         .install_default()
