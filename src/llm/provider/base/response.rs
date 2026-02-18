@@ -399,4 +399,15 @@ Let me know if you need more."#;
         let input = "```\nfeat: new feature\n```".to_string();
         assert_eq!(process_commit_response(input), "feat: new feature");
     }
+
+    #[test]
+    fn test_clean_commit_multiline_with_list_bare_fences() {
+        // Real-world case: LLM wraps a multi-line commit message with bullet
+        // list in bare code fences (no language tag).
+        let input = "```\nperf(config): 优化图片缓存策略以支持及时更新\n\n- 将图片缓存 TTL 从 1 年调整为 1 小时\n- 修改静态资源缓存策略为 1 天 + SWR 1 周\n- 允许图片更新后更快速地刷新展示\n```";
+        assert_eq!(
+            clean_commit_response(input),
+            "perf(config): 优化图片缓存策略以支持及时更新\n\n- 将图片缓存 TTL 从 1 年调整为 1 小时\n- 修改静态资源缓存策略为 1 天 + SWR 1 周\n- 允许图片更新后更快速地刷新展示"
+        );
+    }
 }
