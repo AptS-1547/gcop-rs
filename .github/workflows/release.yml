@@ -141,9 +141,93 @@ jobs:
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
+  publish-pypi:
+    name: Build Python wheels (${{ matrix.target }})
+    needs: create-release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+          - os: macos-latest
+            target: x86_64-apple-darwin
+          - os: macos-latest
+            target: aarch64-apple-darwin
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: windows-latest
+            target: aarch64-pc-windows-msvc
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update version
+        shell: bash
+        run: |
+          VERSION=${{ needs.create-release.outputs.version }}
+          sed -i.bak "s/^version = .*/version = \"${VERSION}\"/" python/pyproject.toml
+
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          args: --release --out dist
+          working-directory: python
+          manylinux: auto
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.target }}
+          path: python/dist
+
+  publish-pypi-upload:
+    name: Upload to PyPI
+    needs: publish-pypi
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-*
+          merge-multiple: true
+          path: dist
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+
+  publish-release:
+    name: Publish Release
+    needs: [create-release, build, publish-crates, publish-pypi-upload]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish draft release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: releases } = await github.rest.repos.listReleases({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+            const draft = releases.find(r => r.tag_name === context.ref.replace('refs/tags/', ''));
+            if (!draft) {
+              core.setFailed('Draft release not found');
+              return;
+            }
+            await github.rest.repos.updateRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: draft.id,
+              draft: false,
+            });
+
   update-homebrew:
     name: Update Homebrew Tap
-    needs: [create-release, build]
+    needs: [create-release, publish-release]
     runs-on: ubuntu-latest
     steps:
       - name: Download release assets and calculate SHA256
@@ -153,7 +237,7 @@ jobs:
         run: |
           VERSION=${{ needs.create-release.outputs.version }}
 
-          # Download assets from draft release via GitHub API
+          # Download assets from release via GitHub API
           for platform in macos-arm64 macos-amd64 linux-arm64 linux-amd64; do
             gh release download "v${VERSION}" --repo "${{ github.repository }}" \
               --pattern "gcop-rs-v${VERSION}-${platform}" --output "${platform}"
@@ -255,88 +339,3 @@ jobs:
               content: Buffer.from(formula).toString('base64'),
               sha: fileSha
             });
-
-  publish-pypi:
-    name: Build Python wheels (${{ matrix.target }})
-    needs: create-release
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-          - os: ubuntu-24.04-arm
-            target: aarch64-unknown-linux-gnu
-          - os: macos-latest
-            target: x86_64-apple-darwin
-          - os: macos-latest
-            target: aarch64-apple-darwin
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-          - os: windows-latest
-            target: aarch64-pc-windows-msvc
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Update version
-        shell: bash
-        run: |
-          VERSION=${{ needs.create-release.outputs.version }}
-          sed -i.bak "s/^version = .*/version = \"${VERSION}\"/" python/pyproject.toml
-
-      - name: Build wheels
-        uses: PyO3/maturin-action@v1
-        with:
-          target: ${{ matrix.target }}
-          args: --release --out dist
-          working-directory: python
-          manylinux: auto
-
-      - name: Upload wheels
-        uses: actions/upload-artifact@v4
-        with:
-          name: wheels-${{ matrix.target }}
-          path: python/dist
-
-  publish-pypi-upload:
-    name: Upload to PyPI
-    needs: publish-pypi
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: wheels-*
-          merge-multiple: true
-          path: dist
-
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
-
-  publish-release:
-    name: Publish Release
-    needs: [create-release, build, publish-crates, update-homebrew, publish-pypi-upload]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Publish draft release
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { data: releases } = await github.rest.repos.listReleases({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-            });
-            const draft = releases.find(r => r.tag_name === context.ref.replace('refs/tags/', ''));
-            if (!draft) {
-              core.setFailed('Draft release not found');
-              return;
-            }
-            await github.rest.repos.updateRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              release_id: draft.id,
-              draft: false,
-            });
-
