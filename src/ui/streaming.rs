@@ -63,4 +63,37 @@ impl StreamingOutput {
         println!();
         Ok(self.buffer.clone())
     }
+
+    /// If the cleaned message differs from the raw streamed buffer,
+    /// erase the streamed output and re-display the cleaned version.
+    ///
+    /// This handles the case where LLMs wrap commit messages in code fences
+    /// (` ``` `). The fences get printed in real-time during streaming,
+    /// but should not appear in the final displayed message.
+    pub fn redisplay_if_cleaned(&self, cleaned: &str) {
+        if cleaned == self.buffer {
+            return;
+        }
+
+        // Calculate how many terminal lines the raw output occupied.
+        // Each '\n' in the buffer produced a line break on screen,
+        // plus process() added one more via println!().
+        let newline_count = self.buffer.chars().filter(|&c| c == '\n').count();
+        let lines_to_erase = newline_count + 1;
+
+        // Erase raw output using ANSI escape sequences:
+        //   \x1b[1A  = move cursor up 1 line
+        //   \x1b[2K  = clear entire current line
+        for _ in 0..lines_to_erase {
+            print!("\x1b[1A\x1b[2K");
+        }
+        io::stdout().flush().ok();
+
+        // Re-print the clean version
+        if self.colored {
+            println!("{}", cleaned.yellow());
+        } else {
+            println!("{}", cleaned);
+        }
+    }
 }

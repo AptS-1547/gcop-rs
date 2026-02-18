@@ -429,6 +429,9 @@ async fn generate_message(
         let message = output.process(stream_handle.receiver).await?;
         let message = process_commit_response(message);
 
+        // If code fences were stripped, erase raw output and redisplay clean version
+        output.redisplay_if_cleaned(&message);
+
         Ok((message, true)) // Already shown
     } else {
         // Non-streaming mode: use spinner with cancel hint and elapsed time.
