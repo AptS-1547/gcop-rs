@@ -106,10 +106,12 @@ struct ClaudeResponse {
 }
 
 #[derive(Deserialize)]
-struct ContentBlock {
-    #[serde(rename = "type")]
-    content_type: String,
-    text: String,
+#[serde(tag = "type")]
+enum ContentBlock {
+    #[serde(rename = "text")]
+    Text { text: String },
+    #[serde(other)]
+    Other,
 }
 
 impl ClaudeProvider {
@@ -194,8 +196,10 @@ impl ApiBackend for ClaudeProvider {
         let text = response
             .content
             .into_iter()
-            .filter(|block| block.content_type == "text")
-            .map(|block| block.text)
+            .filter_map(|block| match block {
+                ContentBlock::Text { text } => Some(text),
+                ContentBlock::Other => None,
+            })
             .collect::<Vec<_>>()
             .join("\n");
 
@@ -396,6 +400,200 @@ mod tests {
 
         let err = provider.call_api("system", "hi", None).await.unwrap_err();
         assert!(matches!(err, GcopError::LlmApi { status: 429, .. }));
+        mock.assert_async().await;
+    }
+
+    // === ContentBlock deserialization tests ===
+
+    #[test]
+    fn test_content_block_text_only() {
+        let json = r#"{"type":"text","text":"Hello world"}"#;
+        let block: ContentBlock = serde_json::from_str(json).unwrap();
+        match block {
+            ContentBlock::Text { text } => assert_eq!(text, "Hello world"),
+            ContentBlock::Other => panic!("expected Text, got Other"),
+        }
+    }
+
+    #[test]
+    fn test_content_block_thinking_becomes_other() {
+        let json = r#"{"type":"thinking","thinking":"Let me analyze...","signature":"abc123"}"#;
+        let block: ContentBlock = serde_json::from_str(json).unwrap();
+        assert!(matches!(block, ContentBlock::Other));
+    }
+
+    #[test]
+    fn test_content_block_unknown_type_becomes_other() {
+        let json = r#"{"type":"tool_use","id":"call_123","name":"some_tool"}"#;
+        let block: ContentBlock = serde_json::from_str(json).unwrap();
+        assert!(matches!(block, ContentBlock::Other));
+    }
+
+    #[test]
+    fn test_claude_response_with_thinking_deserializes() {
+        let json = r#"{
+            "content": [
+                {"type":"thinking","thinking":"deep thoughts...","signature":"sig"},
+                {"type":"text","text":"The answer is 42"}
+            ]
+        }"#;
+        let resp: ClaudeResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(resp.content.len(), 2);
+        assert!(matches!(resp.content[0], ContentBlock::Other));
+        match &resp.content[1] {
+            ContentBlock::Text { text } => assert_eq!(text, "The answer is 42"),
+            ContentBlock::Other => panic!("expected Text"),
+        }
+    }
+
+    // === Integration tests: with and without extended thinking ===
+
+    #[tokio::test]
+    async fn test_claude_response_without_thinking() {
+        ensure_crypto_provider();
+        let mut server = Server::new_async().await;
+        let mock = server
+            .mock("POST", "/v1/messages")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                r#"{
+                "id": "msg_001",
+                "type": "message",
+                "role": "assistant",
+                "content": [
+                    {"type": "text", "text": "feat: add user authentication"}
+                ],
+                "stop_reason": "end_turn",
+                "model": "claude-sonnet-4-5-20250929",
+                "usage": {"input_tokens": 100, "output_tokens": 10}
+            }"#,
+            )
+            .create_async()
+            .await;
+
+        let provider = ClaudeProvider::new(
+            &test_provider_config(
+                server.url(),
+                Some("sk-ant-test".to_string()),
+                "claude-sonnet-4-5-20250929".to_string(),
+            ),
+            "claude",
+            &test_network_config_no_retry(),
+            false,
+        )
+        .unwrap();
+
+        let result = provider
+            .call_api("system", "generate commit", None)
+            .await
+            .unwrap();
+        assert_eq!(result, "feat: add user authentication");
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn test_claude_response_with_extended_thinking() {
+        ensure_crypto_provider();
+        let mut server = Server::new_async().await;
+        let mock = server
+            .mock("POST", "/v1/messages")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{
+                "id": "msg_002",
+                "type": "message",
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "thinking",
+                        "thinking": "Let me analyze the diff. The changes add a new login endpoint with JWT token generation...",
+                        "signature": "aWhMBMQ9Mbezl3Z7KyyCeqjQCBIBBJFTDDwJd6aqgyK="
+                    },
+                    {
+                        "type": "text",
+                        "text": "feat(auth): add JWT-based login endpoint"
+                    }
+                ],
+                "stop_reason": "end_turn",
+                "model": "claude-opus-4-6",
+                "usage": {"input_tokens": 500, "output_tokens": 200}
+            }"#)
+            .create_async()
+            .await;
+
+        let provider = ClaudeProvider::new(
+            &test_provider_config(
+                server.url(),
+                Some("sk-ant-test".to_string()),
+                "claude-opus-4-6".to_string(),
+            ),
+            "claude",
+            &test_network_config_no_retry(),
+            false,
+        )
+        .unwrap();
+
+        let result = provider
+            .call_api("system", "generate commit", None)
+            .await
+            .unwrap();
+        // thinking block 应该被忽略，只提取 text block
+        assert_eq!(result, "feat(auth): add JWT-based login endpoint");
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn test_claude_response_with_thinking_and_multiple_text_blocks() {
+        ensure_crypto_provider();
+        let mut server = Server::new_async().await;
+        let mock = server
+            .mock("POST", "/v1/messages")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                r#"{
+                "id": "msg_003",
+                "type": "message",
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "thinking",
+                        "thinking": "I need to group these changes...",
+                        "signature": "sig123"
+                    },
+                    {
+                        "type": "text",
+                        "text": "First part"
+                    },
+                    {
+                        "type": "text",
+                        "text": "Second part"
+                    }
+                ],
+                "stop_reason": "end_turn",
+                "model": "claude-opus-4-6",
+                "usage": {"input_tokens": 100, "output_tokens": 50}
+            }"#,
+            )
+            .create_async()
+            .await;
+
+        let provider = ClaudeProvider::new(
+            &test_provider_config(
+                server.url(),
+                Some("sk-ant-test".to_string()),
+                "claude-opus-4-6".to_string(),
+            ),
+            "claude",
+            &test_network_config_no_retry(),
+            false,
+        )
+        .unwrap();
+
+        let result = provider.call_api("system", "hi", None).await.unwrap();
+        // thinking 被忽略，两个 text block 用 \n 拼接
+        assert_eq!(result, "First part\nSecond part");
         mock.assert_async().await;
     }
 }
