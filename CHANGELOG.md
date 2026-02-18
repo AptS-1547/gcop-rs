@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.2] - 2026-02-19
+
+### Fixed
+
+- **Claude Extended Thinking**: Fixed `missing field 'text'` deserialization error when Claude API response includes `thinking` blocks; replaced flat struct with tagged enum `#[serde(other)]` fallback, consistent with streaming parser
+- 7 new tests for ContentBlock deserialization and extended thinking integration
+
+### Added
+
+- **Crash Reporting**: Integrated `human-panic` for user-friendly crash reports in release builds
+
 ## [0.13.1] - 2026-02-17
 
 ### Changed
@@ -613,7 +624,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Edit action properly returns to menu without triggering regeneration
 - Commit message display no longer duplicates after editing
 
-[Unreleased]: https://github.com/AptS-1547/gcop-rs/compare/v0.13.1...HEAD
+[Unreleased]: https://github.com/AptS-1547/gcop-rs/compare/v0.13.2...HEAD
+[0.13.2]: https://github.com/AptS-1547/gcop-rs/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/AptS-1547/gcop-rs/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/AptS-1547/gcop-rs/compare/v0.12.2...v0.13.0
 [0.12.2]: https://github.com/AptS-1547/gcop-rs/compare/v0.12.1...v0.12.2
