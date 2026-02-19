@@ -401,9 +401,16 @@ fn output_text(stats: &RepoStats, colored: bool) {
         let mut weeks: Vec<_> = stats.commits_by_week.iter().collect();
         weeks.sort_by(|a, b| b.0.cmp(a.0));
 
+        let bar_max_width = 20;
         for (week, count) in weeks {
-            let bar = render_bar(*count, max_count, 20, colored);
-            println!("    {}: {:20} {}", week, bar, count);
+            let bar = render_bar(*count, max_count, bar_max_width, colored);
+            let visible_width = if max_count == 0 || *count == 0 {
+                0
+            } else {
+                (*count * bar_max_width) / max_count
+            };
+            let padding = " ".repeat(bar_max_width - visible_width);
+            println!("    {}: {}{} {}", week, bar, padding, count);
         }
     }
 
