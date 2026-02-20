@@ -100,17 +100,47 @@ pub fn clean_commit_response(response: &str) -> String {
     trimmed.to_string()
 }
 
-/// Process commit message response: clean code fences and log
+/// Strip `<thinking>…</thinking>` and `<think>…</think>` blocks from LLM text.
+///
+/// Some models (e.g., DeepSeek, QwQ via OpenAI-compatible API) embed their
+/// chain-of-thought reasoning in XML-like tags within the text response.
+/// This function removes all such blocks so they don't leak into commit
+/// messages or review output.
+pub fn strip_thinking_tags(text: &str) -> String {
+    let mut result = text.to_string();
+    for tag in &["thinking", "think"] {
+        let open = format!("<{}>", tag);
+        let close = format!("</{}>", tag);
+        loop {
+            let Some(start) = result.find(&open) else {
+                break;
+            };
+            if let Some(rel_end) = result[start..].find(&close) {
+                let end = start + rel_end + close.len();
+                result = format!("{}{}", &result[..start], &result[end..]);
+            } else {
+                // Open tag without matching close — leave as-is to avoid
+                // accidentally stripping real content
+                break;
+            }
+        }
+    }
+    result.trim().to_string()
+}
+
+/// Process commit message response: strip thinking tags, clean code fences, and log
 pub fn process_commit_response(response: String) -> String {
-    let cleaned = clean_commit_response(&response);
+    let stripped = strip_thinking_tags(&response);
+    let cleaned = clean_commit_response(&stripped);
     tracing::debug!("Generated commit message: {}", cleaned);
     cleaned
 }
 
-/// Process review responses and log them
+/// Process review responses: strip thinking tags, then parse
 pub fn process_review_response(response: &str) -> Result<ReviewResult> {
     tracing::debug!("LLM review response: {}", response);
-    parse_review_response(response)
+    let stripped = strip_thinking_tags(response);
+    parse_review_response(&stripped)
 }
 
 #[cfg(test)]
@@ -408,6 +438,90 @@ Let me know if you need more."#;
         assert_eq!(
             clean_commit_response(input),
             "perf(config): 优化图片缓存策略以支持及时更新\n\n- 将图片缓存 TTL 从 1 年调整为 1 小时\n- 修改静态资源缓存策略为 1 天 + SWR 1 周\n- 允许图片更新后更快速地刷新展示"
+        );
+    }
+
+    // === strip_thinking_tags tests ===
+
+    #[test]
+    fn test_strip_thinking_basic() {
+        let input =
+            "<thinking>\nLet me analyze this diff...\n</thinking>\nfeat(auth): add JWT login";
+        assert_eq!(strip_thinking_tags(input), "feat(auth): add JWT login");
+    }
+
+    #[test]
+    fn test_strip_think_basic() {
+        // DeepSeek-style <think> variant
+        let input = "<think>\nAnalyzing changes...\n</think>\nfix(ui): correct button alignment";
+        assert_eq!(
+            strip_thinking_tags(input),
+            "fix(ui): correct button alignment"
+        );
+    }
+
+    #[test]
+    fn test_strip_thinking_multiple_blocks() {
+        let input = "<thinking>first thought</thinking>\nsome text\n<thinking>second thought</thinking>\nfeat: done";
+        // After stripping both blocks, the surrounding newlines remain
+        assert_eq!(strip_thinking_tags(input), "some text\n\nfeat: done");
+    }
+
+    #[test]
+    fn test_strip_thinking_no_tags() {
+        let input = "feat(scope): plain commit message";
+        assert_eq!(
+            strip_thinking_tags(input),
+            "feat(scope): plain commit message"
+        );
+    }
+
+    #[test]
+    fn test_strip_thinking_empty_block() {
+        let input = "<thinking></thinking>\nchore: bump deps";
+        assert_eq!(strip_thinking_tags(input), "chore: bump deps");
+    }
+
+    #[test]
+    fn test_strip_thinking_unclosed_tag_preserved() {
+        // No closing tag — should not strip actual content
+        let input = "<thinking>\nsome reasoning\nfeat: real message";
+        assert_eq!(
+            strip_thinking_tags(input),
+            "<thinking>\nsome reasoning\nfeat: real message"
+        );
+    }
+
+    #[test]
+    fn test_strip_thinking_multiline_content() {
+        let input = "<thinking>\nStep 1: look at diff\nStep 2: decide type\nStep 3: write message\n</thinking>\n\nfeat(api): expose health endpoint";
+        assert_eq!(
+            strip_thinking_tags(input),
+            "feat(api): expose health endpoint"
+        );
+    }
+
+    #[test]
+    fn test_strip_thinking_with_code_fence_after() {
+        // Real-world: model wraps both thinking and answer in fences
+        let input =
+            "<thinking>\nAnalyzing...\n</thinking>\n```\nrefactor(core): simplify retry logic\n```";
+        // strip_thinking_tags removes thinking, process_commit_response removes fence
+        let stripped = strip_thinking_tags(input);
+        assert_eq!(
+            process_commit_response(stripped),
+            "refactor(core): simplify retry logic"
+        );
+    }
+
+    #[test]
+    fn test_process_commit_response_strips_thinking_and_fence() {
+        // End-to-end: the exact pattern from the reported issue
+        let input = "<thinking>\n用户要我为这个 git diff 生成一个 commit message。\n</thinking>\n\n```\nfeat(story-website): 新增角色展示功能模块\n```"
+            .to_string();
+        assert_eq!(
+            process_commit_response(input),
+            "feat(story-website): 新增角色展示功能模块"
         );
     }
 }
