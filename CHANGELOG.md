@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.4] - 2026-02-21
+
+### Fixed
+
+- **Split Staging Safety**: `parse_split_response` now rejects LLM responses containing files outside the staging area (reverse validation); previously only checked that all staged files were covered, allowing extra files to be staged and committed unintentionally
+- **Split Pathspec Glob**: `stage_files` sets `GIT_LITERAL_PATHSPECS=1`, preventing git from glob-expanding bracket characters in paths (e.g. `[locale]`) and accidentally staging unintended files
+- **Subprocess Working Directory**: `unstage_all` and `stage_files` now pass `current_dir(workdir)` to subprocess commands, ensuring correct behavior regardless of process working directory
+- **Stale Index Cache**: `get_staged_files` force-reloads the git index from disk (`index.read(true)`) to reflect changes made by external git processes
+
+### Changed
+
+- **Split Commit Prompt**: No-duplicate constraint upgraded to `CRITICAL CONSTRAINTS` with `STRICTLY FORBIDDEN` wording; complete file list prepended to user message for global partition context
+
 ## [0.13.3] - 2026-02-20
 
 ### Changed
