@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.5] - 2026-02-21
+
+### Fixed
+
+- **Response Path Traversal**: `ResponseParser::extract_text` now uses explicit `.get()` instead of direct indexing, preventing silent `null` on missing keys; supports numeric keys as array indices; logs remaining path and current value type via `tracing::warn!` on failure
+
 ## [0.13.4] - 2026-02-21
 
 ### Fixed
