@@ -45,6 +45,7 @@ arc-swap = "1.8"
 async-trait = "0.1"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.5", features = ["derive", "color"] }
+console = "0.16"
 colored = "3"
 config = { version = "0.15", default-features = false, features = ["toml"] }
 inquire = "0.9"
