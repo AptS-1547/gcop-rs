@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.3] - 2026-02-20
+
+### Changed
+
+- **Spinner Rewrite**: Replaced `indicatif` spinner with custom async render loop (`tokio::spawn`) using `console` crate; terminal width-aware truncation, proper reflow line calculation, ANSI-based cleanup on finish/drop
+- **Release Workflow**: Reordered CI jobs so Homebrew tap update waits for `publish-release` to complete
+
+### Fixed
+
+- **Streaming Code Fence Cleanup**: LLM-generated code fences printed during streaming are now erased and replaced with cleaned message via `StreamingOutput::redisplay_if_cleaned()`; 6 new unit tests
+- **Weekly Stats Bar Alignment**: Fixed misaligned bar chart in `stats` weekly view via explicit padding calculation
+
 ## [0.13.2] - 2026-02-19
 
 ### Fixed
@@ -624,7 +636,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Edit action properly returns to menu without triggering regeneration
 - Commit message display no longer duplicates after editing
 
-[Unreleased]: https://github.com/AptS-1547/gcop-rs/compare/v0.13.2...HEAD
+[Unreleased]: https://github.com/AptS-1547/gcop-rs/compare/v0.13.3...HEAD
+[0.13.3]: https://github.com/AptS-1547/gcop-rs/compare/v0.13.2...v0.13.3
 [0.13.2]: https://github.com/AptS-1547/gcop-rs/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/AptS-1547/gcop-rs/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/AptS-1547/gcop-rs/compare/v0.12.2...v0.13.0
