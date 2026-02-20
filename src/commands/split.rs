@@ -332,6 +332,18 @@ pub fn parse_split_response(raw: &str, expected_files: &[String]) -> Result<Vec<
         tracing::warn!("Some staged files not covered by LLM groups: {:?}", missing);
     }
 
+    // Check that LLM did not return files outside the staging area.
+    // Staging and committing such files would silently include unstaged working-tree
+    // changes that the user never intended to commit.
+    let mut extra: Vec<_> = seen_files.difference(&expected_set).cloned().collect();
+    if !extra.is_empty() {
+        extra.sort();
+        return Err(GcopError::SplitParseFailed(format!(
+            "LLM returned files not in staging area: {:?}",
+            extra
+        )));
+    }
+
     Ok(response.groups)
 }
 
@@ -850,5 +862,50 @@ mod tests {
             parsed[0].message,
             "feat(auth): add login\n\nDetailed description.\n- bullet point"
         );
+    }
+
+    #[test]
+    fn test_parse_split_response_extra_files_rejected() {
+        // LLM returns a file that was never staged — must be a hard error
+        let raw = r#"{"groups": [
+            {"files": ["a.rs", "unstaged.rs"], "message": "feat: one"}
+        ]}"#;
+        let expected = vec!["a.rs".to_string()];
+        let result = parse_split_response(raw, &expected);
+        assert!(result.is_err());
+        let msg = result.unwrap_err().to_string();
+        assert!(
+            msg.contains("not in staging area"),
+            "error should mention staging area, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn test_parse_split_response_extra_files_across_groups_rejected() {
+        // Extra file spread across multiple groups — still rejected
+        let raw = r#"{"groups": [
+            {"files": ["a.rs"], "message": "feat: one"},
+            {"files": ["b.rs", "surprise.rs"], "message": "feat: two"}
+        ]}"#;
+        let expected = vec!["a.rs".to_string(), "b.rs".to_string()];
+        let result = parse_split_response(raw, &expected);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("not in staging area")
+        );
+    }
+
+    #[test]
+    fn test_parse_split_response_no_extra_files_ok() {
+        // Exact match — should pass
+        let raw = r#"{"groups": [
+            {"files": ["a.rs"], "message": "feat: one"},
+            {"files": ["b.rs"], "message": "feat: two"}
+        ]}"#;
+        let expected = vec!["a.rs".to_string(), "b.rs".to_string()];
+        assert!(parse_split_response(raw, &expected).is_ok());
     }
 }

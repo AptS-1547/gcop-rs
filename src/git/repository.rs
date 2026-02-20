@@ -258,7 +258,10 @@ impl GitOperations for GitRepository {
     }
 
     fn get_staged_files(&self) -> Result<Vec<String>> {
-        let index = self.repo.index()?;
+        let mut index = self.repo.index()?;
+        // Force-reload from disk so that changes made by external git processes
+        // (e.g. `git reset HEAD` in unstage_all) are visible.
+        index.read(true)?;
         let tree = if self.is_empty()? {
             None
         } else {
@@ -280,9 +283,15 @@ impl GitOperations for GitRepository {
     fn unstage_all(&self) -> Result<()> {
         use std::process::Command;
 
+        let workdir = self
+            .repo
+            .workdir()
+            .ok_or_else(|| crate::error::GcopError::GitCommand("bare repository".to_string()))?;
+
         if self.is_empty()? {
             // Empty repo: no HEAD to reset to, use git rm --cached
             let output = Command::new("git")
+                .current_dir(workdir)
                 .args(["rm", "--cached", "-r", "."])
                 .output()?;
             if !output.status.success() {
@@ -292,7 +301,10 @@ impl GitOperations for GitRepository {
                 ));
             }
         } else {
-            let output = Command::new("git").args(["reset", "HEAD"]).output()?;
+            let output = Command::new("git")
+                .current_dir(workdir)
+                .args(["reset", "HEAD"])
+                .output()?;
             if !output.status.success() {
                 let stderr = String::from_utf8_lossy(&output.stderr);
                 return Err(crate::error::GcopError::GitCommand(
@@ -310,7 +322,17 @@ impl GitOperations for GitRepository {
             return Ok(());
         }
 
-        let output = Command::new("git").arg("add").args(files).output()?;
+        let workdir = self
+            .repo
+            .workdir()
+            .ok_or_else(|| crate::error::GcopError::GitCommand("bare repository".to_string()))?;
+
+        let output = Command::new("git")
+            .current_dir(workdir)
+            .env("GIT_LITERAL_PATHSPECS", "1")
+            .arg("add")
+            .args(files)
+            .output()?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
@@ -660,5 +682,132 @@ index 1234567..abcdefg 100644
         assert_eq!(stats.files_changed.len(), 1);
         assert_eq!(stats.insertions, 1);
         assert_eq!(stats.deletions, 0);
+    }
+
+    // === Test stage_files ===
+
+    #[test]
+    fn test_stage_files_literal_glob_path() {
+        // Verify that stage_files treats paths with bracket characters literally.
+        // Without GIT_LITERAL_PATHSPECS=1, git would interpret `[locale]` as a
+        // character-class glob and might stage unintended files.
+        let (dir, git_repo) = create_test_repo();
+
+        // Create initial commit so the repo is non-empty.
+        create_file(dir.path(), "init.txt", "init");
+        stage_file(&git_repo.repo, "init.txt");
+        create_commit(&git_repo.repo, "initial");
+
+        // Create a directory named literally `[locale]` and a sibling `l/`.
+        let bracket_dir = dir.path().join("[locale]");
+        let sibling_dir = dir.path().join("l");
+        fs::create_dir_all(&bracket_dir).unwrap();
+        fs::create_dir_all(&sibling_dir).unwrap();
+
+        fs::write(bracket_dir.join("page.tsx"), "bracket content").unwrap();
+        fs::write(sibling_dir.join("page.tsx"), "sibling content").unwrap();
+
+        // Stage only the bracket-path file via git2 directly.
+        let mut index = git_repo.repo.index().unwrap();
+        index
+            .add_path(std::path::Path::new("[locale]/page.tsx"))
+            .unwrap();
+        index.write().unwrap();
+
+        // Now unstage everything and re-stage via stage_files.
+        git_repo.unstage_all().unwrap();
+
+        git_repo
+            .stage_files(&["[locale]/page.tsx".to_string()])
+            .unwrap();
+
+        // Only `[locale]/page.tsx` should be staged; `l/page.tsx` must NOT be.
+        let staged = git_repo.get_staged_files().unwrap();
+        assert!(
+            staged.contains(&"[locale]/page.tsx".to_string()),
+            "expected [locale]/page.tsx to be staged"
+        );
+        assert!(
+            !staged.contains(&"l/page.tsx".to_string()),
+            "l/page.tsx should NOT be staged (glob expansion guard)"
+        );
+    }
+
+    #[test]
+    fn test_stage_files_glob_path_missing_literal_errors_not_sibling() {
+        // When the literal `[locale]/page.tsx` does NOT exist but a sibling `l/page.tsx` does,
+        // stage_files must return an error rather than silently staging the sibling.
+        let (dir, git_repo) = create_test_repo();
+
+        create_file(dir.path(), "init.txt", "init");
+        stage_file(&git_repo.repo, "init.txt");
+        create_commit(&git_repo.repo, "initial");
+
+        // Only create `l/page.tsx` — NOT `[locale]/page.tsx`.
+        let sibling_dir = dir.path().join("l");
+        fs::create_dir_all(&sibling_dir).unwrap();
+        fs::write(sibling_dir.join("page.tsx"), "sibling").unwrap();
+
+        // Staging the non-existent literal path must fail.
+        let result = git_repo.stage_files(&["[locale]/page.tsx".to_string()]);
+        assert!(
+            result.is_err(),
+            "staging a non-existent literal path should fail"
+        );
+
+        // The sibling must not have been staged as a side-effect.
+        let staged = git_repo.get_staged_files().unwrap();
+        assert!(
+            !staged.contains(&"l/page.tsx".to_string()),
+            "l/page.tsx must NOT be staged as a glob side-effect"
+        );
+    }
+
+    #[test]
+    fn test_unstage_all_then_stage_subset_does_not_touch_unstaged_file() {
+        // Simulate split commit: after unstage_all + stage_files(subset),
+        // only the requested files should be staged.
+        // Files with purely unstaged modifications must never be staged.
+        let (dir, git_repo) = create_test_repo();
+
+        // Initial commit with three files.
+        create_file(dir.path(), "a.rs", "v1");
+        create_file(dir.path(), "b.rs", "v1");
+        create_file(dir.path(), "c.rs", "v1");
+        stage_file(&git_repo.repo, "a.rs");
+        stage_file(&git_repo.repo, "b.rs");
+        stage_file(&git_repo.repo, "c.rs");
+        create_commit(&git_repo.repo, "initial");
+
+        // Stage a.rs and b.rs; leave c.rs unstaged.
+        create_file(dir.path(), "a.rs", "v2");
+        create_file(dir.path(), "b.rs", "v2");
+        create_file(dir.path(), "c.rs", "v2");
+        stage_file(&git_repo.repo, "a.rs");
+        stage_file(&git_repo.repo, "b.rs");
+        // c.rs intentionally NOT staged.
+
+        let staged_before = git_repo.get_staged_files().unwrap();
+        assert!(staged_before.contains(&"a.rs".to_string()));
+        assert!(staged_before.contains(&"b.rs".to_string()));
+        assert!(!staged_before.contains(&"c.rs".to_string()));
+
+        // Split commit simulation: unstage all, then re-stage only a.rs.
+        git_repo.unstage_all().unwrap();
+        git_repo.stage_files(&["a.rs".to_string()]).unwrap();
+
+        let staged_after = git_repo.get_staged_files().unwrap();
+        assert!(
+            staged_after.contains(&"a.rs".to_string()),
+            "a.rs should be staged"
+        );
+        assert!(
+            !staged_after.contains(&"b.rs".to_string()),
+            "b.rs should NOT be staged (belongs to a different group)"
+        );
+        assert!(
+            !staged_after.contains(&"c.rs".to_string()),
+            "c.rs should NOT be staged (was never in the staging area)"
+        );
     }
 }

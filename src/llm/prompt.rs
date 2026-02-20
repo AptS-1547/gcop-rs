@@ -188,13 +188,16 @@ const SPLIT_COMMIT_EXTRA_PROMPT: &str = r#"
 
 You are also a git commit analyzer that groups file changes into logical atomic commits.
 
-Additional rules for grouping:
+CRITICAL CONSTRAINTS (violating these will cause hard errors):
+- EACH FILE MUST APPEAR IN EXACTLY ONE GROUP. Listing the same file path in multiple groups is STRICTLY FORBIDDEN.
+- Every file in the provided list must be assigned to exactly one group - do not omit any files.
+
+Grouping rules:
 - Group related file changes together into logical commits
 - Each group represents ONE logical change (feature, bugfix, refactor, etc.)
-- Every file must appear in exactly one group
 - Order groups by dependency (foundational changes first)
 - If all files are logically related, put them in a single group
-- Output ONLY valid JSON, no explanation
+- Output ONLY valid JSON, no explanation or markdown fences
 
 Output format:
 {
@@ -231,7 +234,13 @@ pub fn build_split_commit_prompt(
     }
 
     // Build user message with per-file diffs
-    let mut user = String::from("## Files to group:\n\n");
+    // Prepend a complete file list so the LLM sees the full partition set upfront.
+    let mut user =
+        String::from("## Complete file list (each file must appear in EXACTLY ONE group):\n");
+    for fd in file_diffs {
+        user.push_str(&format!("- {}\n", fd.filename));
+    }
+    user.push_str("\n## File diffs:\n\n");
 
     for fd in file_diffs {
         user.push_str(&format!(
