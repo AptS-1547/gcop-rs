@@ -251,6 +251,8 @@ error.git: "Git error: %{detail}"
 error.git_command: "Git command failed: %{detail}"
 error.config: "Configuration error: %{detail}"
 error.llm: "LLM provider error: %{detail}"
+error.llm_stream_truncated: "LLM stream truncated (%{provider}): %{detail}"
+error.llm_content_blocked: "LLM content blocked (%{provider}): %{reason}"
 error.llm_api: "LLM API error (%{status}): %{message}"
 error.network: "Network error: %{detail}"
 error.io: "IO error: %{detail}"
@@ -300,6 +302,8 @@ suggestion.llm_5xx: "API service is temporarily unavailable. Try again in a few 
 suggestion.llm_timeout: "The API request timed out. Check network or try again later"
 suggestion.llm_connection: "Cannot connect to API server. Check endpoint URL, network, or DNS settings"
 suggestion.llm_parse: "Try using --verbose flag to see the full LLM response and debug the issue"
+suggestion.llm_stream_truncated: "Stream was unexpectedly truncated. Try again or switch to a different provider"
+suggestion.llm_content_blocked: "Content was blocked by the provider's safety policy. Modify your request and try again"
 suggestion.max_retries: "The LLM failed to generate a satisfactory message. Try providing clearer feedback or check if the diff is too complex"
 
 # CLI Help text

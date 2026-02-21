@@ -115,10 +115,12 @@ pub async fn process_openai_stream(
 
     // Stream ended without [DONE] received
     if parse_errors > 0 {
-        colors::warning(
-            &rust_i18n::t!("provider.stream.openai_parse_errors", count = parse_errors),
-            colored,
-        );
+        // All received lines failed to parse — treat as error
+        return Err(GcopError::LlmStreamTruncated {
+            provider: "OpenAI".to_string(),
+            detail: rust_i18n::t!("provider.stream.openai_parse_errors", count = parse_errors)
+                .to_string(),
+        });
     }
     let _ = tx.send(StreamChunk::Done).await;
     Ok(())
@@ -219,23 +221,20 @@ pub async fn process_claude_stream(
         }
     }
 
-    // Stream ended but message_stop was not received
-    if parse_errors > 0 {
-        colors::warning(
-            &rust_i18n::t!(
-                "provider.stream.claude_ended_with_errors",
-                count = parse_errors
-            ),
-            colored,
-        );
+    // Stream ended but message_stop was not received — treat as error
+    let detail = if parse_errors > 0 {
+        rust_i18n::t!(
+            "provider.stream.claude_ended_with_errors",
+            count = parse_errors
+        )
+        .to_string()
     } else {
-        colors::warning(
-            &rust_i18n::t!("provider.stream.claude_ended_without_stop"),
-            colored,
-        );
-    }
-    let _ = tx.send(StreamChunk::Done).await;
-    Ok(())
+        rust_i18n::t!("provider.stream.claude_ended_without_stop").to_string()
+    };
+    Err(GcopError::LlmStreamTruncated {
+        provider: "Claude".to_string(),
+        detail,
+    })
 }
 
 // ============================================================================
@@ -316,11 +315,20 @@ pub async fn process_gemini_stream(
 
                             // Check if it is finished (any finishReason indicates the end of the stream)
                             if let Some(reason) = &candidate.finish_reason {
-                                if reason != "STOP" {
+                                if reason != "STOP" && reason != "MAX_TOKENS" {
+                                    // SAFETY / RECITATION / OTHER: return Err, consistent with
+                                    // non-streaming path (gemini.rs:234-239)
                                     tracing::warn!(
                                         "Gemini stream ended with non-STOP reason: {}",
                                         reason
                                     );
+                                    return Err(GcopError::LlmContentBlocked {
+                                        provider: "Gemini".to_string(),
+                                        reason: reason.clone(),
+                                    });
+                                }
+                                if reason == "MAX_TOKENS" {
+                                    tracing::warn!("Gemini stream truncated (MAX_TOKENS)");
                                     colors::warning(
                                         &rust_i18n::t!(
                                             "provider.stream.gemini_finish_reason_warning",

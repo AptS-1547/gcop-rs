@@ -233,10 +233,10 @@ impl ApiBackend for GeminiProvider {
                 }
                 _ => {
                     tracing::warn!("Gemini response finished with reason: {}", reason);
-                    return Err(GcopError::Llm(
-                        rust_i18n::t!("provider.gemini_content_blocked", reason = reason.as_str())
-                            .to_string(),
-                    ));
+                    return Err(GcopError::LlmContentBlocked {
+                        provider: "Gemini".to_string(),
+                        reason: reason.clone(),
+                    });
                 }
             }
         }
@@ -466,10 +466,11 @@ mod tests {
 
         let err = provider.call_api("system", "hi", None).await.unwrap_err();
         match &err {
-            GcopError::Llm(msg) => {
-                assert!(msg.contains("SAFETY"), "Expected SAFETY in error: {}", msg)
+            GcopError::LlmContentBlocked { provider, reason } => {
+                assert_eq!(provider, "Gemini");
+                assert_eq!(reason, "SAFETY");
             }
-            _ => panic!("Expected GcopError::Llm, got: {:?}", err),
+            _ => panic!("Expected GcopError::LlmContentBlocked, got: {:?}", err),
         }
         mock.assert_async().await;
     }

@@ -110,6 +110,30 @@ pub enum GcopError {
     #[error("LLM provider error: {0}")]
     Llm(String),
 
+    /// LLM stream unexpectedly truncated
+    ///
+    /// The streaming response ended without a proper termination signal
+    /// (e.g. no `message_stop` from Claude, no `[DONE]` from OpenAI).
+    #[error("LLM stream truncated ({provider}): {detail}")]
+    LlmStreamTruncated {
+        /// Provider name (e.g. "Claude", "OpenAI")
+        provider: String,
+        /// Description of the truncation
+        detail: String,
+    },
+
+    /// LLM response blocked by content policy
+    ///
+    /// The provider refused to generate a response due to safety filters
+    /// (e.g. Gemini SAFETY or RECITATION finish reason).
+    #[error("LLM content blocked ({provider}): {reason}")]
+    LlmContentBlocked {
+        /// Provider name (e.g. "Gemini")
+        provider: String,
+        /// Reason reported by the provider
+        reason: String,
+    },
+
     /// LLM request timeout
     ///
     /// The HTTP request to the LLM API timed out before receiving a response.
@@ -296,6 +320,18 @@ impl GcopError {
                 rust_i18n::t!("error.config", detail = msg.as_str()).to_string()
             }
             GcopError::Llm(msg) => rust_i18n::t!("error.llm", detail = msg.as_str()).to_string(),
+            GcopError::LlmStreamTruncated { provider, detail } => rust_i18n::t!(
+                "error.llm_stream_truncated",
+                provider = provider.as_str(),
+                detail = detail.as_str()
+            )
+            .to_string(),
+            GcopError::LlmContentBlocked { provider, reason } => rust_i18n::t!(
+                "error.llm_content_blocked",
+                provider = provider.as_str(),
+                reason = reason.as_str()
+            )
+            .to_string(),
             GcopError::LlmTimeout { provider, detail } => rust_i18n::t!(
                 "error.llm",
                 detail = format!("{}: {}", provider, detail).as_str()
@@ -419,6 +455,12 @@ impl GcopError {
             GcopError::LlmConnectionFailed { .. } => {
                 Some(rust_i18n::t!("suggestion.llm_connection").to_string())
             }
+            GcopError::LlmStreamTruncated { .. } => {
+                Some(rust_i18n::t!("suggestion.llm_stream_truncated").to_string())
+            }
+            GcopError::LlmContentBlocked { .. } => {
+                Some(rust_i18n::t!("suggestion.llm_content_blocked").to_string())
+            }
             GcopError::Llm(msg)
                 if msg.contains("Failed to parse")
                     || (msg.contains("解析") && msg.contains("响应")) =>
@@ -520,6 +562,34 @@ mod tests {
         let suggestion = err.localized_suggestion().unwrap();
         assert!(suggestion.contains("endpoint URL"));
         assert!(suggestion.contains("DNS"));
+    }
+
+    #[test]
+    fn test_suggestion_llm_stream_truncated() {
+        let err = GcopError::LlmStreamTruncated {
+            provider: "Claude".to_string(),
+            detail: "no message_stop received".to_string(),
+        };
+        let suggestion = err.localized_suggestion().unwrap();
+        assert!(
+            suggestion.to_lowercase().contains("truncated")
+                || suggestion.contains("重试")
+                || suggestion.contains("provider")
+        );
+    }
+
+    #[test]
+    fn test_suggestion_llm_content_blocked() {
+        let err = GcopError::LlmContentBlocked {
+            provider: "Gemini".to_string(),
+            reason: "SAFETY".to_string(),
+        };
+        let suggestion = err.localized_suggestion().unwrap();
+        assert!(
+            suggestion.to_lowercase().contains("safety")
+                || suggestion.to_lowercase().contains("blocked")
+                || suggestion.contains("拦截")
+        );
     }
 
     #[test]
