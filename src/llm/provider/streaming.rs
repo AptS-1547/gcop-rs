@@ -376,6 +376,48 @@ mod tests {
     use super::*;
     use pretty_assertions::assert_eq;
 
+    // -------------------------------------------------------------------------
+    // Helpers
+    // -------------------------------------------------------------------------
+
+    /// Build a fake 200 OK streaming response from a raw SSE body string.
+    fn sse_response(body: &str) -> Response {
+        http::Response::builder()
+            .status(200)
+            .body(bytes::Bytes::from(body.to_string()))
+            .unwrap()
+            .into()
+    }
+
+    /// Drain all chunks from the receiver after the process function returns.
+    /// Safe to call because tx is moved into the process function and dropped on return.
+    async fn drain(mut rx: mpsc::Receiver<StreamChunk>) -> Vec<StreamChunk> {
+        let mut out = Vec::new();
+        while let Some(c) = rx.recv().await {
+            out.push(c);
+        }
+        out
+    }
+
+    fn delta_text(chunk: &StreamChunk) -> &str {
+        match chunk {
+            StreamChunk::Delta(text) => text.as_str(),
+            other => panic!("Expected Delta, got {:?}", other),
+        }
+    }
+
+    fn assert_done(chunk: &StreamChunk) {
+        assert!(
+            matches!(chunk, StreamChunk::Done),
+            "Expected Done, got {:?}",
+            chunk
+        );
+    }
+
+    // =========================================================================
+    // parse_sse_line
+    // =========================================================================
+
     #[test]
     fn test_parse_sse_line() {
         assert_eq!(parse_sse_line("data: hello"), Some("hello"));
@@ -385,6 +427,10 @@ mod tests {
         assert_eq!(parse_sse_line("event: message_start"), None);
         assert_eq!(parse_sse_line("data:").is_some(), false);
     }
+
+    // =========================================================================
+    // SSE structure deserialization
+    // =========================================================================
 
     #[test]
     fn test_openai_delta_parse() {
@@ -465,5 +511,252 @@ mod tests {
             .text
             .as_deref();
         assert_eq!(text, Some("partial"));
+    }
+
+    // =========================================================================
+    // process_claude_stream — full stream processing
+    // =========================================================================
+
+    #[tokio::test]
+    async fn test_claude_normal_completion() {
+        let body = concat!(
+            "data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"Hello\"}}\n\n",
+            "data: {\"type\":\"message_stop\"}\n\n",
+        );
+        let (tx, rx) = mpsc::channel(16);
+        let result = process_claude_stream(sse_response(body), tx, false).await;
+
+        assert!(result.is_ok());
+        let chunks = drain(rx).await;
+        assert_eq!(chunks.len(), 2);
+        assert_eq!(delta_text(&chunks[0]), "Hello");
+        assert_done(&chunks[1]);
+    }
+
+    #[tokio::test]
+    async fn test_claude_multiple_deltas_then_stop() {
+        let body = concat!(
+            "data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"Hello\"}}\n\n",
+            "data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\" world\"}}\n\n",
+            "data: {\"type\":\"message_stop\"}\n\n",
+        );
+        let (tx, rx) = mpsc::channel(16);
+        let result = process_claude_stream(sse_response(body), tx, false).await;
+
+        assert!(result.is_ok());
+        let chunks = drain(rx).await;
+        assert_eq!(chunks.len(), 3);
+        assert_eq!(delta_text(&chunks[0]), "Hello");
+        assert_eq!(delta_text(&chunks[1]), " world");
+        assert_done(&chunks[2]);
+    }
+
+    /// Stream ends after valid deltas but WITHOUT message_stop → LlmStreamTruncated.
+    #[tokio::test]
+    async fn test_claude_truncated_without_stop() {
+        let body = "data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"partial\"}}\n\n";
+        let (tx, rx) = mpsc::channel(16);
+        let result = process_claude_stream(sse_response(body), tx, false).await;
+
+        assert!(
+            matches!(result, Err(GcopError::LlmStreamTruncated { ref provider, .. }) if provider == "Claude"),
+            "Expected LlmStreamTruncated, got {:?}",
+            result
+        );
+        // Delta was delivered before the stream ended
+        let chunks = drain(rx).await;
+        assert_eq!(chunks.len(), 1);
+        assert_eq!(delta_text(&chunks[0]), "partial");
+    }
+
+    /// Completely empty body → LlmStreamTruncated (no message_stop, no content).
+    #[tokio::test]
+    async fn test_claude_empty_stream_truncated() {
+        let (tx, rx) = mpsc::channel(16);
+        let result = process_claude_stream(sse_response(""), tx, false).await;
+
+        assert!(
+            matches!(result, Err(GcopError::LlmStreamTruncated { ref provider, .. }) if provider == "Claude"),
+        );
+        let chunks = drain(rx).await;
+        assert!(chunks.is_empty());
+    }
+
+    /// Stream with only unparseable JSON (all parse errors) + no message_stop →
+    /// LlmStreamTruncated whose detail mentions errors.
+    #[tokio::test]
+    async fn test_claude_truncated_all_parse_errors() {
+        let body = "data: not-valid-json\n\ndata: also-broken\n\n";
+        let (tx, rx) = mpsc::channel(16);
+        let result = process_claude_stream(sse_response(body), tx, false).await;
+
+        match result {
+            Err(GcopError::LlmStreamTruncated { provider, detail }) => {
+                assert_eq!(provider, "Claude");
+                // detail should reference the error count, not the "ended_without_stop" key
+                assert!(!detail.is_empty());
+            }
+            other => panic!("Expected LlmStreamTruncated, got {:?}", other),
+        }
+        let chunks = drain(rx).await;
+        assert!(
+            chunks.is_empty(),
+            "No deltas expected from all-error stream"
+        );
+    }
+
+    // =========================================================================
+    // process_openai_stream — full stream processing
+    // =========================================================================
+
+    #[tokio::test]
+    async fn test_openai_normal_completion_with_done() {
+        let body = concat!(
+            "data: {\"choices\":[{\"delta\":{\"content\":\"Hello\"},\"finish_reason\":null}]}\n",
+            "data: [DONE]\n",
+        );
+        let (tx, rx) = mpsc::channel(16);
+        let result = process_openai_stream(sse_response(body), tx, false).await;
+
+        assert!(result.is_ok());
+        let chunks = drain(rx).await;
+        assert_eq!(chunks.len(), 2);
+        assert_eq!(delta_text(&chunks[0]), "Hello");
+        assert_done(&chunks[1]);
+    }
+
+    #[tokio::test]
+    async fn test_openai_normal_completion_via_finish_reason() {
+        // finish_reason present → treated as end of stream (no [DONE] required)
+        let body = "data: {\"choices\":[{\"delta\":{\"content\":\"World\"},\"finish_reason\":\"stop\"}]}\n";
+        let (tx, rx) = mpsc::channel(16);
+        let result = process_openai_stream(sse_response(body), tx, false).await;
+
+        assert!(result.is_ok());
+        let chunks = drain(rx).await;
+        assert_eq!(chunks.len(), 2);
+        assert_eq!(delta_text(&chunks[0]), "World");
+        assert_done(&chunks[1]);
+    }
+
+    /// All lines fail to parse AND no [DONE] → LlmStreamTruncated.
+    #[tokio::test]
+    async fn test_openai_truncated_all_parse_errors() {
+        let body = "data: bad-json\ndata: also-bad\n";
+        let (tx, rx) = mpsc::channel(16);
+        let result = process_openai_stream(sse_response(body), tx, false).await;
+
+        assert!(
+            matches!(result, Err(GcopError::LlmStreamTruncated { ref provider, .. }) if provider == "OpenAI"),
+            "Expected LlmStreamTruncated, got {:?}",
+            result
+        );
+        let chunks = drain(rx).await;
+        assert!(chunks.is_empty());
+    }
+
+    /// Stream ends without [DONE] but with zero parse errors → silent recovery:
+    /// sends Done and returns Ok. This is the current intentional behaviour.
+    #[tokio::test]
+    async fn test_openai_clean_truncation_sends_done() {
+        let body =
+            "data: {\"choices\":[{\"delta\":{\"content\":\"partial\"},\"finish_reason\":null}]}\n";
+        let (tx, rx) = mpsc::channel(16);
+        let result = process_openai_stream(sse_response(body), tx, false).await;
+
+        assert!(
+            result.is_ok(),
+            "Expected Ok for clean truncation, got {:?}",
+            result
+        );
+        let chunks = drain(rx).await;
+        // Delta was emitted, then Done was sent as silent recovery
+        assert_eq!(delta_text(&chunks[0]), "partial");
+        assert_done(chunks.last().unwrap());
+    }
+
+    // =========================================================================
+    // process_gemini_stream — full stream processing
+    // =========================================================================
+
+    #[tokio::test]
+    async fn test_gemini_normal_stop() {
+        let body = concat!(
+            "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"Hello\"}],\"role\":\"model\"}}]}\n",
+            "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"!\"}],\"role\":\"model\"},\"finishReason\":\"STOP\"}]}\n",
+        );
+        let (tx, rx) = mpsc::channel(16);
+        let result = process_gemini_stream(sse_response(body), tx, false).await;
+
+        assert!(result.is_ok());
+        let chunks = drain(rx).await;
+        assert_eq!(chunks.len(), 3);
+        assert_eq!(delta_text(&chunks[0]), "Hello");
+        assert_eq!(delta_text(&chunks[1]), "!");
+        assert_done(&chunks[2]);
+    }
+
+    #[tokio::test]
+    async fn test_gemini_content_blocked_safety() {
+        let body = "data: {\"candidates\":[{\"finishReason\":\"SAFETY\"}]}\n";
+        let (tx, rx) = mpsc::channel(16);
+        let result = process_gemini_stream(sse_response(body), tx, false).await;
+
+        match result {
+            Err(GcopError::LlmContentBlocked { provider, reason }) => {
+                assert_eq!(provider, "Gemini");
+                assert_eq!(reason, "SAFETY");
+            }
+            other => panic!("Expected LlmContentBlocked(SAFETY), got {:?}", other),
+        }
+        // No Done chunk should have been sent
+        let chunks = drain(rx).await;
+        assert!(chunks.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_gemini_content_blocked_recitation() {
+        let body = "data: {\"candidates\":[{\"finishReason\":\"RECITATION\"}]}\n";
+        let (tx, _rx) = mpsc::channel(16);
+        let result = process_gemini_stream(sse_response(body), tx, false).await;
+
+        assert!(
+            matches!(result, Err(GcopError::LlmContentBlocked { ref reason, .. }) if reason == "RECITATION"),
+        );
+    }
+
+    /// MAX_TOKENS: partial output is sent, then Done. Returns Ok (not an error).
+    #[tokio::test]
+    async fn test_gemini_max_tokens_sends_done() {
+        let body = "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"partial\"}],\"role\":\"model\"},\"finishReason\":\"MAX_TOKENS\"}]}\n";
+        let (tx, rx) = mpsc::channel(16);
+        let result = process_gemini_stream(sse_response(body), tx, false).await;
+
+        assert!(
+            result.is_ok(),
+            "MAX_TOKENS should not be an error, got {:?}",
+            result
+        );
+        let chunks = drain(rx).await;
+        assert_eq!(delta_text(&chunks[0]), "partial");
+        assert_done(chunks.last().unwrap());
+    }
+
+    /// Gemini stream ends without any finishReason → not treated as an error.
+    /// Unlike Claude, Gemini silently sends Done.
+    #[tokio::test]
+    async fn test_gemini_no_finish_reason_sends_done() {
+        let body = "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"incomplete\"}],\"role\":\"model\"}}]}\n";
+        let (tx, rx) = mpsc::channel(16);
+        let result = process_gemini_stream(sse_response(body), tx, false).await;
+
+        assert!(
+            result.is_ok(),
+            "Gemini should silently recover, got {:?}",
+            result
+        );
+        let chunks = drain(rx).await;
+        assert_eq!(delta_text(&chunks[0]), "incomplete");
+        assert_done(chunks.last().unwrap());
     }
 }

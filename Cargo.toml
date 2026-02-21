@@ -84,6 +84,8 @@ mockito = "1.7"             # HTTP API mock
 pretty_assertions = "1.4"   # 更好的 assert 输出
 serial_test = "3.3"         # 环境变量测试串行化
 gcop-rs = { path = ".", features = ["test-utils"] }  # 启用测试工具 feature
+bytes = "1"                 # 构造测试 streaming response
+http = "1"                  # 构造测试 HTTP response
 
 [package.metadata.i18n]
 # The available locales for your application, default: ["en"].
