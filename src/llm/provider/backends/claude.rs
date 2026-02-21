@@ -3,16 +3,59 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 
-use super::base::{
+use super::super::base::{
     ApiBackend, build_endpoint, extract_api_key, get_max_tokens, get_temperature, send_llm_request,
     send_llm_request_streaming, validate_api_key, validate_http_endpoint,
 };
-use super::streaming::process_claude_stream;
-use super::utils::{CLAUDE_API_SUFFIX, DEFAULT_CLAUDE_BASE};
+use super::super::streaming::process_claude_stream;
+use super::super::utils::{CLAUDE_API_SUFFIX, DEFAULT_CLAUDE_BASE};
 use crate::config::{NetworkConfig, ProviderConfig};
 use crate::error::Result;
-use crate::llm::message::SystemBlock;
 use crate::llm::{StreamChunk, StreamHandle};
+
+/// Claude API system block structure (supports prompt caching)
+#[derive(Debug, Clone, Serialize)]
+struct SystemBlock {
+    #[serde(rename = "type")]
+    pub block_type: String,
+    pub text: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache_control: Option<CacheControl>,
+}
+
+impl SystemBlock {
+    #[allow(dead_code)]
+    pub fn text(content: impl Into<String>) -> Self {
+        Self {
+            block_type: "text".to_string(),
+            text: content.into(),
+            cache_control: None,
+        }
+    }
+
+    pub fn cached(content: impl Into<String>) -> Self {
+        Self {
+            block_type: "text".to_string(),
+            text: content.into(),
+            cache_control: Some(CacheControl::ephemeral()),
+        }
+    }
+}
+
+/// Claude prompt caching control
+#[derive(Debug, Clone, Serialize)]
+struct CacheControl {
+    #[serde(rename = "type")]
+    pub control_type: String,
+}
+
+impl CacheControl {
+    pub fn ephemeral() -> Self {
+        Self {
+            control_type: "ephemeral".to_string(),
+        }
+    }
+}
 
 /// Claude API provider
 ///
@@ -130,7 +173,7 @@ impl ClaudeProvider {
 
         Ok(Self {
             name: provider_name.to_string(),
-            client: super::create_http_client(network_config)?,
+            client: super::super::create_http_client(network_config)?,
             api_key,
             endpoint,
             model,

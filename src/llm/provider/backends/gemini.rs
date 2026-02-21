@@ -3,12 +3,12 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 
-use super::base::{
+use super::super::base::{
     ApiBackend, extract_api_key, get_max_tokens_optional, get_temperature, send_llm_request,
     send_llm_request_streaming, validate_api_key, validate_http_endpoint,
 };
-use super::streaming::process_gemini_stream;
-use super::utils::DEFAULT_GEMINI_BASE;
+use super::super::streaming::process_gemini_stream;
+use super::super::utils::DEFAULT_GEMINI_BASE;
 use crate::config::{NetworkConfig, ProviderConfig};
 use crate::error::{GcopError, Result};
 use crate::llm::{StreamChunk, StreamHandle};
@@ -129,7 +129,7 @@ impl GeminiProvider {
 
         Ok(Self {
             name: provider_name.to_string(),
-            client: super::create_http_client(network_config)?,
+            client: super::super::create_http_client(network_config)?,
             api_key,
             base_url,
             model,

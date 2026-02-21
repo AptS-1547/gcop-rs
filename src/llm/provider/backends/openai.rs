@@ -3,12 +3,12 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 
-use super::base::{
+use super::super::base::{
     ApiBackend, build_endpoint, extract_api_key, get_max_tokens_optional, get_temperature,
     send_llm_request, send_llm_request_streaming, validate_api_key, validate_http_endpoint,
 };
-use super::streaming::process_openai_stream;
-use super::utils::{DEFAULT_OPENAI_BASE, OPENAI_API_SUFFIX};
+use super::super::streaming::process_openai_stream;
+use super::super::utils::{DEFAULT_OPENAI_BASE, OPENAI_API_SUFFIX};
 use crate::config::{NetworkConfig, ProviderConfig};
 use crate::error::{GcopError, Result};
 use crate::llm::{StreamChunk, StreamHandle};
@@ -139,7 +139,7 @@ impl OpenAIProvider {
 
         Ok(Self {
             name: provider_name.to_string(),
-            client: super::create_http_client(network_config)?,
+            client: super::super::create_http_client(network_config)?,
             api_key,
             endpoint,
             model,

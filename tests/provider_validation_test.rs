@@ -5,9 +5,9 @@
 use gcop_rs::config::{NetworkConfig, ProviderConfig};
 use gcop_rs::error::{GcopError, Result};
 use gcop_rs::llm::LLMProvider;
-use gcop_rs::llm::provider::claude::ClaudeProvider;
-use gcop_rs::llm::provider::ollama::OllamaProvider;
-use gcop_rs::llm::provider::openai::OpenAIProvider;
+use gcop_rs::llm::provider::backends::ClaudeProvider;
+use gcop_rs::llm::provider::backends::OllamaProvider;
+use gcop_rs::llm::provider::backends::OpenAIProvider;
 use mockito::Server;
 use std::collections::HashMap;
 

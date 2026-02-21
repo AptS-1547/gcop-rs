@@ -2,8 +2,8 @@ use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
-use super::base::{ApiBackend, build_endpoint, get_temperature_optional, send_llm_request};
-use super::utils::{DEFAULT_OLLAMA_BASE, OLLAMA_API_SUFFIX};
+use super::super::base::{ApiBackend, build_endpoint, get_temperature_optional, send_llm_request};
+use super::super::utils::{DEFAULT_OLLAMA_BASE, OLLAMA_API_SUFFIX};
 use crate::config::{NetworkConfig, ProviderConfig};
 use crate::error::{GcopError, Result};
 
@@ -120,7 +120,7 @@ impl OllamaProvider {
 
         Ok(Self {
             name: provider_name.to_string(),
-            client: super::create_http_client(network_config)?,
+            client: super::super::create_http_client(network_config)?,
             endpoint,
             model,
             temperature,

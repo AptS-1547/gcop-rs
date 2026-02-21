@@ -3,8 +3,6 @@
 //! This module defines the provider interface used by commit generation
 //! and code review flows.
 
-/// Provider message payload helper types.
-pub mod message;
 /// Prompt-building utilities for commit/review flows.
 pub mod prompt;
 /// Built-in provider implementations and factory helpers.

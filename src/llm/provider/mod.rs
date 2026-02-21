@@ -1,14 +1,7 @@
+pub mod backends;
 pub mod base;
-/// Anthropic Claude provider implementation.
-pub mod claude;
 /// Multi-provider fallback wrapper.
 pub mod fallback;
-/// Google Gemini provider implementation.
-pub mod gemini;
-/// Ollama provider implementation for local models.
-pub mod ollama;
-/// OpenAI-compatible provider implementation.
-pub mod openai;
 pub mod streaming;
 pub mod utils;
 
@@ -129,22 +122,22 @@ fn create_provider_from_config(
     match api_style {
         ApiStyle::Claude => {
             let provider =
-                claude::ClaudeProvider::new(provider_config, name, network_config, colored)?;
+                backends::ClaudeProvider::new(provider_config, name, network_config, colored)?;
             Ok(Arc::new(provider))
         }
         ApiStyle::OpenAI => {
             let provider =
-                openai::OpenAIProvider::new(provider_config, name, network_config, colored)?;
+                backends::OpenAIProvider::new(provider_config, name, network_config, colored)?;
             Ok(Arc::new(provider))
         }
         ApiStyle::Ollama => {
             let provider =
-                ollama::OllamaProvider::new(provider_config, name, network_config, colored)?;
+                backends::OllamaProvider::new(provider_config, name, network_config, colored)?;
             Ok(Arc::new(provider))
         }
         ApiStyle::Gemini => {
             let provider =
-                gemini::GeminiProvider::new(provider_config, name, network_config, colored)?;
+                backends::GeminiProvider::new(provider_config, name, network_config, colored)?;
             Ok(Arc::new(provider))
         }
     }
