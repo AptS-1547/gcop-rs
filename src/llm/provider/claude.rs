@@ -5,12 +5,12 @@ use tokio::sync::mpsc;
 
 use super::base::{
     ApiBackend, build_endpoint, extract_api_key, get_max_tokens, get_temperature, send_llm_request,
-    validate_api_key, validate_http_endpoint,
+    send_llm_request_streaming, validate_api_key, validate_http_endpoint,
 };
 use super::streaming::process_claude_stream;
 use super::utils::{CLAUDE_API_SUFFIX, DEFAULT_CLAUDE_BASE};
 use crate::config::{NetworkConfig, ProviderConfig};
-use crate::error::{GcopError, Result};
+use crate::error::Result;
 use crate::llm::message::SystemBlock;
 use crate::llm::{StreamChunk, StreamHandle};
 
@@ -240,25 +240,21 @@ impl ApiBackend for ClaudeProvider {
             user_message.len()
         );
 
-        let response = self
-            .client
-            .post(&self.endpoint)
-            .header("Content-Type", "application/json")
-            .header("x-api-key", &self.api_key)
-            .header("anthropic-version", "2023-06-01")
-            .json(&request)
-            .send()
-            .await
-            .map_err(GcopError::Network)?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            return Err(GcopError::LlmApi {
-                status: status.as_u16(),
-                message: format!("{}: {}", self.name, body),
-            });
-        }
+        let response = send_llm_request_streaming(
+            &self.client,
+            &self.endpoint,
+            &[
+                ("x-api-key", self.api_key.as_str()),
+                ("anthropic-version", "2023-06-01"),
+            ],
+            &request,
+            "Claude",
+            None,
+            self.max_retries,
+            self.retry_delay_ms,
+            self.max_retry_delay_ms,
+        )
+        .await?;
 
         // Process streams in background tasks
         let colored = self.colored;

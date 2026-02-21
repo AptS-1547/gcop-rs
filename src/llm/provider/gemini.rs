@@ -5,7 +5,7 @@ use tokio::sync::mpsc;
 
 use super::base::{
     ApiBackend, extract_api_key, get_max_tokens_optional, get_temperature, send_llm_request,
-    validate_api_key, validate_http_endpoint,
+    send_llm_request_streaming, validate_api_key, validate_http_endpoint,
 };
 use super::streaming::process_gemini_stream;
 use super::utils::DEFAULT_GEMINI_BASE;
@@ -270,24 +270,18 @@ impl ApiBackend for GeminiProvider {
             user_message.len()
         );
 
-        let response = self
-            .client
-            .post(&endpoint)
-            .header("Content-Type", "application/json")
-            .header("x-goog-api-key", &self.api_key)
-            .json(&request)
-            .send()
-            .await
-            .map_err(GcopError::Network)?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            return Err(GcopError::LlmApi {
-                status: status.as_u16(),
-                message: format!("{}: {}", self.name, body),
-            });
-        }
+        let response = send_llm_request_streaming(
+            &self.client,
+            &endpoint,
+            &[("x-goog-api-key", self.api_key.as_str())],
+            &request,
+            "Gemini",
+            None,
+            self.max_retries,
+            self.retry_delay_ms,
+            self.max_retry_delay_ms,
+        )
+        .await?;
 
         let colored = self.colored;
         tokio::spawn(async move {

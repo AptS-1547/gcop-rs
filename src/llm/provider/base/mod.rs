@@ -17,7 +17,7 @@ pub mod validation;
 // Re-export commonly used functions to maintain backward compatibility
 pub use config::*;
 pub use response::*;
-pub use retry::send_llm_request;
+pub use retry::{send_llm_request, send_llm_request_streaming};
 pub use validation::*;
 
 use async_trait::async_trait;
