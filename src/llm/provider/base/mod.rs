@@ -17,6 +17,7 @@ pub mod validation;
 // Re-export commonly used functions to maintain backward compatibility
 pub use config::*;
 pub use response::*;
+pub(crate) use retry::spawn_stream_with_retry;
 pub use retry::{send_llm_request, send_llm_request_streaming};
 pub use validation::*;
 

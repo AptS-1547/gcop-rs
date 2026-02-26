@@ -57,6 +57,15 @@ impl StreamingOutput {
                     }
                     return Err(GcopError::Llm(e));
                 }
+                StreamChunk::Retry => {
+                    // Stream is being retried; erase previous output and reset buffer
+                    let lines = lines_to_erase_for(&self.buffer);
+                    for _ in 0..lines {
+                        print!("\x1b[1A\x1b[2K");
+                    }
+                    io::stdout().flush().ok();
+                    self.buffer.clear();
+                }
             }
         }
 

@@ -10,7 +10,7 @@ use std::time::{Duration, SystemTime};
 use crate::error::{GcopError, Result};
 
 /// Determine whether the error should be retried
-fn is_retryable_error(error: &GcopError) -> bool {
+pub(crate) fn is_retryable_error(error: &GcopError) -> bool {
     matches!(
         error,
         GcopError::LlmTimeout { .. }
@@ -405,8 +405,105 @@ async fn execute_with_retry<Req: Serialize>(
     }
 }
 
+/// Spawn a background task that consumes a streaming response with retry on truncation.
+///
+/// This is the stream-level retry counterpart to `execute_with_retry` (which only
+/// handles HTTP-level retries).  When the stream processor returns a retryable error
+/// (e.g. `LlmStreamTruncated`), this function re-sends the HTTP request and starts
+/// a fresh stream, sending `StreamChunk::Retry` so the UI can clear its buffer.
+///
+/// # Type parameters
+/// * `ProcessFut` – the async stream-processing function: `(Response, Sender, bool) -> Result<()>`
+/// * `ResendFut`  – the async function that re-sends the HTTP request:  `() -> Result<Response>`
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn spawn_stream_with_retry<ProcessFn, ProcessFut, ResendFn, ResendFut>(
+    initial_response: reqwest::Response,
+    tx: tokio::sync::mpsc::Sender<crate::llm::StreamChunk>,
+    colored: bool,
+    provider_name: &'static str,
+    max_retries: usize,
+    retry_delay_ms: u64,
+    max_retry_delay_ms: u64,
+    process_stream: ProcessFn,
+    resend_request: ResendFn,
+) where
+    ProcessFn: Fn(
+            reqwest::Response,
+            tokio::sync::mpsc::Sender<crate::llm::StreamChunk>,
+            bool,
+        ) -> ProcessFut
+        + Send
+        + 'static,
+    ProcessFut: std::future::Future<Output = crate::error::Result<()>> + Send,
+    ResendFn: Fn() -> ResendFut + Send + 'static,
+    ResendFut: std::future::Future<Output = crate::error::Result<reqwest::Response>> + Send,
+{
+    use crate::llm::StreamChunk;
+
+    tokio::spawn(async move {
+        let mut current_response = initial_response;
+        let mut stream_attempt = 0usize;
+
+        loop {
+            let error_tx = tx.clone();
+            match process_stream(current_response, tx.clone(), colored).await {
+                Ok(()) => return,
+                Err(e) => {
+                    stream_attempt += 1;
+                    if !is_retryable_error(&e) || stream_attempt > max_retries {
+                        crate::ui::colors::error(
+                            &rust_i18n::t!(
+                                "provider.stream_processing_error",
+                                error = e.to_string()
+                            ),
+                            colored,
+                        );
+                        let _ = error_tx.send(StreamChunk::Error(e.to_string())).await;
+                        return;
+                    }
+
+                    let delay = calculate_exponential_backoff(
+                        stream_attempt,
+                        retry_delay_ms,
+                        max_retry_delay_ms,
+                    );
+                    tracing::warn!(
+                        "{} stream truncated (attempt {}/{}). Retrying in {:.1}s...",
+                        provider_name,
+                        stream_attempt,
+                        max_retries,
+                        delay.as_secs_f64()
+                    );
+                    tokio::time::sleep(delay).await;
+
+                    match resend_request().await {
+                        Ok(resp) => {
+                            let _ = tx.send(StreamChunk::Retry).await;
+                            current_response = resp;
+                            continue;
+                        }
+                        Err(retry_err) => {
+                            crate::ui::colors::error(
+                                &rust_i18n::t!(
+                                    "provider.stream_processing_error",
+                                    error = retry_err.to_string()
+                                ),
+                                colored,
+                            );
+                            let _ = error_tx
+                                .send(StreamChunk::Error(retry_err.to_string()))
+                                .await;
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
 /// Calculate exponential backoff delay
-fn calculate_exponential_backoff(
+pub(crate) fn calculate_exponential_backoff(
     attempt: usize,
     retry_delay_ms: u64,
     max_retry_delay_ms: u64,

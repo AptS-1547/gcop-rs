@@ -31,10 +31,12 @@ pub trait ProgressReporter: Send + Sync {
 /// - [`Delta`] - text delta (append to existing content)
 /// - [`Done`] - stream ended normally
 /// - [`Error`] - stream terminated with an error
+/// - [`Retry`] - stream is being retried; UI should reset its buffer
 ///
 /// [`Delta`]: StreamChunk::Delta
 /// [`Done`]: StreamChunk::Done
 /// [`Error`]: StreamChunk::Error
+/// [`Retry`]: StreamChunk::Retry
 #[derive(Debug, Clone)]
 pub enum StreamChunk {
     /// Text delta (append to existing content).
@@ -43,6 +45,8 @@ pub enum StreamChunk {
     Done,
     /// Stream terminated with an error description.
     Error(String),
+    /// Stream is being retried; UI should clear buffered output.
+    Retry,
 }
 
 /// Handle for receiving a streaming response.
@@ -62,6 +66,7 @@ pub enum StreamChunk {
 ///             eprintln!("Error: {}", err);
 ///             break;
 ///         }
+///         StreamChunk::Retry => { /* stream retrying, reset buffer */ }
 ///     }
 /// }
 /// # }

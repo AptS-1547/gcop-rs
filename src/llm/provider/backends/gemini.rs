@@ -11,7 +11,7 @@ use super::super::streaming::process_gemini_stream;
 use super::super::utils::DEFAULT_GEMINI_BASE;
 use crate::config::{NetworkConfig, ProviderConfig};
 use crate::error::{GcopError, Result};
-use crate::llm::{StreamChunk, StreamHandle};
+use crate::llm::StreamHandle;
 
 /// Google Gemini API provider
 ///
@@ -52,7 +52,7 @@ pub struct GeminiProvider {
 // Request/response structure
 // ============================================================================
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct GeminiRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -61,19 +61,19 @@ struct GeminiRequest {
     generation_config: GenerationConfig,
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 struct GeminiContent {
     #[serde(skip_serializing_if = "Option::is_none")]
     role: Option<String>,
     parts: Vec<GeminiPart>,
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 struct GeminiPart {
     text: String,
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct GenerationConfig {
     temperature: f32,
@@ -283,17 +283,44 @@ impl ApiBackend for GeminiProvider {
         )
         .await?;
 
+        use super::super::base::spawn_stream_with_retry;
+
         let colored = self.colored;
-        tokio::spawn(async move {
-            let error_tx = tx.clone();
-            if let Err(e) = process_gemini_stream(response, tx, colored).await {
-                crate::ui::colors::error(
-                    &rust_i18n::t!("provider.stream_processing_error", error = e.to_string()),
-                    colored,
-                );
-                let _ = error_tx.send(StreamChunk::Error(e.to_string())).await;
-            }
-        });
+        let client = self.client.clone();
+        let api_key = self.api_key.clone();
+        let retry_delay_ms = self.retry_delay_ms;
+        let max_retry_delay_ms = self.max_retry_delay_ms;
+
+        spawn_stream_with_retry(
+            response,
+            tx,
+            colored,
+            "Gemini",
+            self.max_retries,
+            retry_delay_ms,
+            max_retry_delay_ms,
+            process_gemini_stream,
+            move || {
+                let client = client.clone();
+                let endpoint = endpoint.clone();
+                let api_key = api_key.clone();
+                let request = request.clone();
+                async move {
+                    send_llm_request_streaming(
+                        &client,
+                        &endpoint,
+                        &[("x-goog-api-key", api_key.as_str())],
+                        &request,
+                        "Gemini",
+                        None,
+                        0,
+                        retry_delay_ms,
+                        max_retry_delay_ms,
+                    )
+                    .await
+                }
+            },
+        );
 
         Ok(StreamHandle { receiver: rx })
     }

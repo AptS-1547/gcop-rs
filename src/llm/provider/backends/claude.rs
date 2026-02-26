@@ -11,7 +11,7 @@ use super::super::streaming::process_claude_stream;
 use super::super::utils::{CLAUDE_API_SUFFIX, DEFAULT_CLAUDE_BASE};
 use crate::config::{NetworkConfig, ProviderConfig};
 use crate::error::Result;
-use crate::llm::{StreamChunk, StreamHandle};
+use crate::llm::StreamHandle;
 
 /// Claude API system block structure (supports prompt caching)
 #[derive(Debug, Clone, Serialize)]
@@ -125,7 +125,7 @@ pub struct ClaudeProvider {
     colored: bool,
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 struct ClaudeRequest {
     model: String,
     max_tokens: u32,
@@ -137,7 +137,7 @@ struct ClaudeRequest {
     stream: Option<bool>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 struct MessagePayload {
     role: String,
     content: String,
@@ -299,18 +299,49 @@ impl ApiBackend for ClaudeProvider {
         )
         .await?;
 
-        // Process streams in background tasks
+        use super::super::base::spawn_stream_with_retry;
+
         let colored = self.colored;
-        tokio::spawn(async move {
-            let error_tx = tx.clone();
-            if let Err(e) = process_claude_stream(response, tx, colored).await {
-                crate::ui::colors::error(
-                    &rust_i18n::t!("provider.stream_processing_error", error = e.to_string()),
-                    colored,
-                );
-                let _ = error_tx.send(StreamChunk::Error(e.to_string())).await;
-            }
-        });
+        let client = self.client.clone();
+        let endpoint = self.endpoint.clone();
+        let api_key = self.api_key.clone();
+        let retry_delay_ms = self.retry_delay_ms;
+        let max_retry_delay_ms = self.max_retry_delay_ms;
+        let request = request.clone();
+
+        spawn_stream_with_retry(
+            response,
+            tx,
+            colored,
+            "Claude",
+            self.max_retries,
+            retry_delay_ms,
+            max_retry_delay_ms,
+            process_claude_stream,
+            move || {
+                let client = client.clone();
+                let endpoint = endpoint.clone();
+                let api_key = api_key.clone();
+                let request = request.clone();
+                async move {
+                    send_llm_request_streaming(
+                        &client,
+                        &endpoint,
+                        &[
+                            ("x-api-key", api_key.as_str()),
+                            ("anthropic-version", "2023-06-01"),
+                        ],
+                        &request,
+                        "Claude",
+                        None,
+                        0,
+                        retry_delay_ms,
+                        max_retry_delay_ms,
+                    )
+                    .await
+                }
+            },
+        );
 
         Ok(StreamHandle { receiver: rx })
     }

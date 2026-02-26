@@ -11,7 +11,7 @@ use super::super::streaming::process_openai_stream;
 use super::super::utils::{DEFAULT_OPENAI_BASE, OPENAI_API_SUFFIX};
 use crate::config::{NetworkConfig, ProviderConfig};
 use crate::error::{GcopError, Result};
-use crate::llm::{StreamChunk, StreamHandle};
+use crate::llm::StreamHandle;
 
 /// OpenAI API provider
 ///
@@ -91,7 +91,7 @@ pub struct OpenAIProvider {
     colored: bool,
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 struct OpenAIRequest {
     model: String,
     messages: Vec<MessagePayload>,
@@ -102,7 +102,7 @@ struct OpenAIRequest {
     stream: Option<bool>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 struct MessagePayload {
     role: String,
     content: String,
@@ -261,19 +261,47 @@ impl ApiBackend for OpenAIProvider {
         )
         .await?;
 
-        // Process streams in background tasks
-        // tx will automatically drop at the end of the task, thus closing the channel
+        use super::super::base::spawn_stream_with_retry;
+
         let colored = self.colored;
-        tokio::spawn(async move {
-            let error_tx = tx.clone();
-            if let Err(e) = process_openai_stream(response, tx, colored).await {
-                crate::ui::colors::error(
-                    &rust_i18n::t!("provider.stream_processing_error", error = e.to_string()),
-                    colored,
-                );
-                let _ = error_tx.send(StreamChunk::Error(e.to_string())).await;
-            }
-        });
+        let client = self.client.clone();
+        let endpoint = self.endpoint.clone();
+        let api_key = self.api_key.clone();
+        let retry_delay_ms = self.retry_delay_ms;
+        let max_retry_delay_ms = self.max_retry_delay_ms;
+        let request = request.clone();
+
+        spawn_stream_with_retry(
+            response,
+            tx,
+            colored,
+            "OpenAI",
+            self.max_retries,
+            retry_delay_ms,
+            max_retry_delay_ms,
+            process_openai_stream,
+            move || {
+                let client = client.clone();
+                let endpoint = endpoint.clone();
+                let api_key = api_key.clone();
+                let request = request.clone();
+                async move {
+                    let auth_header = format!("Bearer {}", api_key);
+                    send_llm_request_streaming(
+                        &client,
+                        &endpoint,
+                        &[("Authorization", auth_header.as_str())],
+                        &request,
+                        "OpenAI",
+                        None,
+                        0,
+                        retry_delay_ms,
+                        max_retry_delay_ms,
+                    )
+                    .await
+                }
+            },
+        );
 
         Ok(StreamHandle { receiver: rx })
     }
