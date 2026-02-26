@@ -450,6 +450,7 @@ hook.no_hook_found: "No prepare-commit-msg hook found. Nothing to uninstall."
 hook.not_installed_by_gcop: "The existing prepare-commit-msg hook was not installed by gcop-rs. Skipping."
 hook.uninstalled: "Hook uninstalled successfully from %{path}"
 hook.generating: "Generating commit message..."
+hook.generating_amend: "Generating commit message for amend..."
 hook.generated_success: "Commit message generated."
 
 # Workspace detection

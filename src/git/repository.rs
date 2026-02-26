@@ -95,14 +95,16 @@ impl GitOperations for GitRepository {
     }
 
     fn get_commit_diff(&self, commit_hash: &str) -> Result<String> {
-        // Find commit
+        // Find commit — accept both hex SHA and refs (e.g. "HEAD")
         let commit = self
             .repo
-            .find_commit(git2::Oid::from_str(commit_hash).map_err(|_| {
+            .revparse_single(commit_hash)
+            .and_then(|obj| obj.peel_to_commit())
+            .map_err(|_| {
                 GcopError::InvalidInput(
                     rust_i18n::t!("git.invalid_commit_hash", hash = commit_hash).to_string(),
                 )
-            })?)?;
+            })?;
 
         let commit_tree = commit.tree()?;
 

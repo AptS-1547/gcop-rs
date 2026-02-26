@@ -450,6 +450,7 @@ hook.no_hook_found: "未找到 prepare-commit-msg hook。无需卸载。"
 hook.not_installed_by_gcop: "现有的 prepare-commit-msg hook 不是由 gcop-rs 安装的，跳过。"
 hook.uninstalled: "Hook 已从 %{path} 卸载"
 hook.generating: "正在生成提交消息..."
+hook.generating_amend: "正在为 amend 生成提交消息..."
 hook.generated_success: "提交消息已生成。"
 
 # 工作区检测

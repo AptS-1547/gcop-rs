@@ -151,11 +151,12 @@ fn main() -> Result<()> {
                     cli::HookAction::Run {
                         commit_msg_file,
                         source,
-                        sha: _,
+                        sha,
                     } => {
                         commands::hook::run_hook_safe(
                             commit_msg_file,
                             source,
+                            sha,
                             &config,
                             cli.verbose,
                             cli.provider.as_deref(),
