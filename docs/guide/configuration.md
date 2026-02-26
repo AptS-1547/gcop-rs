@@ -88,7 +88,7 @@ model = "claude-sonnet-4-5-20250929"
 [llm]
 default_provider = "claude"
 # fallback_providers = ["openai", "gemini", "ollama"]  # Auto-fallback when main provider fails
-max_diff_size = 102400  # Max diff bytes sent to LLM before truncation
+max_diff_size = 102400  # Max diff bytes before truncation (commit/review/hook non-split flows)
 
 # Claude Provider
 [llm.providers.claude]
@@ -169,7 +169,7 @@ scope_mappings = { "packages/core" = "core", "packages/ui" = "ui" }
 |--------|------|---------|-------------|
 | `default_provider` | String | `"claude"` | Default LLM provider to use |
 | `fallback_providers` | Array | `[]` | Fallback provider list; automatically tries next when main provider fails |
-| `max_diff_size` | Integer | `102400` | Maximum diff size (bytes) sent to LLM; larger inputs are truncated |
+| `max_diff_size` | Integer | `102400` | Maximum diff size (bytes) sent to LLM in commit/review/hook non-split flows; larger inputs are truncated |
 
 ### Provider Settings
 

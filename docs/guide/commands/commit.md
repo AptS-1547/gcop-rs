@@ -48,6 +48,8 @@ In split mode, gcop-rs asks the LLM to group staged files into atomic commit gro
 - `--json` outputs group data as JSON (`groups`, `diff_stats`, `committed`) and does not create commits.
 - In interactive mode, actions are: `Accept All`, `Edit`, `Regenerate`, `Regenerate with feedback`, `Quit`.
 
+> **Note**: Split mode currently sends per-file diffs to the model and does not apply the global `[llm].max_diff_size` truncation cap.
+
 **Interactive Actions**:
 
 In normal (non-split) mode, after generating a message, you'll see a menu:

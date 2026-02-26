@@ -161,7 +161,7 @@ impl ProviderConfig {
 /// - `default_provider`: provider name, matching a key under `[llm.providers.<name>]`
 /// - `fallback_providers`: providers to try in order if the primary provider fails
 /// - `providers`: per-provider settings map
-/// - `max_diff_size`: maximum diff size sent to the LLM in bytes (default: 100 KiB)
+/// - `max_diff_size`: maximum diff size sent to the LLM in bytes for commit/review/hook non-split flows (default: 100 KiB)
 ///
 /// # Example
 /// ```toml
@@ -195,7 +195,7 @@ pub struct LLMConfig {
 
     /// Maximum diff size in bytes sent to the LLM.
     ///
-    /// Oversized diffs are truncated before prompt generation.
+    /// Oversized diffs are truncated before prompt generation in commit/review/hook non-split flows.
     #[serde(default = "default_max_diff_size")]
     pub max_diff_size: usize,
 }

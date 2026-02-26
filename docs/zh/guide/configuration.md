@@ -88,7 +88,7 @@ model = "claude-sonnet-4-5-20250929"
 [llm]
 default_provider = "claude"
 # fallback_providers = ["openai", "gemini", "ollama"]  # 主 provider 失败时自动切换
-max_diff_size = 102400  # 发送给 LLM 前的最大 diff 字节数，超出会截断
+max_diff_size = 102400  # 截断前的最大 diff 字节数（适用于 commit/review/hook 的非 split 流程）
 
 # Claude Provider
 [llm.providers.claude]
@@ -169,7 +169,7 @@ scope_mappings = { "packages/core" = "core", "packages/ui" = "ui" }
 |------|------|--------|------|
 | `default_provider` | String | `"claude"` | 默认使用的 LLM provider |
 | `fallback_providers` | Array | `[]` | 备用 provider 列表，主 provider 失败时自动切换 |
-| `max_diff_size` | Integer | `102400` | 发送给 LLM 的最大 diff 大小（字节）；超出时会截断 |
+| `max_diff_size` | Integer | `102400` | 在 commit/review/hook 的非 split 流程中发送给 LLM 的最大 diff 大小（字节）；超出时会截断 |
 
 ### Provider 设置
 

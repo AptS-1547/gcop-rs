@@ -41,15 +41,15 @@ Remove `.git/hooks/prepare-commit-msg` only if it was installed by gcop-rs.
 
 After installation, `git commit` triggers `gcop-rs hook run ...` internally.
 
-The hook will generate a commit message only when:
-- There are staged changes
-- Git did not already provide a message source
+The hook generates a commit message in these cases:
+- Normal commit (`source` is empty/unknown): only when staged changes exist
+- Amend commit (`source=commit` with non-empty `sha`): uses the amend target commit diff; if staged changes also exist, both diffs are combined
 
-The hook skips generation for commit sources like:
+The hook skips generation for:
 - `message` (for example `git commit -m`)
 - `merge`
-- `commit`
 - `squash`
+- `commit` with empty `sha` (for example `git commit -C` / `-c`)
 
 Hook logs are written to **stderr** so normal git output remains clean.
 

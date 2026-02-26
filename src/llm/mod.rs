@@ -214,7 +214,7 @@ pub trait LLMProvider: Send + Sync {
     /// # Parameters
     /// - `diff`: diff content to review
     /// - `review_type`: target scope (unstaged, single commit, range, file)
-    /// - `custom_prompt`: optional user prompt appended to system guidance
+    /// - `custom_prompt`: optional review system prompt override (JSON constraints are still appended)
     /// - `progress`: optional progress reporter
     async fn review_code(
         &self,
@@ -288,7 +288,7 @@ pub struct ScopeInfo {
 /// - `insertions`: number of inserted lines
 /// - `deletions`: number of deleted lines
 /// - `branch_name`: current branch name (may be `None`, for example detached HEAD)
-/// - `custom_prompt`: user-defined prompt (appended to system prompt)
+/// - `custom_prompt`: user-defined prompt customization (normal commit replaces base prompt, split commit appends additional constraints)
 /// - `user_feedback`: user feedback (used when regenerating, supports accumulation)
 /// - `convention`: optional commit-convention config
 ///
@@ -317,7 +317,10 @@ pub struct CommitContext {
     pub deletions: usize,
     /// Current branch name, if available.
     pub branch_name: Option<String>,
-    /// Optional user-provided prompt additions.
+    /// Optional user-provided prompt customization.
+    ///
+    /// Normal commit mode treats this as a system prompt override.
+    /// Split commit mode appends it as extra grouping instructions.
     pub custom_prompt: Option<String>,
     /// Accumulated feedback from previous retry attempts.
     pub user_feedback: Vec<String>,

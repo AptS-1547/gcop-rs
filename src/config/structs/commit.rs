@@ -53,7 +53,7 @@ pub struct CommitConvention {
 /// - `show_diff_preview`: show diff preview before generation (default: `true`)
 /// - `allow_edit`: allow editing generated messages (default: `true`)
 /// - `split`: enable atomic split commit mode by default (default: `false`)
-/// - `custom_prompt`: extra prompt text (optional)
+/// - `custom_prompt`: prompt customization text (optional; normal mode replaces base system prompt, split mode appends constraints)
 /// - `max_retries`: maximum generation attempts, including the first one (default: `10`)
 /// - `convention`: optional commit convention config
 ///
@@ -84,7 +84,10 @@ pub struct CommitConfig {
     #[serde(default)]
     pub split: bool,
 
-    /// Additional prompt text appended to the commit system prompt.
+    /// Prompt customization text for commit generation.
+    ///
+    /// Normal mode: replaces the built-in commit system prompt.
+    /// Split mode: appended as additional grouping constraints.
     ///
     /// No placeholder substitution is performed (`{diff}` is passed literally).
     #[serde(default)]

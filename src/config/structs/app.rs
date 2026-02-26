@@ -112,7 +112,7 @@ impl AppConfig {
 ///
 /// # Fields
 /// - `min_severity`: minimum issue severity shown in text output (`"info"`, `"warning"`, `"critical"`)
-/// - `custom_prompt`: additional prompt text (optional)
+/// - `custom_prompt`: review system prompt override (optional; JSON constraints are always appended)
 ///
 /// # Example
 /// ```toml
@@ -129,7 +129,10 @@ pub struct ReviewConfig {
     #[serde(default = "default_severity")]
     pub min_severity: String,
 
-    /// Additional prompt text appended to the review system prompt.
+    /// Review system prompt override.
+    ///
+    /// The provided text replaces the default review system prompt.
+    /// JSON output constraints are always appended automatically.
     ///
     /// No placeholder substitution is performed (`{diff}` is passed literally).
     #[serde(default)]

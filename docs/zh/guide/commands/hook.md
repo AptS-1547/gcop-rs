@@ -41,15 +41,15 @@ gcop-rs hook <COMMAND>
 
 安装完成后，执行 `git commit` 时会由 Git 内部触发 `gcop-rs hook run ...`。
 
-仅在以下条件满足时会自动生成提交信息：
-- 当前存在已暂存变更
-- Git 没有预先提供提交信息来源
+hook 会在以下场景生成提交信息：
+- 普通提交（`source` 为空或未知）：仅当存在已暂存变更时生成
+- `--amend` 提交（`source=commit` 且 `sha` 非空）：基于被 amend 的目标提交 diff 生成；若同时存在已暂存变更，会合并两部分 diff
 
-对于以下来源会跳过生成：
+以下情况会跳过生成：
 - `message`（例如 `git commit -m`）
 - `merge`
-- `commit`
 - `squash`
+- `commit` 且 `sha` 为空（例如 `git commit -C` / `-c`）
 
 Hook 日志写入 **stderr**，避免污染常规 git 输出。
 
