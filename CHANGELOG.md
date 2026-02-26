@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.6] - 2026-02-27
+
+### Added
+
+- **Streaming Retry**: `spawn_stream_with_retry()` auto-retries truncated streaming responses (no `message_stop`/`[DONE]`) with exponential backoff; new `StreamChunk::Retry` clears UI buffer before retry
+- **Amend Hook**: `prepare-commit-msg` hook supports `git commit --amend` via `determine_hook_mode()`; generates message from original commit diff with optional staged-change merge
+- **Error Types**: `LlmStreamTruncated`, `LlmContentBlocked`, `LlmTimeout`, `LlmConnectionFailed` with localized messages and suggestions
+
+### Changed
+
+- **Config Module Split**: Monolithic `config/structs.rs` (685 lines) split into `app.rs`, `commit.rs`, `llm.rs`, `network.rs`
+- **Provider Restructure**: Implementations moved to `provider/backends/`, SSE parsers to `provider/streaming/` (per-provider), base utilities remain in `provider/base/`
+- **Dependencies**: Added `httpdate` 1.0; updated `clap`, `reqwest`, `serde_json` and others
+- **Documentation**: Clarified `custom_prompt` scope (replaces system prompt in normal mode, appended in split mode) and `max_diff_size` scope (non-split only)
+
 ## [0.13.5] - 2026-02-21
 
 ### Fixed
