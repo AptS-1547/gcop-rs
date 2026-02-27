@@ -150,6 +150,19 @@ pub trait GitOperations {
     /// [`GcopError::Git`]: crate::error::GcopError::Git
     fn commit(&self, message: &str) -> Result<()>;
 
+    /// Executes `git commit --amend`.
+    ///
+    /// Amends the most recent commit with a new message.
+    /// If there are staged changes, they are included in the amended commit.
+    ///
+    /// # Parameters
+    /// - `message`: new commit message
+    ///
+    /// # Returns
+    /// - `Ok(())` - amend succeeded
+    /// - `Err(_)` - no commits to amend, hook failure, or another git error
+    fn commit_amend(&self, message: &str) -> Result<()>;
+
     /// Returns the current branch name.
     ///
     /// # Returns

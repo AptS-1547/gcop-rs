@@ -81,7 +81,21 @@ async fn run_with_deps(
 
     // Split mode: separate flow
     if options.split {
+        if options.amend {
+            ui::error(&rust_i18n::t!("commit.amend_split_conflict"), colored);
+            return Err(GcopError::InvalidInput(
+                "Cannot use --amend with --split".to_string(),
+            ));
+        }
         return crate::commands::split::run_split_flow(options, config, repo, provider).await;
+    }
+
+    // Amend: require at least one existing commit
+    if options.amend && repo.is_empty()? {
+        ui::error(&rust_i18n::t!("commit.amend_no_commits"), colored);
+        return Err(GcopError::InvalidInput(
+            "Cannot amend: repository has no commits".to_string(),
+        ));
     }
 
     // JSON Schema: Standalone Process
@@ -89,14 +103,14 @@ async fn run_with_deps(
         return handle_json_mode(options, config, repo, provider, &initial_feedbacks).await;
     }
 
-    // Check staged changes
-    if !repo.has_staged_changes()? {
+    // Get diff based on mode (normal vs amend)
+    if !options.amend && !repo.has_staged_changes()? {
         ui::error(&rust_i18n::t!("commit.no_staged_changes"), colored);
         return Err(GcopError::NoStagedChanges);
     }
+    let diff = get_diff(repo, options.amend)?;
 
-    // Get diff and statistics
-    let diff = repo.get_staged_diff()?;
+    // Get diff statistics
     let stats = repo.get_diff_stats(&diff)?;
 
     // Truncate overly large diffs to prevent tokens from exceeding the limit
@@ -190,9 +204,17 @@ async fn run_with_deps(
                     &rust_i18n::t!("commit.creating"),
                     colored,
                 );
-                repo.commit(message)?;
+                if options.amend {
+                    repo.commit_amend(message)?;
+                } else {
+                    repo.commit(message)?;
+                }
                 println!();
-                ui::success(&rust_i18n::t!("commit.success"), colored);
+                if options.amend {
+                    ui::success(&rust_i18n::t!("commit.amend_success"), colored);
+                } else {
+                    ui::success(&rust_i18n::t!("commit.success"), colored);
+                }
                 if options.verbose {
                     println!("\n{}", message);
                 }
@@ -215,12 +237,11 @@ async fn handle_json_mode(
     provider: &Arc<dyn LLMProvider>,
     initial_feedbacks: &[String],
 ) -> Result<()> {
-    if !repo.has_staged_changes()? {
+    if !options.amend && !repo.has_staged_changes()? {
         json::output_json_error::<CommitData>(&GcopError::NoStagedChanges)?;
         return Err(GcopError::NoStagedChanges);
     }
-
-    let diff = repo.get_staged_diff()?;
+    let diff = get_diff(repo, options.amend)?;
     let stats = repo.get_diff_stats(&diff)?;
     let (diff, _truncated) = smart_truncate_diff(&diff, config.llm.max_diff_size);
     let branch_name = repo.get_current_branch()?;
@@ -664,6 +685,24 @@ fn compute_scope_info(files_changed: &[String], config: &AppConfig) -> Option<Sc
         suggested_scope: suggested,
         has_root_changes: !scope.root_files.is_empty(),
     })
+}
+
+/// Get diff based on commit mode.
+///
+/// - Amend: HEAD commit diff, optionally combined with new staged changes.
+/// - Normal: staged diff (caller must check `has_staged_changes` before calling).
+fn get_diff(repo: &dyn GitOperations, amend: bool) -> Result<String> {
+    if amend {
+        let commit_diff = repo.get_commit_diff("HEAD")?;
+        if repo.has_staged_changes()? {
+            let staged_diff = repo.get_staged_diff()?;
+            Ok(format!("{}\n{}", commit_diff, staged_diff))
+        } else {
+            Ok(commit_diff)
+        }
+    } else {
+        repo.get_staged_diff()
+    }
 }
 
 #[cfg(test)]

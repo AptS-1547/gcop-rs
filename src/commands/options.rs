@@ -17,6 +17,7 @@
 //!     yes: false,
 //!     dry_run: true,
 //!     split: false,
+//!     amend: false,
 //!     format: OutputFormat::Text,
 //!     feedback: &[],
 //!     verbose: false,
@@ -41,6 +42,7 @@ use crate::config::AppConfig;
 /// - `feedback`: initial feedback/instruction (such as "use Chinese", "be concise")
 /// - `verbose`: verbose mode (display API requests/responses)
 /// - `provider_override`: override the provider in the configuration (such as `--provider openai`)
+/// - `amend`: amend the last commit with a new message
 ///
 /// # Example
 /// ```no_run
@@ -52,6 +54,7 @@ use crate::config::AppConfig;
 ///     yes: true, // automatically accepted
 ///     dry_run: false,
 ///     split: false,
+///     amend: false,
 ///     format: OutputFormat::Text,
 ///     feedback: &["use conventional commits".to_string()],
 ///     verbose: false,
@@ -71,6 +74,9 @@ pub struct CommitOptions<'a> {
 
     /// Whether to use split (atomic) commit mode
     pub split: bool,
+
+    /// Whether to amend the last commit
+    pub amend: bool,
 
     /// Output format
     pub format: OutputFormat,
@@ -105,6 +111,7 @@ impl<'a> CommitOptions<'a> {
             yes: args.yes,
             dry_run: args.dry_run,
             split: args.split || config.commit.split,
+            amend: args.amend,
             format: OutputFormat::from_cli(&args.format, args.json),
             feedback: &args.feedback,
             verbose: cli.verbose,
@@ -287,6 +294,7 @@ mod tests {
             yes: false,
             dry_run: false,
             split: false,
+            amend: false,
             format: "text".to_string(),
             json: false,
             feedback: vec![],
@@ -302,6 +310,7 @@ mod tests {
             yes: true,
             dry_run: true,
             split: false,
+            amend: false,
             format: "text".to_string(),
             json: false,
             feedback: vec!["use conventional commits".to_string()],

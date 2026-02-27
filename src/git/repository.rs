@@ -170,6 +170,10 @@ impl GitOperations for GitRepository {
         crate::git::commit::commit_changes(message)
     }
 
+    fn commit_amend(&self, message: &str) -> Result<()> {
+        crate::git::commit::commit_amend_changes(message)
+    }
+
     fn get_current_branch(&self) -> Result<Option<String>> {
         // Unborn branch has no real branch information
         if self.is_empty()? {

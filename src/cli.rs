@@ -52,6 +52,10 @@ pub struct CommitArgs {
     #[arg(short = 's', long)]
     pub split: bool,
 
+    /// Amend the last commit with a new AI-generated message.
+    #[arg(long)]
+    pub amend: bool,
+
     /// Feedback or constraints passed to commit message generation.
     #[arg(trailing_var_arg = true)]
     pub feedback: Vec<String>,

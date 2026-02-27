@@ -205,6 +205,9 @@ fn parse_cli_localized() -> Result<Cli> {
                 .mut_arg("split", |arg| {
                     arg.help(rust_i18n::t!("cli.commit.split").to_string())
                 })
+                .mut_arg("amend", |arg| {
+                    arg.help(rust_i18n::t!("cli.commit.amend").to_string())
+                })
                 .mut_arg("feedback", |arg| {
                     arg.help(rust_i18n::t!("cli.commit.feedback").to_string())
                 })

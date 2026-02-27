@@ -98,6 +98,14 @@ impl GitOperations for MockGitOps {
         }
     }
 
+    fn commit_amend(&self, _message: &str) -> Result<()> {
+        if self.should_fail_commit {
+            Err(GcopError::GitCommand("pre-commit hook failed".to_string()))
+        } else {
+            Ok(())
+        }
+    }
+
     fn get_diff_stats(&self, _diff: &str) -> Result<DiffStats> {
         Ok(DiffStats {
             files_changed: vec!["test.rs".to_string()],
@@ -231,6 +239,7 @@ async fn test_commit_dry_run_mode() {
         yes: false,
         no_edit: false,
         split: false,
+        amend: false,
         format: gcop_rs::commands::format::OutputFormat::Text,
         feedback: &[],
         provider_override: None,
@@ -258,6 +267,7 @@ async fn test_commit_no_staged_changes() {
         yes: false,
         no_edit: false,
         split: false,
+        amend: false,
         format: gcop_rs::commands::format::OutputFormat::Text,
         feedback: &[],
         provider_override: None,
@@ -286,6 +296,7 @@ async fn test_commit_llm_failure() {
         yes: true, // 自动接受
         no_edit: false,
         split: false,
+        amend: false,
         format: gcop_rs::commands::format::OutputFormat::Text,
         feedback: &[],
         provider_override: None,
@@ -311,6 +322,7 @@ async fn test_commit_git_failure() {
         yes: true,
         no_edit: false,
         split: false,
+        amend: false,
         format: gcop_rs::commands::format::OutputFormat::Text,
         feedback: &[],
         provider_override: None,
@@ -335,6 +347,7 @@ async fn test_commit_json_output_mode() {
         yes: false,
         no_edit: false,
         split: false,
+        amend: false,
         format: gcop_rs::commands::format::OutputFormat::Json,
         feedback: &[],
         provider_override: None,
@@ -359,6 +372,7 @@ async fn test_commit_verbose_mode() {
         yes: false,
         no_edit: false,
         split: false,
+        amend: false,
         format: gcop_rs::commands::format::OutputFormat::Text,
         feedback: &[],
         provider_override: None,
@@ -383,6 +397,7 @@ async fn test_commit_with_feedback() {
         yes: false,
         no_edit: false,
         split: false,
+        amend: false,
         format: gcop_rs::commands::format::OutputFormat::Text,
         feedback: &feedback_vec,
         provider_override: None,
@@ -417,6 +432,7 @@ async fn test_display_message_no_panic() {
         yes: false,
         no_edit: false,
         split: false,
+        amend: false,
         format: gcop_rs::commands::format::OutputFormat::Text,
         feedback: &[],
         provider_override: None,
@@ -436,6 +452,7 @@ async fn test_handle_json_mode_no_panic() {
         yes: false,
         no_edit: false,
         split: false,
+        amend: false,
         format: gcop_rs::commands::format::OutputFormat::Json,
         feedback: &[],
         provider_override: None,
