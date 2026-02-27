@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.7] - 2026-02-27
+
+### Added
+
+- **CLI Amend Mode**: New `gcop-rs commit --amend` flag generates a fresh AI commit message for the most recent commit; reads HEAD commit diff via `get_commit_diff("HEAD")`, merges with staged changes when present, and executes `git commit --amend -m`
+- **GitOperations**: `commit_amend()` trait method and `commit_amend_changes()` CLI wrapper for `git commit --amend`
+
+### Changed
+
+- **Diff Acquisition Refactor**: Extracted `get_diff(repo, amend)` helper in `commit.rs` to unify amend/normal diff logic across interactive and JSON code paths
+- **Validation**: `--amend --split` is rejected with a clear error; `--amend` on empty repositories returns early with guidance
+
 ## [0.13.6] - 2026-02-27
 
 ### Added
