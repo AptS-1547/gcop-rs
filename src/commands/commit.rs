@@ -223,7 +223,7 @@ async fn run_with_deps(
 
             CommitState::Cancelled => {
                 ui::warning(&rust_i18n::t!("commit.cancelled"), colored);
-                return Err(GcopError::UserCancelled);
+                return Ok(());
             }
         };
     }
