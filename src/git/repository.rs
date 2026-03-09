@@ -11,7 +11,7 @@ const DEFAULT_MAX_FILE_SIZE: u64 = 10 * 1024 * 1024;
 
 /// `git2`-based repository implementation used by gcop-rs.
 pub struct GitRepository {
-    repo: Repository,
+    pub(crate) repo: Repository,
     max_file_size: u64,
 }
 

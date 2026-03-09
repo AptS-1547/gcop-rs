@@ -231,51 +231,104 @@ impl RepoStats {
 
 /// Compute per-author line-level contribution statistics.
 ///
-/// Walks the provided commits, skips merge commits (parent_count > 1),
-/// and calls `git.get_commit_line_stats()` for each remaining commit.
+/// Uses `git log --numstat` for fast batch processing instead of
+/// querying each commit individually via git2.
 pub fn compute_contrib_stats(
     commits: &[CommitInfo],
-    git: &dyn GitOperations,
+    _git: &dyn GitOperations,
     author_filter: Option<&str>,
 ) -> Result<ContribStats> {
     use std::collections::HashMap;
+    use std::process::Command;
 
+    // Get repository workdir for running git command
+    // Use git2::Repository::discover to find the repo from current directory
+    let repo = git2::Repository::discover(".")
+        .map_err(|e| crate::error::GcopError::Git(crate::error::GitErrorWrapper(e)))?;
+
+    let workdir = repo
+        .workdir()
+        .ok_or_else(|| crate::error::GcopError::GitCommand("bare repository".to_string()))?;
+
+    // Run git log --numstat to get all commit stats in one go
+    // Format: hash|author_name|author_email|parent_count
+    let output = Command::new("git")
+        .current_dir(workdir)
+        .args([
+            "log",
+            "--numstat",
+            "--pretty=format:%H|%an|%ae|%P", // hash|name|email|parents
+            "--no-merges",                   // Skip merge commits
+        ])
+        .output()
+        .map_err(|e| crate::error::GcopError::GitCommand(format!("git log failed: {}", e)))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        // Empty repository is not an error, just return empty stats
+        if stderr.contains("does not have any commits yet") || stderr.contains("bad default revision") {
+            return Ok(ContribStats {
+                total_insertions: 0,
+                total_deletions: 0,
+                total_lines: 0,
+                merge_commits_skipped: 0,
+                authors: vec![],
+            });
+        }
+        return Err(crate::error::GcopError::GitCommand(format!(
+            "git log failed: {}",
+            stderr.trim()
+        )));
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Parse git log output
     let mut author_map: HashMap<String, (String, String, usize, usize)> = HashMap::new();
-    let mut merge_skipped = 0usize;
+    let mut current_author: Option<(String, String)> = None;
 
-    // Apply same author filter as commit stats
-    let filtered: Vec<&CommitInfo> = if let Some(filter) = author_filter {
-        let filter_lower = filter.to_lowercase();
-        commits
-            .iter()
-            .filter(|c| {
-                c.author_name.to_lowercase().contains(&filter_lower)
-                    || c.author_email.to_lowercase().contains(&filter_lower)
-            })
-            .collect()
-    } else {
-        commits.iter().collect()
-    };
-
-    for commit in &filtered {
-        if commit.parent_count > 1 {
-            merge_skipped += 1;
+    for line in stdout.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
             continue;
         }
 
-        let (ins, del) = git.get_commit_line_stats(&commit.hash)?;
+        // Check if this is a commit header line (contains | and has 40-char hex hash at start)
+        if trimmed.len() > 40 && trimmed.chars().take(40).all(|c| c.is_ascii_hexdigit()) {
+            // Commit header line: hash|name|email|parents
+            let parts: Vec<&str> = trimmed.split('|').collect();
+            if parts.len() >= 3 {
+                let name = parts[1].to_string();
+                let email = parts[2].to_string();
+                current_author = Some((name, email));
+            }
+        } else if trimmed.contains('\t') {
+            // Numstat line: insertions\tdeletions\tfilename
+            if let Some((ref name, ref email)) = current_author {
+                let parts: Vec<&str> = trimmed.split('\t').collect();
+                if parts.len() >= 2 {
+                    // Parse insertions and deletions (may be "-" for binary files)
+                    let ins = parts[0].parse::<usize>().unwrap_or(0);
+                    let del = parts[1].parse::<usize>().unwrap_or(0);
 
-        let key = format!("{} <{}>", commit.author_name, commit.author_email);
-        let entry = author_map.entry(key).or_insert_with(|| {
-            (
-                commit.author_name.clone(),
-                commit.author_email.clone(),
-                0,
-                0,
-            )
+                    let key = format!("{} <{}>", name, email);
+                    let entry = author_map
+                        .entry(key)
+                        .or_insert_with(|| (name.clone(), email.clone(), 0, 0));
+                    entry.2 += ins;
+                    entry.3 += del;
+                }
+            }
+        }
+    }
+
+    // Apply author filter if specified
+    if let Some(filter) = author_filter {
+        let filter_lower = filter.to_lowercase();
+        author_map.retain(|_, (name, email, _, _)| {
+            name.to_lowercase().contains(&filter_lower)
+                || email.to_lowercase().contains(&filter_lower)
         });
-        entry.2 += ins;
-        entry.3 += del;
     }
 
     let total_ins: usize = author_map.values().map(|v| v.2).sum();
@@ -309,6 +362,9 @@ pub fn compute_contrib_stats(
             .then_with(|| a.name.cmp(&b.name))
             .then_with(|| a.email.cmp(&b.email))
     });
+
+    // Count merge commits from original commit list
+    let merge_skipped = commits.iter().filter(|c| c.parent_count > 1).count();
 
     Ok(ContribStats {
         total_insertions: total_ins,
@@ -404,12 +460,18 @@ fn truncate_middle(s: &str, max_width: usize) -> String {
     // Calculate how many chars to keep on each side
     // Reserve 1 char for ellipsis
     let keep_chars = max_width - 1;
-    let left_chars = (keep_chars + 1) / 2;  // Round up for left side
+    let left_chars = keep_chars.div_ceil(2); // Round up for left side
     let right_chars = keep_chars / 2;
 
     let left: String = s.chars().take(left_chars).collect();
-    let right: String = s.chars().rev().take(right_chars).collect::<String>()
-        .chars().rev().collect();
+    let right: String = s
+        .chars()
+        .rev()
+        .take(right_chars)
+        .collect::<String>()
+        .chars()
+        .rev()
+        .collect();
 
     format!("{}…{}", left, right)
 }
@@ -656,7 +718,14 @@ fn output_text(stats: &RepoStats, colored: bool) {
                 (*count * bar_max_width) / max_count
             };
             let padding = " ".repeat(bar_max_width - visible_width);
-            println!("    {}: {}{} {:>width$}", week, bar, padding, count, width = max_num_width);
+            println!(
+                "    {}: {}{} {:>width$}",
+                week,
+                bar,
+                padding,
+                count,
+                width = max_num_width
+            );
         }
     }
 

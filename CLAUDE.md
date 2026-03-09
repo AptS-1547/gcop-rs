@@ -232,7 +232,7 @@ PR 合入 master 前需通过以下检查（`.github/workflows/ci.yml`）：
 - **test**：三平台矩阵（ubuntu / macOS / Windows），`cargo test --all-features`
 - **audit**：`rustsec/audit-check` 安全扫描
 - **coverage**：`cargo-llvm-cov` 生成覆盖率上传 Codecov
-- **msrv**：Rust 1.92.0 兼容性检查
+- **msrv**：Rust 1.88 兼容性检查
 
 ---
 
