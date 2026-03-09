@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.8] - 2026-03-09
+
+### Added
+
+- **Contribution Statistics**: `stats --contrib` computes per-author line-level contribution stats (insertions, deletions, percentage) using `git log --numstat` for fast batch processing; merge commits auto-excluded
+- **GitOperations**: `get_workdir()` trait method extracts repo workdir, replacing ad-hoc calls; `get_commit_line_stats()` for per-commit line stats via git2
+- **CommitInfo**: Extended with `hash` and `parent_count` fields for merge commit identification
+
+### Changed
+
+- **Documentation**: Clarified `endpoint` supports both base URLs and full paths; removed hardcoded model whitelists; added model compatibility sections for all providers
+- **Dependencies**: Lowered MSRV from 1.93.0 to 1.88.0; updated `tokio`, `which` and others
+
 ## [0.13.7] - 2026-02-27
 
 ### Added
