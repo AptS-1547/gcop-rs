@@ -217,6 +217,8 @@ impl GitOperations for GitRepository {
             let oid = oid?;
             let commit = self.repo.find_commit(oid)?;
 
+            let hash = oid.to_string();
+            let parent_count = commit.parent_count();
             let author = commit.author();
             let author_name = author.name().unwrap_or("Unknown").to_string();
             let author_email = author.email().unwrap_or("").to_string();
@@ -244,6 +246,8 @@ impl GitOperations for GitRepository {
                 .to_string();
 
             commits.push(CommitInfo {
+                hash,
+                parent_count,
                 author_name,
                 author_email,
                 timestamp,
@@ -252,6 +256,35 @@ impl GitOperations for GitRepository {
         }
 
         Ok(commits)
+    }
+
+    fn get_commit_line_stats(&self, hash: &str) -> Result<(usize, usize)> {
+        let commit = self
+            .repo
+            .revparse_single(hash)
+            .and_then(|obj| obj.peel_to_commit())
+            .map_err(|_| {
+                GcopError::InvalidInput(
+                    rust_i18n::t!("git.invalid_commit_hash", hash = hash).to_string(),
+                )
+            })?;
+
+        let commit_tree = commit.tree()?;
+        let parent_tree = if commit.parent_count() > 0 {
+            Some(commit.parent(0)?.tree()?)
+        } else {
+            None
+        };
+
+        let mut opts = DiffOptions::new();
+        let diff = self.repo.diff_tree_to_tree(
+            parent_tree.as_ref(),
+            Some(&commit_tree),
+            Some(&mut opts),
+        )?;
+
+        let stats = diff.stats()?;
+        Ok((stats.insertions(), stats.deletions()))
     }
 
     fn is_empty(&self) -> Result<bool> {

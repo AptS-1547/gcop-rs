@@ -19,6 +19,8 @@ fn create_test_commit(
     message: &str,
 ) -> CommitInfo {
     CommitInfo {
+        hash: "0000000000000000000000000000000000000000".to_string(),
+        parent_count: 1,
         author_name: author_name.to_string(),
         author_email: author_email.to_string(),
         timestamp: Local::now() - Duration::days(days_ago),

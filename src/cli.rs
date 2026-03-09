@@ -128,6 +128,10 @@ pub enum Commands {
         /// Filter by author name or email.
         #[arg(long)]
         author: Option<String>,
+
+        /// Show per-author line-level contribution statistics.
+        #[arg(long)]
+        contrib: bool,
     },
 
     /// Manage git hooks (prepare-commit-msg)

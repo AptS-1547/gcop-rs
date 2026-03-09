@@ -228,6 +228,7 @@ impl<'a> ReviewOptions<'a> {
 /// let options = StatsOptions {
 ///     format: OutputFormat::Markdown,
 ///     author: Some("alice@example.com"),
+///     contrib: false,
 /// };
 /// ```
 #[derive(Debug, Clone)]
@@ -237,6 +238,9 @@ pub struct StatsOptions<'a> {
 
     /// Filter by author
     pub author: Option<&'a str>,
+
+    /// Show line-level contribution statistics
+    pub contrib: bool,
 }
 
 impl<'a> StatsOptions<'a> {
@@ -249,10 +253,11 @@ impl<'a> StatsOptions<'a> {
     ///
     /// # Returns
     /// Constructed `StatsOptions` instance
-    pub fn from_cli(format: &str, json: bool, author: Option<&'a str>) -> Self {
+    pub fn from_cli(format: &str, json: bool, author: Option<&'a str>, contrib: bool) -> Self {
         Self {
             format: OutputFormat::from_cli(format, json),
             author,
+            contrib,
         }
     }
 
@@ -368,7 +373,7 @@ mod tests {
 
     #[test]
     fn test_stats_options() {
-        let opts = StatsOptions::from_cli("markdown", false, Some("author@example.com"));
+        let opts = StatsOptions::from_cli("markdown", false, Some("author@example.com"), false);
 
         assert_eq!(opts.format, OutputFormat::Markdown);
         assert_eq!(opts.author, Some("author@example.com"));

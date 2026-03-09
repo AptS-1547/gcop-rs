@@ -30,6 +30,10 @@ use mockall::automock;
 /// - `message`: commit message content
 #[derive(Debug, Clone)]
 pub struct CommitInfo {
+    /// Commit SHA hex string.
+    pub hash: String,
+    /// Number of parent commits (>1 means merge commit).
+    pub parent_count: usize,
     /// Commit author name.
     pub author_name: String,
     /// Commit author email.
@@ -232,6 +236,19 @@ pub trait GitOperations {
     /// - Only includes history reachable from the current branch HEAD.
     /// - Empty repositories return an empty list.
     fn get_commit_history(&self) -> Result<Vec<CommitInfo>>;
+
+    /// Returns line-level diff statistics for a single commit.
+    ///
+    /// Diffs the commit tree against its first parent (or empty tree for root commits).
+    /// Uses git2's native `Diff::stats()` for performance.
+    ///
+    /// # Parameters
+    /// - `hash`: commit SHA hex string
+    ///
+    /// # Returns
+    /// - `Ok((insertions, deletions))` - line counts
+    /// - `Err(_)` - commit not found or git error
+    fn get_commit_line_stats(&self, hash: &str) -> Result<(usize, usize)>;
 
     /// Checks whether the repository has no commits.
     ///
