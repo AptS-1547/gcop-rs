@@ -235,20 +235,14 @@ impl RepoStats {
 /// querying each commit individually via git2.
 pub fn compute_contrib_stats(
     commits: &[CommitInfo],
-    _git: &dyn GitOperations,
+    git: &dyn GitOperations,
     author_filter: Option<&str>,
 ) -> Result<ContribStats> {
     use std::collections::HashMap;
     use std::process::Command;
 
     // Get repository workdir for running git command
-    // Use git2::Repository::discover to find the repo from current directory
-    let repo = git2::Repository::discover(".")
-        .map_err(|e| crate::error::GcopError::Git(crate::error::GitErrorWrapper(e)))?;
-
-    let workdir = repo
-        .workdir()
-        .ok_or_else(|| crate::error::GcopError::GitCommand("bare repository".to_string()))?;
+    let workdir = git.get_workdir()?;
 
     // Run git log --numstat to get all commit stats in one go
     // Format: hash|author_name|author_email|parent_count

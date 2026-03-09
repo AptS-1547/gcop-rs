@@ -275,6 +275,13 @@ pub trait GitOperations {
     ///
     /// Equivalent to `git add <files>`.
     fn stage_files(&self, files: &[String]) -> Result<()>;
+
+    /// Returns the repository working directory path.
+    ///
+    /// # Returns
+    /// - `Ok(path)` - absolute path to the repository working directory
+    /// - `Err(_)` - bare repository or git operation failed
+    fn get_workdir(&self) -> Result<PathBuf>;
 }
 
 /// Diff statistics.

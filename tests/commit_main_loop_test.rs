@@ -137,6 +137,10 @@ impl GitOperations for MockGitOps {
     fn stage_files(&self, _files: &[String]) -> Result<()> {
         Ok(())
     }
+
+    fn get_workdir(&self) -> Result<std::path::PathBuf> {
+        Ok(std::path::PathBuf::from("/tmp/test"))
+    }
 }
 
 // === Mock LLMProvider ===

@@ -322,10 +322,7 @@ impl GitOperations for GitRepository {
     fn unstage_all(&self) -> Result<()> {
         use std::process::Command;
 
-        let workdir = self
-            .repo
-            .workdir()
-            .ok_or_else(|| crate::error::GcopError::GitCommand("bare repository".to_string()))?;
+        let workdir = self.get_workdir()?;
 
         if self.is_empty()? {
             // Empty repo: no HEAD to reset to, use git rm --cached
@@ -361,10 +358,7 @@ impl GitOperations for GitRepository {
             return Ok(());
         }
 
-        let workdir = self
-            .repo
-            .workdir()
-            .ok_or_else(|| crate::error::GcopError::GitCommand("bare repository".to_string()))?;
+        let workdir = self.get_workdir()?;
 
         let output = Command::new("git")
             .current_dir(workdir)
@@ -380,6 +374,13 @@ impl GitOperations for GitRepository {
             ));
         }
         Ok(())
+    }
+
+    fn get_workdir(&self) -> Result<std::path::PathBuf> {
+        self.repo
+            .workdir()
+            .ok_or_else(|| crate::error::GcopError::GitCommand("bare repository".to_string()))
+            .map(|p| p.to_path_buf())
     }
 }
 
