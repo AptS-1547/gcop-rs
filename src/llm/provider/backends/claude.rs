@@ -61,10 +61,9 @@ impl CacheControl {
 ///
 /// Use the Anthropic Claude API to generate commit messages and code reviews.
 ///
-/// # Supported models
-/// - `claude-sonnet-4-5-20250929` (recommended, default)
-/// - `claude-opus-4-20241229`
-/// - `claude-haiku-4-20250110`
+/// # Model compatibility
+/// `gcop-rs` does not hardcode a Claude model allowlist.
+/// Any Anthropic Messages compatible model can be configured.
 ///
 /// # Configuration example
 /// ```toml
@@ -74,7 +73,7 @@ impl CacheControl {
 /// [llm.providers.claude]
 /// api_key = "sk-ant-..."
 /// model = "claude-sonnet-4-5-20250929"
-/// endpoint = "https://api.anthropic.com" # optional
+/// endpoint = "https://api.anthropic.com" # optional base URL or full request path
 /// max_tokens = 1000 # optional
 /// temperature = 0.7 # optional
 /// ```
@@ -82,6 +81,8 @@ impl CacheControl {
 /// # Configuration method
 ///
 /// Set `api_key` and optional `endpoint` in `config.toml`.
+/// `endpoint` may be either a base URL (for example `https://api.anthropic.com`)
+/// or a full `/v1/messages` path.
 /// Use the `GCOP_CI_API_KEY` and `GCOP_CI_ENDPOINT` environment variables in CI mode.
 ///
 /// # Features

@@ -11,6 +11,8 @@ gcop-rs commit [OPTIONS] [FEEDBACK...]
 
 Analyzes your staged changes, generates an AI commit message (conventional by default, configurable via `commit.convention`), and creates a git commit after your approval.
 
+With `--amend`, gcop-rs rewrites the latest commit message instead of creating a new commit. If staged changes exist, they are included in the amended commit; otherwise gcop-rs regenerates the message from the current `HEAD` commit diff.
+
 When `--split` is enabled (or `[commit].split = true` in config), gcop-rs groups staged files into multiple atomic commits and commits them sequentially.
 
 **Options**:
@@ -23,6 +25,7 @@ When `--split` is enabled (or `[commit].split = true` in config), gcop-rs groups
 | `--yes`, `-y` | Skip confirmation menu and accept generated message |
 | `--dry-run`, `-d` | Only generate and print commit message, do not commit |
 | `--split`, `-s` | Split staged changes into multiple atomic commits |
+| `--amend` | Amend the latest commit with a newly generated message |
 | `--provider <NAME>`, `-p` | Use specific provider (overrides default) |
 
 **Feedback (optional)**:
@@ -50,6 +53,8 @@ In split mode, gcop-rs asks the LLM to group staged files into atomic commit gro
 
 > **Note**: Split mode currently sends per-file diffs to the model and does not apply the global `[llm].max_diff_size` truncation cap.
 
+> **Note**: `--split` and `--amend` are mutually exclusive.
+
 **Interactive Actions**:
 
 In normal (non-split) mode, after generating a message, you'll see a menu:
@@ -76,6 +81,9 @@ gcop-rs commit --provider openai
 
 # Atomic split commits
 gcop-rs commit --split
+
+# Amend the latest commit message
+gcop-rs commit --amend
 
 # Verbose mode (see API calls)
 gcop-rs -v commit

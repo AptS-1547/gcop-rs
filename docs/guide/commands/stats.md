@@ -15,6 +15,7 @@ Analyzes commit history and reports:
 - recent weekly activity (last 4 weeks)
 - daily activity heatmap (last 30 days)
 - current and longest commit streak
+- optional per-author line-level contribution statistics (`--contrib`, merge commits excluded)
 
 **Options**:
 
@@ -23,6 +24,7 @@ Analyzes commit history and reports:
 | `--format <FORMAT>`, `-f` | Output format: `text` (default), `json`, or `markdown` |
 | `--json` | Shortcut for `--format json` |
 | `--author <NAME>` | Filter all statistics by author name or email |
+| `--contrib` | Include per-author line-level contribution statistics |
 
 **Examples**:
 
@@ -40,9 +42,15 @@ gcop-rs stats --format markdown > STATS.md
 # Filter by specific author
 gcop-rs stats --author "john"
 gcop-rs stats --author "john@example.com"
+
+# Include line-level contribution stats
+gcop-rs stats --contrib
+gcop-rs stats --author "john" --contrib
 ```
 
 > **Note**: In `json`/`markdown` formats, stats output is non-interactive (no step/spinner UI lines).
+
+> **Note**: `--contrib` computes line-level insert/delete stats per commit and skips merge commits.
 
 **Output Format (text)**:
 
@@ -99,6 +107,33 @@ gcop-rs stats --author "john@example.com"
     },
     "current_streak": 1,
     "longest_streak": 9
+  }
+}
+```
+
+**Output Format (json + contrib)**:
+
+```json
+{
+  "success": true,
+  "data": {
+    "total_commits": 170,
+    "contrib": {
+      "total_insertions": 4200,
+      "total_deletions": 1800,
+      "total_lines": 6000,
+      "merge_commits_skipped": 3,
+      "authors": [
+        {
+          "name": "AptS-1547",
+          "email": "esaps@esaps.net",
+          "insertions": 2800,
+          "deletions": 900,
+          "total": 3700,
+          "percentage": 61.67
+        }
+      ]
+    }
   }
 }
 ```

@@ -17,12 +17,10 @@ use crate::llm::StreamHandle;
 ///
 /// Use the OpenAI API (or a compatible API) to generate commit messages and code reviews.
 ///
-/// # Supported models
-/// - **OpenAI Official**:
-///   - `gpt-4` (recommended)
-///   - `gpt-4-turbo`
-///   - `gpt-3.5-turbo`
-/// - **Compatible with API** (such as Azure OpenAI, OpenRouter, etc.)
+/// # Model compatibility
+/// `gcop-rs` does not hardcode an OpenAI model allowlist.
+/// Any Chat Completions compatible model can be used, including third-party
+/// OpenAI-compatible services.
 ///
 /// # Configuration example
 /// ```toml
@@ -31,8 +29,8 @@ use crate::llm::StreamHandle;
 ///
 /// [llm.providers.openai]
 /// api_key = "sk-..."
-/// model = "gpt-4"
-/// endpoint = "https://api.openai.com" # optional
+/// model = "gpt-4o-mini"
+/// endpoint = "https://api.openai.com" # optional base URL or full request path
 /// max_tokens = 1000 # optional
 /// temperature = 0.7 # optional
 /// ```
@@ -40,6 +38,8 @@ use crate::llm::StreamHandle;
 /// # Configuration method
 ///
 /// Set `api_key` and optional `endpoint` in `config.toml`.
+/// `endpoint` may be either a base URL (for example `https://api.openai.com`)
+/// or a full chat-completions path.
 /// Use the `GCOP_CI_API_KEY` and `GCOP_CI_ENDPOINT` environment variables in CI mode.
 ///
 /// # Features
@@ -52,7 +52,7 @@ use crate::llm::StreamHandle;
 /// ```toml
 /// [llm.providers.openai]
 /// api_key = "your-azure-key"
-/// model = "gpt-4"
+/// model = "gpt-4o-mini"
 /// endpoint = "https://your-resource.openai.azure.com/v1/chat/completions"
 /// ```
 ///
@@ -64,7 +64,7 @@ use crate::llm::StreamHandle;
 /// # async fn example() -> anyhow::Result<()> {
 /// let config = ProviderConfig {
 ///     api_key: Some("sk-...".to_string()),
-///     model: "gpt-4".to_string(),
+///     model: "gpt-4o-mini".to_string(),
 ///     ..Default::default()
 /// };
 /// let network_config = NetworkConfig::default();

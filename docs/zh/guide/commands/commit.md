@@ -11,6 +11,8 @@ gcop-rs commit [OPTIONS] [FEEDBACK...]
 
 分析暂存的变更，使用 AI 生成提交信息（默认按 conventional，可通过 `commit.convention` 配置），并在你批准后创建 git 提交。
 
+使用 `--amend` 时，gcop-rs 不会创建新的提交，而是重写最近一次提交的信息。如果当前还有暂存改动，这些改动也会被纳入 amend；如果没有暂存改动，则会基于当前 `HEAD` 提交的 diff 重新生成提交信息。
+
 当启用 `--split`（或配置 `[commit].split = true`）时，gcop-rs 会先将暂存文件分组为多个原子提交，再按顺序执行提交。
 
 **选项**:
@@ -23,6 +25,7 @@ gcop-rs commit [OPTIONS] [FEEDBACK...]
 | `--yes`, `-y` | 跳过确认菜单并接受生成的信息 |
 | `--dry-run`, `-d` | 仅生成并输出提交信息，不实际提交 |
 | `--split`, `-s` | 将暂存变更拆分为多个原子提交 |
+| `--amend` | 使用新生成的信息 amend 最近一次提交 |
 | `--provider <NAME>`, `-p` | 使用特定的 provider（覆盖默认值） |
 
 **反馈（可选）**:
@@ -50,6 +53,8 @@ gcop-rs commit 用中文 并 保持 简洁
 
 > **注意**：split 模式当前按文件维度发送 diff，不应用全局 `[llm].max_diff_size` 截断上限。
 
+> **注意**：`--split` 与 `--amend` 不能同时使用。
+
 **交互式操作**:
 
 在普通模式（非 split）下，生成信息后你会看到一个菜单：
@@ -76,6 +81,9 @@ gcop-rs commit --provider openai
 
 # 原子拆分提交
 gcop-rs commit --split
+
+# amend 最近一次提交信息
+gcop-rs commit --amend
 
 # 详细模式（查看 API 调用）
 gcop-rs -v commit

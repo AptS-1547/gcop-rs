@@ -32,7 +32,9 @@ For Claude, OpenAI, and Gemini style providers, gcop-rs sends a minimal test req
 
 - A small prompt (`"test"`)
 - `max_tokens = 1` (minimal token cost)
-- Directly to the configured `endpoint`
+- To the provider's resolved validation endpoint
+  - Claude/OpenAI: the resolved request endpoint after suffix completion
+  - Gemini: `<base>/v1beta/models/{model}:generateContent`
 
 This confirms:
 
@@ -93,7 +95,7 @@ model = "gemini-3-flash-preview"
 [llm.providers.claude]
 api_style = "claude"
 api_key = "sk-ant-..."
-model = "claude-3-5-haiku-20241022"
+model = "claude-sonnet-4-5-20250929"
 
 [llm.providers.openai]
 api_style = "openai"
@@ -102,8 +104,8 @@ model = "gpt-4o-mini"
 
 [llm.providers.ollama]
 api_style = "ollama"
-endpoint = "http://localhost:11434/api/generate"
-model = "llama3"
+endpoint = "http://localhost:11434"
+model = "llama3.2"
 ```
 
 ## See Also

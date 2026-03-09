@@ -11,13 +11,9 @@ use crate::error::{GcopError, Result};
 ///
 /// Generate commit messages and code reviews using locally running Ollama models.
 ///
-/// # Supported models
-/// - `llama3.2` (recommended)
-/// - `llama3.1`
-/// - `codellama`
-/// - `qwen2.5-coder`
-/// - `deepseek-coder-v2`
-/// - Other Ollama supported models
+/// # Model compatibility
+/// Any installed Ollama model can be used.
+/// Common examples include `llama3.2`, `qwen2.5-coder`, and `deepseek-coder-v2`.
 ///
 /// # Configuration example
 /// ```toml
@@ -26,13 +22,14 @@ use crate::error::{GcopError, Result};
 ///
 /// [llm.providers.ollama]
 /// model = "llama3.2"
-/// endpoint = "http://localhost:11434" # Optional, default value
+/// endpoint = "http://localhost:11434" # Optional base URL or full /api/generate path
 /// temperature = 0.7 # optional
 /// ```
 ///
 /// # Configuration method
 ///
 /// Set optional `endpoint` in `config.toml` (default `http://localhost:11434`).
+/// `endpoint` may be either a base URL or a full `/api/generate` path.
 /// Ollama runs natively and requires no API key.
 /// Use the `GCOP_CI_ENDPOINT` environment variable in CI mode.
 ///

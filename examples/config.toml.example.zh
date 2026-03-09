@@ -17,12 +17,12 @@ model = "claude-sonnet-4-5-20250929"
 # OpenAI
 # [llm.providers.openai]
 # api_key = "sk-your-openai-key-here"
-# model = "gpt-4-turbo"
+# model = "gpt-4o-mini"
 
 # Ollama（本地部署，需先运行 ollama serve）
 # [llm.providers.ollama]
-# endpoint = "http://localhost:11434/api/generate"
-# model = "codellama:13b"
+# endpoint = "http://localhost:11434"   # 或完整的 /api/generate 路径
+# model = "llama3.2"
 
 # Gemini
 # [llm.providers.gemini]

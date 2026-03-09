@@ -88,7 +88,7 @@ pub enum Commands {
         #[arg(short, long)]
         force: bool,
 
-        /// Initialize `.gcop/config.toml` in the current repository root.
+        /// Initialize `.gcop/config.toml` at the current repository root.
         #[arg(long)]
         project: bool,
     },
@@ -170,10 +170,10 @@ pub enum ReviewTarget {
 #[derive(Subcommand)]
 /// Actions for the `config` command.
 pub enum ConfigAction {
-    /// Edit the configuration file.
+    /// Edit the user config file with syntax/schema checks.
     Edit,
 
-    /// Validate config and test provider-chain connectivity.
+    /// Validate merged config and test provider-chain connectivity.
     Validate,
 }
 

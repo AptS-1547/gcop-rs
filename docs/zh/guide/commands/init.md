@@ -15,14 +15,14 @@ gcop-rs init [OPTIONS]
 3. 设置安全文件权限（仅 Unix/Linux/macOS）
 4. 可选安装 git 别名
 
-使用 `--project` 可初始化仓库级配置（`.gcop/config.toml`），用于团队共享的非敏感设置。
+使用 `--project` 可在仓库根目录初始化仓库级配置（`.gcop/config.toml`），用于团队共享的非敏感设置。
 
 **选项**:
 
 | 选项 | 说明 |
 |------|------|
 | `--force`, `-f` | 强制覆盖已有配置文件 |
-| `--project` | 在当前 Git 仓库初始化项目级 `.gcop/config.toml` |
+| `--project` | 在当前 Git 仓库根目录初始化项目级 `.gcop/config.toml` |
 
 > **注意**：如果当前目录不在 Git 仓库中，`--project` 会回退到当前目录，并创建 `./.gcop/config.toml`。
 
@@ -65,7 +65,7 @@ $ gcop-rs init --project
 
 **创建的内容**:
 - `gcop-rs init`（默认）：平台特定位置的用户配置（来自 `examples/config.toml.example`）
-- `gcop-rs init --project`：仓库级配置 `.gcop/config.toml`（来自 `examples/project-config.toml.example`）
+- `gcop-rs init --project`：仓库根目录下的 `.gcop/config.toml`（来自 `examples/project-config.toml.example`）
 - Git 别名写入 `~/.gitconfig`（仅默认交互模式，且你选择安装时）
 
 **何时使用**: 首次设置或从头重新配置时。
