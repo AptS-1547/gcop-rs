@@ -266,7 +266,9 @@ pub fn compute_contrib_stats(
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         // Empty repository is not an error, just return empty stats
-        if stderr.contains("does not have any commits yet") || stderr.contains("bad default revision") {
+        if stderr.contains("does not have any commits yet")
+            || stderr.contains("bad default revision")
+        {
             return Ok(ContribStats {
                 total_insertions: 0,
                 total_deletions: 0,
