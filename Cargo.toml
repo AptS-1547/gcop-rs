@@ -1,6 +1,6 @@
 [package]
 name = "gcop-rs"
-version = "0.13.7"
+version = "0.13.8"
 edition = "2024"
 rust-version = "1.88.0"
 license = "MIT"
@@ -61,12 +61,12 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sys-locale = "0.3"
 thiserror = "2.0"
-tokio = { version = "1.49", features = ["rt-multi-thread", "macros", "sync", "time"] }
+tokio = { version = "1.50", features = ["rt-multi-thread", "macros", "sync", "time"] }
 toml = "1.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
 mockall = { version = "0.14", optional = true }  # 测试工具
-which = "8.0.0"
+which = "8.0.2"
 edit = { version = "0.1.5", features = ["better-path", "quoted-env"] }
 serde_yaml_ng = "0.10.0"
 human-panic = "2.0.6"

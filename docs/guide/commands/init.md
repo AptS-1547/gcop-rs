@@ -15,14 +15,14 @@ By default, `gcop-rs init` runs an interactive user-level setup that guides you 
 3. Setting secure file permissions (Unix/Linux/macOS only)
 4. Optionally installing git aliases
 
-Use `--project` to initialize a repository-level config (`.gcop/config.toml`) for team-shared, non-secret settings.
+Use `--project` to initialize a repository-level config (`.gcop/config.toml` at the repository root) for team-shared, non-secret settings.
 
 **Options**:
 
 | Option | Description |
 |--------|-------------|
 | `--force`, `-f` | Force overwrite existing config |
-| `--project` | Initialize project-level `.gcop/config.toml` in the current git repository |
+| `--project` | Initialize project-level `.gcop/config.toml` at the current git repository root |
 
 > **Note**: If no git repository is detected, `--project` falls back to the current directory and creates `./.gcop/config.toml`.
 
@@ -65,7 +65,7 @@ $ gcop-rs init --project
 
 **What it creates**:
 - `gcop-rs init` (default): user config at platform-specific location (from `examples/config.toml.example`)
-- `gcop-rs init --project`: repository config at `.gcop/config.toml` (from `examples/project-config.toml.example`)
+- `gcop-rs init --project`: repository-root config at `.gcop/config.toml` (from `examples/project-config.toml.example`)
 - Git aliases in `~/.gitconfig` (only for default interactive mode, if you choose to install them)
 
 **When to use**: First time setup or when reconfiguring from scratch.

@@ -15,6 +15,7 @@ gcop-rs stats [OPTIONS]
 - 最近 4 周活动
 - 最近 30 天提交热力图
 - 当前连续提交天数与最长连续提交天数
+- 可选的按作者统计的代码行级贡献数据（`--contrib`，会跳过 merge commit）
 
 **选项**:
 
@@ -23,6 +24,7 @@ gcop-rs stats [OPTIONS]
 | `--format <FORMAT>`, `-f` | 输出格式: `text`（默认）、`json` 或 `markdown` |
 | `--json` | `--format json` 的快捷方式 |
 | `--author <NAME>` | 按作者名称或邮箱过滤全部统计结果 |
+| `--contrib` | 额外输出按作者汇总的行级贡献统计 |
 
 **示例**:
 
@@ -40,9 +42,15 @@ gcop-rs stats --format markdown > STATS.md
 # 按特定作者过滤
 gcop-rs stats --author "john"
 gcop-rs stats --author "john@example.com"
+
+# 包含行级贡献统计
+gcop-rs stats --contrib
+gcop-rs stats --author "john" --contrib
 ```
 
 > **注意**：`json`/`markdown` 格式为非交互输出，不会显示步骤提示或转圈 UI 行。
+
+> **注意**：`--contrib` 会按 commit 计算插入/删除行数，并跳过 merge commit。
 
 **输出格式 (text)**:
 
@@ -99,6 +107,33 @@ gcop-rs stats --author "john@example.com"
     },
     "current_streak": 1,
     "longest_streak": 9
+  }
+}
+```
+
+**输出格式 (json + contrib)**:
+
+```json
+{
+  "success": true,
+  "data": {
+    "total_commits": 170,
+    "contrib": {
+      "total_insertions": 4200,
+      "total_deletions": 1800,
+      "total_lines": 6000,
+      "merge_commits_skipped": 3,
+      "authors": [
+        {
+          "name": "AptS-1547",
+          "email": "esaps@esaps.net",
+          "insertions": 2800,
+          "deletions": 900,
+          "total": 3700,
+          "percentage": 61.67
+        }
+      ]
+    }
   }
 }
 ```

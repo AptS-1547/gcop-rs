@@ -22,7 +22,7 @@ gcop-rs 支持两级 TOML 配置来源：
 |------|------|
 | 项目 | `<repo>/.gcop/config.toml` |
 
-`gcop-rs` 会从当前目录向上查找，遇到最近的 `.git` 边界即停止。
+`gcop-rs` 会先沿当前目录向上找到最近的 `.git` 边界作为仓库根目录，然后只读取该根目录下的 `<repo>/.gcop/config.toml`。
 
 ### 生效优先级（高 → 低）
 
@@ -44,7 +44,7 @@ gcop-rs init --project   # 可选：为团队共享设置创建 .gcop/config.tom
 ```
 
 `gcop-rs init` 会在平台对应位置创建用户级配置。
-`gcop-rs init --project` 会在当前仓库创建 `.gcop/config.toml`。
+`gcop-rs init --project` 会在当前 Git 仓库根目录创建 `.gcop/config.toml`。
 
 **手动设置：**
 
@@ -93,7 +93,7 @@ max_diff_size = 102400  # 截断前的最大 diff 字节数（适用于 commit/r
 # Claude Provider
 [llm.providers.claude]
 api_key = "sk-ant-your-key"
-endpoint = "https://api.anthropic.com/v1/messages"
+endpoint = "https://api.anthropic.com"
 model = "claude-sonnet-4-5-20250929"
 temperature = 0.3
 max_tokens = 2000
@@ -101,14 +101,14 @@ max_tokens = 2000
 # OpenAI Provider
 [llm.providers.openai]
 api_key = "sk-your-openai-key"
-endpoint = "https://api.openai.com/v1/chat/completions"
-model = "gpt-4-turbo"
+endpoint = "https://api.openai.com"
+model = "gpt-4o-mini"
 temperature = 0.3
 
 # Ollama Provider（本地）
 [llm.providers.ollama]
-endpoint = "http://localhost:11434/api/generate"
-model = "codellama:13b"
+endpoint = "http://localhost:11434"
+model = "llama3.2"
 
 # Gemini Provider
 [llm.providers.gemini]
@@ -178,12 +178,14 @@ scope_mappings = { "packages/core" = "core", "packages/ui" = "ui" }
 | 选项 | 类型 | 必需 | 说明 |
 |------|------|------|------|
 | `api_style` | String | 否 | API 风格：`"claude"`、`"openai"`、`"ollama"` 或 `"gemini"`（未设置时默认使用 provider 名称） |
-| `api_key` | String | 是* | API key（*Ollama 不需要） |
-| `endpoint` | String | 否 | API 端点（未设置时使用默认值） |
+| `api_key` | String | 是* | 在实例化或验证 provider 时使用的 API key（*Ollama 不需要） |
+| `endpoint` | String | 否 | 自定义端点或基础 URL。Claude/OpenAI/Ollama 可填写基础 URL 或完整请求路径；Gemini 需要填写基础 URL，因为 gcop-rs 会基于 `model` 自动拼接最终请求路径 |
 | `model` | String | 是 | 模型名称 |
 | `temperature` | Float | 否 | 温度参数（0.0-2.0）。Claude/OpenAI/Gemini 风格默认 0.3；Ollama 未设置时使用模型默认值 |
 | `max_tokens` | Integer | 否 | 最大响应 token 数。Claude 风格默认 2000；OpenAI 风格仅在设置时发送；Ollama 当前会忽略该字段 |
 | `extra` | Object | 否 | 额外 provider 参数。未知键会保留；同时会兼容性读取其中的 `max_tokens` / `temperature` |
+
+`gcop-rs` 不会内置模型白名单；只要模型兼容所选 API 形态，就可以直接配置。
 
 ### Commit 设置
 

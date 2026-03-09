@@ -17,6 +17,10 @@ use crate::llm::StreamHandle;
 ///
 /// Generate commit messages and code reviews using the Google Gemini API.
 ///
+/// # Model compatibility
+/// `gcop-rs` does not hardcode a Gemini model allowlist.
+/// Any model compatible with the GenerateContent API shape can be used.
+///
 /// # Configuration example
 /// ```toml
 /// [llm]
@@ -25,7 +29,7 @@ use crate::llm::StreamHandle;
 /// [llm.providers.gemini]
 /// api_key = "AIza..."
 /// model = "gemini-3-flash-preview"
-/// endpoint = "https://generativelanguage.googleapis.com" # Optional
+/// endpoint = "https://generativelanguage.googleapis.com" # Optional base URL
 /// max_tokens = 2000 # optional
 /// temperature = 0.3 # optional
 /// ```
@@ -33,7 +37,7 @@ use crate::llm::StreamHandle;
 /// # Features
 /// - Supports streaming responses (SSE)
 /// - Automatic retry (exponential backoff)
-/// - Custom endpoints
+/// - Custom base URLs
 pub struct GeminiProvider {
     name: String,
     client: Client,
@@ -110,6 +114,9 @@ struct GeminiResponsePart {
 
 impl GeminiProvider {
     /// Builds a Gemini provider from runtime configuration.
+    ///
+    /// `config.endpoint` is treated as a base URL. Request paths are derived
+    /// from the configured `model`.
     pub fn new(
         config: &ProviderConfig,
         provider_name: &str,

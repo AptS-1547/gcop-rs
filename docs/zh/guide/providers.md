@@ -2,6 +2,8 @@
 
 gcop-rs 支持多个 LLM provider。你可以使用内置 provider 或添加自定义 provider。
 
+`gcop-rs` 不会内置模型白名单；下面列出的模型只是常见示例，不代表穷尽列表或内建校验列表。
+
 ## 内置 Providers
 
 ### Claude (Anthropic)
@@ -16,7 +18,7 @@ max_tokens = 2000
 
 **获取 API Key**: https://console.anthropic.com/
 
-**可用模型**：
+**示例模型**：
 - `claude-sonnet-4-5-20250929`（推荐）
 - `claude-opus-4-5-20251101`（最强大）
 - `claude-3-5-sonnet-20241022`（旧版）
@@ -26,23 +28,23 @@ max_tokens = 2000
 ```toml
 [llm.providers.openai]
 api_key = "sk-your-openai-key"
-model = "gpt-4-turbo"
+model = "gpt-4o-mini"
 temperature = 0.3
 ```
 
 **获取 API Key**: https://platform.openai.com/
 
-**可用模型**：
-- `gpt-4-turbo`
-- `gpt-4`
-- `gpt-3.5-turbo`
+**示例模型**：
+- `gpt-4o-mini`（对应内置 CI 默认值）
+- `gpt-4o`
+- 任意兼容 Chat Completions 的 OpenAI 或兼容服务模型
 
 ### Ollama（本地）
 
 ```toml
 [llm.providers.ollama]
-endpoint = "http://localhost:11434/api/generate"
-model = "codellama:13b"
+endpoint = "http://localhost:11434"
+model = "llama3.2"
 ```
 
 **设置**：
@@ -51,13 +53,13 @@ model = "codellama:13b"
 curl https://ollama.ai/install.sh | sh
 
 # 拉取模型
-ollama pull codellama:13b
+ollama pull llama3.2
 
 # 启动服务
 ollama serve
 ```
 
-**可用模型**: Ollama 中的任意模型（codellama、llama2、mistral 等）
+**示例模型**: Ollama 中的任意模型（如 `llama3.2`、`qwen2.5-coder`、`deepseek-coder-v2` 等）
 
 ### Gemini（Google）
 
@@ -70,7 +72,7 @@ temperature = 0.3
 
 **获取 API Key**: https://ai.google.dev/
 
-**可用模型**：
+**示例模型**：
 - `gemini-3-flash-preview`（推荐默认）
 - `gemini-2.5-flash`
 - `gemini-2.5-pro`
@@ -134,6 +136,11 @@ model = "custom-model"
 | `"gemini"` | Google Gemini GenerateContent API | Gemini 以及兼容 Gemini 的端点 |
 
 如果未指定 `api_style`，默认使用 provider 名称（用于向后兼容内置 providers）。
+
+## Endpoint 规则
+
+- Claude、OpenAI 和 Ollama 的 `endpoint` 可以填写基础 URL，也可以直接填写完整请求路径。
+- Gemini 的 `endpoint` 需要填写基础 URL；gcop-rs 会基于这个基础 URL 自动拼出 `/v1beta/models/{model}:generateContent`。
 
 ## 切换 Providers
 

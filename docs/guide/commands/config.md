@@ -13,7 +13,7 @@ If no subcommand is provided, it defaults to `gcop-rs config edit`.
 
 ## `config edit`
 
-Open configuration file in your default editor with validation.
+Open the user-level configuration file in your default editor with syntax/schema checks.
 
 **Usage**:
 ```bash
@@ -22,7 +22,7 @@ gcop-rs config edit
 
 **Opens**: User-level config file (platform-specific location) in `$VISUAL` / `$EDITOR` (platform default if not set)
 
-**Validation**: After saving, the configuration is automatically validated (like `visudo`). If validation fails, you'll see a menu:
+**Validation**: After saving, gcop-rs parses the edited file and deserializes it into the config schema. It does not test provider connectivity or merged file/env/CI precedence. If parsing/deserialization fails, you'll see a menu:
 
 ```
 ✗ Config validation failed: TOML parse error...
@@ -37,7 +37,7 @@ gcop-rs config edit
 
 **When to use**: Modify API keys, models, or custom prompts.
 
-> **Tip**: Always use `gcop-rs config edit` instead of editing the config file directly to benefit from automatic validation.
+> **Tip**: Use `gcop-rs config edit` for safe syntax/schema checks, and `gcop-rs config validate` when you want full merged-config plus provider connectivity validation.
 
 ## `config validate`
 

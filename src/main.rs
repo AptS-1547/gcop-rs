@@ -125,8 +125,10 @@ fn main() -> Result<()> {
                 ref format,
                 json,
                 ref author,
+                contrib,
             } => {
-                let options = commands::StatsOptions::from_cli(format, json, author.as_deref());
+                let options =
+                    commands::StatsOptions::from_cli(format, json, author.as_deref(), contrib);
                 if let Err(e) = commands::stats::run(&options, config.ui.colored) {
                     if options.format.is_json() {
                         // JSON errors have been printed inside the stats command
@@ -282,6 +284,9 @@ fn parse_cli_localized() -> Result<Cli> {
                 })
                 .mut_arg("author", |arg| {
                     arg.help(rust_i18n::t!("cli.stats.author").to_string())
+                })
+                .mut_arg("contrib", |arg| {
+                    arg.help(rust_i18n::t!("cli.stats.contrib").to_string())
                 })
         })
         .mut_subcommand("hook", |cmd| {

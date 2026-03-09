@@ -21,15 +21,21 @@ use mockall::automock;
 
 /// Git commit metadata.
 ///
-/// Contains author information, timestamp, and message summary.
+/// Contains commit hash, parent information, author details, timestamp, and message summary.
 ///
 /// # Fields
+/// - `hash`: commit SHA hex string
+/// - `parent_count`: number of parent commits (>1 means merge commit)
 /// - `author_name`: author name
 /// - `author_email`: author email address
 /// - `timestamp`: commit timestamp (local timezone)
-/// - `message`: commit message content
+/// - `message`: first line of commit message
 #[derive(Debug, Clone)]
 pub struct CommitInfo {
+    /// Commit SHA hex string.
+    pub hash: String,
+    /// Number of parent commits (>1 means merge commit).
+    pub parent_count: usize,
     /// Commit author name.
     pub author_name: String,
     /// Commit author email.
@@ -233,6 +239,19 @@ pub trait GitOperations {
     /// - Empty repositories return an empty list.
     fn get_commit_history(&self) -> Result<Vec<CommitInfo>>;
 
+    /// Returns line-level diff statistics for a single commit.
+    ///
+    /// Diffs the commit tree against its first parent (or empty tree for root commits).
+    /// Uses git2's native `Diff::stats()` for performance.
+    ///
+    /// # Parameters
+    /// - `hash`: commit SHA hex string
+    ///
+    /// # Returns
+    /// - `Ok((insertions, deletions))` - line counts
+    /// - `Err(_)` - commit not found or git error
+    fn get_commit_line_stats(&self, hash: &str) -> Result<(usize, usize)>;
+
     /// Checks whether the repository has no commits.
     ///
     /// # Returns
@@ -256,6 +275,13 @@ pub trait GitOperations {
     ///
     /// Equivalent to `git add <files>`.
     fn stage_files(&self, files: &[String]) -> Result<()>;
+
+    /// Returns the repository working directory path.
+    ///
+    /// # Returns
+    /// - `Ok(path)` - absolute path to the repository working directory
+    /// - `Err(_)` - bare repository or git operation failed
+    fn get_workdir(&self) -> Result<PathBuf>;
 }
 
 /// Diff statistics.

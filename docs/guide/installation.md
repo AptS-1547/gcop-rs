@@ -2,7 +2,7 @@
 
 ## System Requirements
 
-- **Rust**: 1.93.0 or higher (Rust 2024 edition)
+- **Rust**: 1.88.0 or higher (Rust 2024 edition)
 - **Git**: 2.0 or higher
 - **Operating System**: Linux, macOS, or Windows
 

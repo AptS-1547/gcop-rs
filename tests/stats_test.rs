@@ -19,6 +19,8 @@ fn create_test_commit(
     message: &str,
 ) -> CommitInfo {
     CommitInfo {
+        hash: "0000000000000000000000000000000000000000".to_string(),
+        parent_count: 1,
         author_name: author_name.to_string(),
         author_email: author_email.to_string(),
         timestamp: Local::now() - Duration::days(days_ago),
@@ -199,4 +201,81 @@ fn test_repo_stats_days_span_single_day() {
     let stats = RepoStats::from_commits(&commits, None);
 
     assert_eq!(stats.days_span(), Some(0)); // 同一天
+}
+
+// === Streak 测试 ===
+
+#[test]
+fn test_repo_stats_current_streak_from_today() {
+    let commits = vec![
+        create_test_commit("Alice", "alice@example.com", 0, "today"),
+        create_test_commit("Alice", "alice@example.com", 1, "yesterday"),
+        create_test_commit("Alice", "alice@example.com", 2, "2 days ago"),
+        create_test_commit("Alice", "alice@example.com", 5, "gap"),
+    ];
+
+    let stats = RepoStats::from_commits(&commits, None);
+    assert_eq!(stats.current_streak, 3);
+}
+
+#[test]
+fn test_repo_stats_current_streak_from_yesterday() {
+    let commits = vec![
+        create_test_commit("Alice", "alice@example.com", 1, "yesterday"),
+        create_test_commit("Alice", "alice@example.com", 2, "2 days ago"),
+        create_test_commit("Alice", "alice@example.com", 5, "gap"),
+    ];
+
+    let stats = RepoStats::from_commits(&commits, None);
+    assert_eq!(stats.current_streak, 2);
+}
+
+#[test]
+fn test_repo_stats_longest_streak() {
+    let commits = vec![
+        create_test_commit("Alice", "alice@example.com", 1, "recent"),
+        create_test_commit("Alice", "alice@example.com", 2, "recent"),
+        create_test_commit("Alice", "alice@example.com", 10, "old 1"),
+        create_test_commit("Alice", "alice@example.com", 11, "old 2"),
+        create_test_commit("Alice", "alice@example.com", 12, "old 3"),
+        create_test_commit("Alice", "alice@example.com", 13, "old 4"),
+    ];
+
+    let stats = RepoStats::from_commits(&commits, None);
+    assert_eq!(stats.longest_streak, 4);
+}
+
+#[test]
+fn test_repo_stats_streak_no_commits_today_or_yesterday() {
+    let commits = vec![create_test_commit("Alice", "alice@example.com", 5, "old")];
+
+    let stats = RepoStats::from_commits(&commits, None);
+    assert_eq!(stats.current_streak, 0);
+}
+
+// === Daily commits 测试 ===
+
+#[test]
+fn test_repo_stats_commits_by_day() {
+    let commits = vec![
+        create_test_commit("Alice", "alice@example.com", 0, "today 1"),
+        create_test_commit("Alice", "alice@example.com", 0, "today 2"),
+        create_test_commit("Alice", "alice@example.com", 1, "yesterday"),
+        create_test_commit("Alice", "alice@example.com", 50, "too old"),
+    ];
+
+    let stats = RepoStats::from_commits(&commits, None);
+
+    // 应该初始化最近 30 天
+    assert_eq!(stats.commits_by_day.len(), 30);
+
+    // 今天应该有 2 个 commit
+    let today = Local::now().date_naive();
+    let today_key = today.format("%Y-%m-%d").to_string();
+    assert_eq!(stats.commits_by_day.get(&today_key), Some(&2));
+
+    // 昨天应该有 1 个 commit
+    let yesterday = today - Duration::days(1);
+    let yesterday_key = yesterday.format("%Y-%m-%d").to_string();
+    assert_eq!(stats.commits_by_day.get(&yesterday_key), Some(&1));
 }

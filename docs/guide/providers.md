@@ -2,6 +2,8 @@
 
 gcop-rs supports multiple LLM providers. You can use built-in providers or add custom ones.
 
+`gcop-rs` does not hardcode model allowlists. The examples below are common choices, not an exhaustive or validated list.
+
 ## Built-in Providers
 
 ### Claude (Anthropic)
@@ -16,7 +18,7 @@ max_tokens = 2000
 
 **Get API Key**: https://console.anthropic.com/
 
-**Available Models**:
+**Example Models**:
 - `claude-sonnet-4-5-20250929` (recommended)
 - `claude-opus-4-5-20251101` (most powerful)
 - `claude-3-5-sonnet-20241022` (older version)
@@ -26,23 +28,23 @@ max_tokens = 2000
 ```toml
 [llm.providers.openai]
 api_key = "sk-your-openai-key"
-model = "gpt-4-turbo"
+model = "gpt-4o-mini"
 temperature = 0.3
 ```
 
 **Get API Key**: https://platform.openai.com/
 
-**Available Models**:
-- `gpt-4-turbo`
-- `gpt-4`
-- `gpt-3.5-turbo`
+**Example Models**:
+- `gpt-4o-mini` (matches the built-in CI default)
+- `gpt-4o`
+- Any Chat Completions compatible model from OpenAI or a compatible service
 
 ### Ollama (Local)
 
 ```toml
 [llm.providers.ollama]
-endpoint = "http://localhost:11434/api/generate"
-model = "codellama:13b"
+endpoint = "http://localhost:11434"
+model = "llama3.2"
 ```
 
 **Setup**:
@@ -51,13 +53,13 @@ model = "codellama:13b"
 curl https://ollama.ai/install.sh | sh
 
 # Pull a model
-ollama pull codellama:13b
+ollama pull llama3.2
 
 # Start server
 ollama serve
 ```
 
-**Available Models**: Any model available in Ollama (codellama, llama2, mistral, etc.)
+**Example Models**: Any model available in Ollama (`llama3.2`, `qwen2.5-coder`, `deepseek-coder-v2`, etc.)
 
 ### Gemini (Google)
 
@@ -70,7 +72,7 @@ temperature = 0.3
 
 **Get API Key**: https://ai.google.dev/
 
-**Available Models**:
+**Example Models**:
 - `gemini-3-flash-preview` (recommended default)
 - `gemini-2.5-flash`
 - `gemini-2.5-pro`
@@ -134,6 +136,11 @@ The `api_style` parameter determines which API implementation to use:
 | `"gemini"` | Google Gemini GenerateContent API | Gemini and Gemini-compatible endpoints |
 
 If `api_style` is not specified, it defaults to the provider name (for backward compatibility with built-in providers).
+
+## Endpoint Rules
+
+- Claude, OpenAI, and Ollama providers accept either a base URL or a full request path in `endpoint`.
+- Gemini expects a base URL in `endpoint`; gcop-rs derives `/v1beta/models/{model}:generateContent` from that base.
 
 ## Switching Providers
 

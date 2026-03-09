@@ -22,7 +22,7 @@ Team-shared config in your repository:
 |-------|----------|
 | Project | `<repo>/.gcop/config.toml` |
 
-`gcop-rs` searches upward from the current working directory and stops at the nearest `.git` boundary.
+`gcop-rs` resolves the repository root by walking upward to the nearest `.git` boundary, then reads only `<repo>/.gcop/config.toml` at that root.
 
 ### Effective Priority (High → Low)
 
@@ -44,7 +44,7 @@ gcop-rs init --project   # optional: create .gcop/config.toml for team-shared se
 ```
 
 `gcop-rs init` creates your user-level config at the correct platform-specific location.
-`gcop-rs init --project` creates `.gcop/config.toml` in the current repository.
+`gcop-rs init --project` creates `.gcop/config.toml` at the current Git repository root.
 
 **Manual setup:**
 
@@ -93,7 +93,7 @@ max_diff_size = 102400  # Max diff bytes before truncation (commit/review/hook n
 # Claude Provider
 [llm.providers.claude]
 api_key = "sk-ant-your-key"
-endpoint = "https://api.anthropic.com/v1/messages"
+endpoint = "https://api.anthropic.com"
 model = "claude-sonnet-4-5-20250929"
 temperature = 0.3
 max_tokens = 2000
@@ -101,14 +101,14 @@ max_tokens = 2000
 # OpenAI Provider
 [llm.providers.openai]
 api_key = "sk-your-openai-key"
-endpoint = "https://api.openai.com/v1/chat/completions"
-model = "gpt-4-turbo"
+endpoint = "https://api.openai.com"
+model = "gpt-4o-mini"
 temperature = 0.3
 
 # Ollama Provider (local)
 [llm.providers.ollama]
-endpoint = "http://localhost:11434/api/generate"
-model = "codellama:13b"
+endpoint = "http://localhost:11434"
+model = "llama3.2"
 
 # Gemini Provider
 [llm.providers.gemini]
@@ -178,12 +178,14 @@ Each provider under `[llm.providers.<name>]` supports:
 | Option | Type | Required | Description |
 |--------|------|----------|-------------|
 | `api_style` | String | No | API style: `"claude"`, `"openai"`, `"ollama"`, or `"gemini"` (defaults to provider name if not set) |
-| `api_key` | String | Yes* | API key (*not required for Ollama) |
-| `endpoint` | String | No | API endpoint (uses default if not set) |
+| `api_key` | String | Yes* | API key used when a provider is instantiated or validated (*not required for Ollama) |
+| `endpoint` | String | No | Custom endpoint/base URL. Claude/OpenAI/Ollama accept either a base URL or a full request path; Gemini expects a base URL because gcop-rs derives the final request path from `model` |
 | `model` | String | Yes | Model name |
 | `temperature` | Float | No | Temperature (0.0-2.0). Claude/OpenAI/Gemini-style defaults to 0.3; Ollama uses provider default when omitted |
 | `max_tokens` | Integer | No | Max response tokens. Claude-style defaults to 2000; OpenAI-style sends only if set; Ollama currently ignores this field |
 | `extra` | Object | No | Additional provider-specific keys. Unknown keys are preserved; `max_tokens`/`temperature` are also read from here as a compatibility fallback |
+
+`gcop-rs` does not hardcode a model allowlist. Any model compatible with the selected API shape can be configured.
 
 ### Commit Settings
 

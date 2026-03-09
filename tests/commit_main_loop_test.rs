@@ -118,6 +118,10 @@ impl GitOperations for MockGitOps {
         Ok(vec![])
     }
 
+    fn get_commit_line_stats(&self, _hash: &str) -> Result<(usize, usize)> {
+        Ok((0, 0))
+    }
+
     fn get_staged_files(&self) -> Result<Vec<String>> {
         if self.has_staged {
             Ok(vec!["test.rs".to_string()])
@@ -132,6 +136,10 @@ impl GitOperations for MockGitOps {
 
     fn stage_files(&self, _files: &[String]) -> Result<()> {
         Ok(())
+    }
+
+    fn get_workdir(&self) -> Result<std::path::PathBuf> {
+        Ok(std::path::PathBuf::from("/tmp/test"))
     }
 }
 

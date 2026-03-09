@@ -23,6 +23,38 @@ pub struct AuthorStats {
     pub commits: usize,
 }
 
+/// Per-author line-level contribution statistics
+#[derive(Debug, Clone, Serialize)]
+pub struct AuthorContribStats {
+    /// Author display name
+    pub name: String,
+    /// Author email
+    pub email: String,
+    /// Lines inserted
+    pub insertions: usize,
+    /// Lines deleted
+    pub deletions: usize,
+    /// Total lines changed (insertions + deletions)
+    pub total: usize,
+    /// Percentage of total contribution (0.0 - 100.0)
+    pub percentage: f64,
+}
+
+/// Aggregate contribution statistics for the repository
+#[derive(Debug, Clone, Serialize)]
+pub struct ContribStats {
+    /// Total lines inserted across all commits
+    pub total_insertions: usize,
+    /// Total lines deleted across all commits
+    pub total_deletions: usize,
+    /// Total lines changed (insertions + deletions)
+    pub total_lines: usize,
+    /// Number of merge commits excluded from calculation
+    pub merge_commits_skipped: usize,
+    /// Per-author contribution statistics (sorted by total descending)
+    pub authors: Vec<AuthorContribStats>,
+}
+
 /// Repository statistics
 #[derive(Debug, Clone, Serialize)]
 pub struct RepoStats {
@@ -44,6 +76,9 @@ pub struct RepoStats {
     pub current_streak: usize,
     /// Longest historical consecutive-day commit streak.
     pub longest_streak: usize,
+    /// Line-level contribution statistics (optional, enabled with --contrib flag)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub contrib: Option<ContribStats>,
 }
 
 impl RepoStats {
@@ -181,6 +216,7 @@ impl RepoStats {
             commits_by_day,
             current_streak,
             longest_streak,
+            contrib: None,
         }
     }
 
@@ -191,6 +227,148 @@ impl RepoStats {
             _ => None,
         }
     }
+}
+
+/// Compute per-author line-level contribution statistics.
+///
+/// Uses `git log --numstat` for fast batch processing instead of
+/// querying each commit individually via git2.
+pub fn compute_contrib_stats(
+    commits: &[CommitInfo],
+    git: &dyn GitOperations,
+    author_filter: Option<&str>,
+) -> Result<ContribStats> {
+    use std::collections::HashMap;
+    use std::process::Command;
+
+    // Get repository workdir for running git command
+    let workdir = git.get_workdir()?;
+
+    // Run git log --numstat to get all commit stats in one go
+    // Format: hash|author_name|author_email|parent_count
+    let output = Command::new("git")
+        .current_dir(workdir)
+        .args([
+            "log",
+            "--numstat",
+            "--pretty=format:%H|%an|%ae|%P", // hash|name|email|parents
+            "--no-merges",                   // Skip merge commits
+        ])
+        .output()
+        .map_err(|e| crate::error::GcopError::GitCommand(format!("git log failed: {}", e)))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        // Empty repository is not an error, just return empty stats
+        if stderr.contains("does not have any commits yet")
+            || stderr.contains("bad default revision")
+        {
+            return Ok(ContribStats {
+                total_insertions: 0,
+                total_deletions: 0,
+                total_lines: 0,
+                merge_commits_skipped: 0,
+                authors: vec![],
+            });
+        }
+        return Err(crate::error::GcopError::GitCommand(format!(
+            "git log failed: {}",
+            stderr.trim()
+        )));
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Parse git log output
+    let mut author_map: HashMap<String, (String, String, usize, usize)> = HashMap::new();
+    let mut current_author: Option<(String, String)> = None;
+
+    for line in stdout.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        // Check if this is a commit header line (contains | and has 40-char hex hash at start)
+        if trimmed.len() > 40 && trimmed.chars().take(40).all(|c| c.is_ascii_hexdigit()) {
+            // Commit header line: hash|name|email|parents
+            let parts: Vec<&str> = trimmed.split('|').collect();
+            if parts.len() >= 3 {
+                let name = parts[1].to_string();
+                let email = parts[2].to_string();
+                current_author = Some((name, email));
+            }
+        } else if trimmed.contains('\t') {
+            // Numstat line: insertions\tdeletions\tfilename
+            if let Some((ref name, ref email)) = current_author {
+                let parts: Vec<&str> = trimmed.split('\t').collect();
+                if parts.len() >= 2 {
+                    // Parse insertions and deletions (may be "-" for binary files)
+                    let ins = parts[0].parse::<usize>().unwrap_or(0);
+                    let del = parts[1].parse::<usize>().unwrap_or(0);
+
+                    let key = format!("{} <{}>", name, email);
+                    let entry = author_map
+                        .entry(key)
+                        .or_insert_with(|| (name.clone(), email.clone(), 0, 0));
+                    entry.2 += ins;
+                    entry.3 += del;
+                }
+            }
+        }
+    }
+
+    // Apply author filter if specified
+    if let Some(filter) = author_filter {
+        let filter_lower = filter.to_lowercase();
+        author_map.retain(|_, (name, email, _, _)| {
+            name.to_lowercase().contains(&filter_lower)
+                || email.to_lowercase().contains(&filter_lower)
+        });
+    }
+
+    let total_ins: usize = author_map.values().map(|v| v.2).sum();
+    let total_del: usize = author_map.values().map(|v| v.3).sum();
+    let total_lines = total_ins + total_del;
+
+    let mut authors: Vec<AuthorContribStats> = author_map
+        .into_values()
+        .map(|(name, email, ins, del)| {
+            let total = ins + del;
+            let percentage = if total_lines > 0 {
+                (total as f64 / total_lines as f64) * 100.0
+            } else {
+                0.0
+            };
+            AuthorContribStats {
+                name,
+                email,
+                insertions: ins,
+                deletions: del,
+                total,
+                percentage,
+            }
+        })
+        .collect();
+
+    // Sort by total (descending), then by name and email for stable ordering
+    authors.sort_by(|a, b| {
+        b.total
+            .cmp(&a.total)
+            .then_with(|| a.name.cmp(&b.name))
+            .then_with(|| a.email.cmp(&b.email))
+    });
+
+    // Count merge commits from original commit list
+    let merge_skipped = commits.iter().filter(|c| c.parent_count > 1).count();
+
+    Ok(ContribStats {
+        total_insertions: total_ins,
+        total_deletions: total_del,
+        total_lines,
+        merge_commits_skipped: merge_skipped,
+        authors,
+    })
 }
 
 /// Format week ID (e.g., "2025-W51")
@@ -257,6 +435,56 @@ fn pad_display(s: &str, target_width: usize) -> String {
     format!("{}{}", s, " ".repeat(padding))
 }
 
+/// Truncate text with middle ellipsis if it exceeds max_width
+///
+/// Examples:
+/// - "short@example.com" (max=30) -> "short@example.com"
+/// - "very-long-email-address@example.com" (max=30) -> "very-long-em…xample.com"
+fn truncate_middle(s: &str, max_width: usize) -> String {
+    let char_count = s.chars().count();
+
+    // No truncation needed
+    if char_count <= max_width {
+        return s.to_string();
+    }
+
+    // Need at least 4 chars + ellipsis
+    if max_width < 5 {
+        return s.chars().take(max_width).collect();
+    }
+
+    // Calculate how many chars to keep on each side
+    // Reserve 1 char for ellipsis
+    let keep_chars = max_width - 1;
+    let left_chars = keep_chars.div_ceil(2); // Round up for left side
+    let right_chars = keep_chars / 2;
+
+    let left: String = s.chars().take(left_chars).collect();
+    let right: String = s
+        .chars()
+        .rev()
+        .take(right_chars)
+        .collect::<String>()
+        .chars()
+        .rev()
+        .collect();
+
+    format!("{}…{}", left, right)
+}
+
+/// Format a number with thousand separators (e.g., 106309 -> "106,309")
+fn format_number(n: usize) -> String {
+    let s = n.to_string();
+    let mut result = String::new();
+    for (i, c) in s.chars().rev().enumerate() {
+        if i > 0 && i % 3 == 0 {
+            result.push(',');
+        }
+        result.push(c);
+    }
+    result.chars().rev().collect()
+}
+
 /// Generate ASCII histogram (with color)
 fn render_bar(count: usize, max_count: usize, max_width: usize, colored: bool) -> String {
     if max_count == 0 || count == 0 {
@@ -296,8 +524,14 @@ fn run_internal(options: &StatsOptions<'_>, colored: bool) -> Result<()> {
     let skip_ui = options.format.is_machine_readable();
     let effective_colored = options.effective_colored(colored);
 
+    let total_steps = if options.contrib { 3 } else { 2 };
+
     if !skip_ui {
-        ui::step("1/2", &rust_i18n::t!("stats.analyzing"), effective_colored);
+        ui::step(
+            &format!("1/{}", total_steps),
+            &rust_i18n::t!("stats.analyzing"),
+            effective_colored,
+        );
     }
     let commits = repo.get_commit_history()?;
 
@@ -310,12 +544,24 @@ fn run_internal(options: &StatsOptions<'_>, colored: bool) -> Result<()> {
 
     if !skip_ui {
         ui::step(
-            "2/2",
+            &format!("2/{}", total_steps),
             &rust_i18n::t!("stats.calculating"),
             effective_colored,
         );
     }
-    let stats = RepoStats::from_commits(&commits, options.author);
+    let mut stats = RepoStats::from_commits(&commits, options.author);
+
+    if options.contrib {
+        if !skip_ui {
+            ui::step(
+                &format!("3/{}", total_steps),
+                &rust_i18n::t!("stats.contrib_calculating"),
+                effective_colored,
+            );
+        }
+        let contrib = compute_contrib_stats(&commits, &repo, options.author)?;
+        stats.contrib = Some(contrib);
+    }
 
     // output
     match options.format {
@@ -371,11 +617,15 @@ fn output_text(stats: &RepoStats, colored: bool) {
             } else {
                 0.0
             };
+
+            // Truncate email if too long (max 40 chars for the whole "name <email>" part)
+            let name_email = format!("{} <{}>", author.name, author.email);
+            let truncated = truncate_middle(&name_email, 50);
+
             println!(
-                "    #{:<2} {} <{}>  {} {} ({:.1}%)",
+                "    #{:<2} {}  {} {} ({:.1}%)",
                 i + 1,
-                author.name,
-                author.email,
+                pad_display(&truncated, 50),
                 author.commits,
                 rust_i18n::t!("stats.commits"),
                 percentage
@@ -386,6 +636,57 @@ fn output_text(stats: &RepoStats, colored: bool) {
             println!(
                 "    {}",
                 rust_i18n::t!("stats.and_more", count = stats.authors.len() - 10)
+            );
+        }
+    }
+
+    // Contribution Statistics (line-level)
+    if let Some(ref contrib) = stats.contrib {
+        println!();
+        section_header(&rust_i18n::t!("stats.contrib_title"), colored);
+
+        if contrib.merge_commits_skipped > 0 {
+            println!(
+                "    {}",
+                rust_i18n::t!(
+                    "stats.contrib_merge_skipped",
+                    count = contrib.merge_commits_skipped
+                )
+            );
+        }
+
+        let bar_max_width = 24;
+        let max_total = contrib.authors.first().map(|a| a.total).unwrap_or(1);
+
+        for (i, author) in contrib.authors.iter().take(15).enumerate() {
+            let bar = render_bar(author.total, max_total, bar_max_width, colored);
+            let visible_bar_width = if max_total == 0 || author.total == 0 {
+                0
+            } else {
+                (author.total * bar_max_width) / max_total
+            };
+            let bar_padding = " ".repeat(bar_max_width - visible_bar_width);
+
+            // Truncate author display if too long
+            let author_display = format!("{} <{}>", author.name, author.email);
+            let truncated = truncate_middle(&author_display, 50);
+
+            println!(
+                "    #{:<2} {} {}{} {:>5.1}%  +{} / -{}",
+                i + 1,
+                pad_display(&truncated, 50),
+                bar,
+                bar_padding,
+                author.percentage,
+                format_number(author.insertions),
+                format_number(author.deletions),
+            );
+        }
+
+        if contrib.authors.len() > 15 {
+            println!(
+                "    {}",
+                rust_i18n::t!("stats.and_more", count = contrib.authors.len() - 15)
             );
         }
     }
@@ -402,6 +703,9 @@ fn output_text(stats: &RepoStats, colored: bool) {
         weeks.sort_by(|a, b| b.0.cmp(a.0));
 
         let bar_max_width = 20;
+        // 计算最大数字宽度用于对齐
+        let max_num_width = max_count.to_string().len();
+
         for (week, count) in weeks {
             let bar = render_bar(*count, max_count, bar_max_width, colored);
             let visible_width = if max_count == 0 || *count == 0 {
@@ -410,7 +714,14 @@ fn output_text(stats: &RepoStats, colored: bool) {
                 (*count * bar_max_width) / max_count
             };
             let padding = " ".repeat(bar_max_width - visible_width);
-            println!("    {}: {}{} {}", week, bar, padding, count);
+            println!(
+                "    {}: {}{} {:>width$}",
+                week,
+                bar,
+                padding,
+                count,
+                width = max_num_width
+            );
         }
     }
 
@@ -529,6 +840,41 @@ fn output_markdown(stats: &RepoStats, _colored: bool) {
                 author.email,
                 author.commits,
                 percentage
+            );
+        }
+    }
+
+    if let Some(ref contrib) = stats.contrib {
+        println!("\n{}\n", rust_i18n::t!("stats.md_contrib_title"));
+        println!(
+            "| {} | {} | {} | {} | {} |",
+            rust_i18n::t!("stats.md_rank"),
+            rust_i18n::t!("stats.md_name"),
+            rust_i18n::t!("stats.md_insertions"),
+            rust_i18n::t!("stats.md_deletions"),
+            rust_i18n::t!("stats.md_percent")
+        );
+        println!("|------|------|-------------|-------------|---|");
+
+        for (i, author) in contrib.authors.iter().take(15).enumerate() {
+            println!(
+                "| {} | {} <{}> | +{} | -{} | {:.1}% |",
+                i + 1,
+                author.name,
+                author.email,
+                format_number(author.insertions),
+                format_number(author.deletions),
+                author.percentage
+            );
+        }
+
+        if contrib.merge_commits_skipped > 0 {
+            println!(
+                "\n{}",
+                rust_i18n::t!(
+                    "stats.contrib_merge_skipped",
+                    count = contrib.merge_commits_skipped
+                )
             );
         }
     }

@@ -249,6 +249,15 @@ stats.md_streak: "## Commit Streak"
 stats.md_date: "Date"
 stats.md_day_commits: "Commits"
 
+# Stats contrib messages
+stats.contrib_title: "Contribution Statistics (by lines changed)"
+stats.contrib_calculating: "Computing line-level statistics..."
+stats.contrib_merge_skipped: "(%{count} merge commit(s) excluded)"
+stats.md_contrib_title: "## Contribution Statistics (by lines changed)"
+stats.md_insertions: "Insertions"
+stats.md_deletions: "Deletions"
+cli.stats.contrib: "Show per-author line-level contribution statistics"
+
 # Error messages
 error.git: "Git error: %{detail}"
 error.git_command: "Git command failed: %{detail}"

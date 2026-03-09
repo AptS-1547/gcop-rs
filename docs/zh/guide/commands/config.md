@@ -13,7 +13,7 @@ gcop-rs config [子命令]
 
 ## `config edit`
 
-在默认编辑器中打开配置文件，并在保存后校验。
+在默认编辑器中打开用户级配置文件，并在保存后做语法/结构校验。
 
 **用法**:
 ```bash
@@ -22,7 +22,7 @@ gcop-rs config edit
 
 **打开**: 使用 `$VISUAL` / `$EDITOR` 打开**用户级**配置文件（未设置时使用系统默认编辑器）
 
-**校验**: 保存后会自动校验配置（类似 `visudo`）。如果校验失败，会显示一个菜单：
+**校验**: 保存后，gcop-rs 会解析你编辑后的文件并按配置结构反序列化。它不会测试 provider 连通性，也不会检查文件/环境变量/CI 合并后的最终结果。如果解析或反序列化失败，会显示一个菜单：
 
 ```
 ✗ Config validation failed: TOML parse error...
@@ -37,7 +37,7 @@ gcop-rs config edit
 
 **何时使用**: 修改 API keys、模型或自定义 prompts。
 
-> **提示**: 建议始终使用 `gcop-rs config edit` 而不是直接编辑配置文件，以便自动校验。
+> **提示**: `gcop-rs config edit` 适合做语法/结构检查；如果你要验证最终生效配置以及 provider 连通性，请使用 `gcop-rs config validate`。
 
 ## `config validate`
 

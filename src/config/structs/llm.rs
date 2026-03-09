@@ -67,8 +67,8 @@ impl ApiStyle {
 ///
 /// # Fields
 /// - `api_style`: API style (see [`ApiStyle`])
-/// - `endpoint`: custom API endpoint (optional)
-/// - `api_key`: API key (optional; usually required for Claude/OpenAI, optional for Ollama)
+/// - `endpoint`: custom endpoint/base URL (optional; semantics vary by provider backend)
+/// - `api_key`: API key (optional in the struct; required by most provider constructors except Ollama)
 /// - `model`: model name
 /// - `max_tokens`: maximum generated token count (optional)
 /// - `temperature`: sampling temperature in `0.0..=2.0` (optional)
@@ -91,12 +91,18 @@ pub struct ProviderConfig {
     #[serde(default)]
     pub api_style: Option<ApiStyle>,
 
-    /// API endpoint.
+    /// API endpoint or base URL.
+    ///
+    /// Claude/OpenAI/Ollama backends accept either a base URL or a full request
+    /// path. Gemini expects a base URL and derives the final request path from
+    /// the configured model.
     pub endpoint: Option<String>,
 
     /// API key.
     ///
-    /// Usually required for Claude/OpenAI; optional for Ollama.
+    /// Usually required for Claude/OpenAI/Gemini backends; optional for Ollama.
+    /// Missing keys are reported when a provider is instantiated/validated, not
+    /// by [`ProviderConfig::validate`].
     #[serde(skip_serializing)]
     pub api_key: Option<String>,
 
@@ -130,7 +136,11 @@ impl std::fmt::Debug for ProviderConfig {
 }
 
 impl ProviderConfig {
-    /// Validates provider configuration.
+    /// Performs static provider-config checks.
+    ///
+    /// This validates only shape/value constraints that can be checked without
+    /// instantiating a backend (for example, temperature range). It does not
+    /// verify network connectivity or require missing API keys.
     pub fn validate(&self, name: &str) -> Result<()> {
         use crate::error::GcopError;
         if let Some(temp) = self.temperature

@@ -249,6 +249,15 @@ stats.md_streak: "## 连续提交"
 stats.md_date: "日期"
 stats.md_day_commits: "提交数"
 
+# Stats 贡献统计消息
+stats.contrib_title: "代码贡献统计(按变更行数)"
+stats.contrib_calculating: "正在计算行级统计..."
+stats.contrib_merge_skipped: "(已排除 %{count} 个合并提交)"
+stats.md_contrib_title: "## 代码贡献统计(按变更行数)"
+stats.md_insertions: "插入"
+stats.md_deletions: "删除"
+cli.stats.contrib: "显示每位作者的行级代码贡献统计"
+
 # 错误消息
 error.git: "Git 错误: %{detail}"
 error.git_command: "Git 命令失败: %{detail}"
