@@ -15,7 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with th
 
 支持的 Provider：`claude` / `openai` / `ollama` / `gemini`。
 
-Rust edition 2024，MSRV 1.93.0。i18n 通过 `rust-i18n` 实现，翻译文件在 `locales/`（en、zh-CN）。
+Rust edition 2024，MSRV 1.88.0。i18n 通过 `rust-i18n` 实现，翻译文件在 `locales/`（en、zh-CN）。
 
 ---
 

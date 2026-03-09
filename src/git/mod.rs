@@ -21,13 +21,15 @@ use mockall::automock;
 
 /// Git commit metadata.
 ///
-/// Contains author information, timestamp, and message summary.
+/// Contains commit hash, parent information, author details, timestamp, and message summary.
 ///
 /// # Fields
+/// - `hash`: commit SHA hex string
+/// - `parent_count`: number of parent commits (>1 means merge commit)
 /// - `author_name`: author name
 /// - `author_email`: author email address
 /// - `timestamp`: commit timestamp (local timezone)
-/// - `message`: commit message content
+/// - `message`: first line of commit message
 #[derive(Debug, Clone)]
 pub struct CommitInfo {
     /// Commit SHA hex string.

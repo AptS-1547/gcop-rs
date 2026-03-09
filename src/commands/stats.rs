@@ -302,7 +302,13 @@ pub fn compute_contrib_stats(
         })
         .collect();
 
-    authors.sort_by(|a, b| b.total.cmp(&a.total));
+    // Sort by total (descending), then by name and email for stable ordering
+    authors.sort_by(|a, b| {
+        b.total
+            .cmp(&a.total)
+            .then_with(|| a.name.cmp(&b.name))
+            .then_with(|| a.email.cmp(&b.email))
+    });
 
     Ok(ContribStats {
         total_insertions: total_ins,
@@ -375,6 +381,37 @@ fn pad_display(s: &str, target_width: usize) -> String {
     let display_width: usize = s.chars().map(|c| if c.is_ascii() { 1 } else { 2 }).sum();
     let padding = target_width.saturating_sub(display_width);
     format!("{}{}", s, " ".repeat(padding))
+}
+
+/// Truncate text with middle ellipsis if it exceeds max_width
+///
+/// Examples:
+/// - "short@example.com" (max=30) -> "short@example.com"
+/// - "very-long-email-address@example.com" (max=30) -> "very-long-em…xample.com"
+fn truncate_middle(s: &str, max_width: usize) -> String {
+    let char_count = s.chars().count();
+
+    // No truncation needed
+    if char_count <= max_width {
+        return s.to_string();
+    }
+
+    // Need at least 4 chars + ellipsis
+    if max_width < 5 {
+        return s.chars().take(max_width).collect();
+    }
+
+    // Calculate how many chars to keep on each side
+    // Reserve 1 char for ellipsis
+    let keep_chars = max_width - 1;
+    let left_chars = (keep_chars + 1) / 2;  // Round up for left side
+    let right_chars = keep_chars / 2;
+
+    let left: String = s.chars().take(left_chars).collect();
+    let right: String = s.chars().rev().take(right_chars).collect::<String>()
+        .chars().rev().collect();
+
+    format!("{}…{}", left, right)
 }
 
 /// Format a number with thousand separators (e.g., 106309 -> "106,309")
@@ -522,11 +559,15 @@ fn output_text(stats: &RepoStats, colored: bool) {
             } else {
                 0.0
             };
+
+            // Truncate email if too long (max 40 chars for the whole "name <email>" part)
+            let name_email = format!("{} <{}>", author.name, author.email);
+            let truncated = truncate_middle(&name_email, 50);
+
             println!(
-                "    #{:<2} {} <{}>  {} {} ({:.1}%)",
+                "    #{:<2} {}  {} {} ({:.1}%)",
                 i + 1,
-                author.name,
-                author.email,
+                pad_display(&truncated, 50),
                 author.commits,
                 rust_i18n::t!("stats.commits"),
                 percentage
@@ -556,19 +597,6 @@ fn output_text(stats: &RepoStats, colored: bool) {
             );
         }
 
-        let max_name_width = contrib
-            .authors
-            .iter()
-            .map(|a| {
-                a.name
-                    .chars()
-                    .map(|c| if c.is_ascii() { 1 } else { 2 })
-                    .sum::<usize>()
-            })
-            .max()
-            .unwrap_or(10)
-            .max(10);
-
         let bar_max_width = 24;
         let max_total = contrib.authors.first().map(|a| a.total).unwrap_or(1);
 
@@ -581,10 +609,14 @@ fn output_text(stats: &RepoStats, colored: bool) {
             };
             let bar_padding = " ".repeat(bar_max_width - visible_bar_width);
 
+            // Truncate author display if too long
+            let author_display = format!("{} <{}>", author.name, author.email);
+            let truncated = truncate_middle(&author_display, 50);
+
             println!(
                 "    #{:<2} {} {}{} {:>5.1}%  +{} / -{}",
                 i + 1,
-                pad_display(&author.name, max_name_width),
+                pad_display(&truncated, 50),
                 bar,
                 bar_padding,
                 author.percentage,
@@ -613,6 +645,9 @@ fn output_text(stats: &RepoStats, colored: bool) {
         weeks.sort_by(|a, b| b.0.cmp(a.0));
 
         let bar_max_width = 20;
+        // 计算最大数字宽度用于对齐
+        let max_num_width = max_count.to_string().len();
+
         for (week, count) in weeks {
             let bar = render_bar(*count, max_count, bar_max_width, colored);
             let visible_width = if max_count == 0 || *count == 0 {
@@ -621,7 +656,7 @@ fn output_text(stats: &RepoStats, colored: bool) {
                 (*count * bar_max_width) / max_count
             };
             let padding = " ".repeat(bar_max_width - visible_width);
-            println!("    {}: {}{} {}", week, bar, padding, count);
+            println!("    {}: {}{} {:>width$}", week, bar, padding, count, width = max_num_width);
         }
     }
 
@@ -758,9 +793,10 @@ fn output_markdown(stats: &RepoStats, _colored: bool) {
 
         for (i, author) in contrib.authors.iter().take(15).enumerate() {
             println!(
-                "| {} | {} | +{} | -{} | {:.1}% |",
+                "| {} | {} <{}> | +{} | -{} | {:.1}% |",
                 i + 1,
                 author.name,
+                author.email,
                 format_number(author.insertions),
                 format_number(author.deletions),
                 author.percentage

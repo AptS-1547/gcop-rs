@@ -411,3 +411,89 @@ fn test_has_staged_changes_false() -> Result<()> {
     env::set_current_dir(original_dir)?;
     Ok(())
 }
+
+// ========== get_commit_line_stats 测试 ==========
+
+#[test]
+#[serial]
+fn test_get_commit_line_stats_initial_commit() -> Result<()> {
+    let temp_dir = TempDir::new()?;
+    let repo_path = temp_dir.path();
+    let repo = init_git_repo(repo_path)?;
+
+    // 创建第一个 commit（5 行）
+    create_test_file(repo_path, "test.txt", "line1\nline2\nline3\nline4\nline5")?;
+    add_file_to_index(&repo, "test.txt")?;
+    let commit_id = create_commit(&repo, "Initial commit", vec![])?;
+
+    let original_dir = env::current_dir()?;
+    env::set_current_dir(repo_path)?;
+
+    let git_repo = GitRepository::open(None)?;
+    let (insertions, deletions) = git_repo.get_commit_line_stats(&commit_id.to_string())?;
+
+    assert_eq!(insertions, 5);
+    assert_eq!(deletions, 0);
+
+    env::set_current_dir(original_dir)?;
+    Ok(())
+}
+
+#[test]
+#[serial]
+fn test_get_commit_line_stats_with_changes() -> Result<()> {
+    let temp_dir = TempDir::new()?;
+    let repo_path = temp_dir.path();
+    let repo = init_git_repo(repo_path)?;
+
+    // 第一个 commit
+    create_test_file(repo_path, "test.txt", "line1\nline2\nline3")?;
+    add_file_to_index(&repo, "test.txt")?;
+    let first_commit_id = create_commit(&repo, "First commit", vec![])?;
+
+    // 第二个 commit（删除 1 行，添加 2 行）
+    create_test_file(repo_path, "test.txt", "line1\nline2_modified\nline3\nline4")?;
+    add_file_to_index(&repo, "test.txt")?;
+    let first_commit = repo.find_commit(first_commit_id)?;
+    let second_commit_id = create_commit(&repo, "Second commit", vec![&first_commit])?;
+
+    let original_dir = env::current_dir()?;
+    env::set_current_dir(repo_path)?;
+
+    let git_repo = GitRepository::open(None)?;
+    let (insertions, deletions) = git_repo.get_commit_line_stats(&second_commit_id.to_string())?;
+
+    // Git 统计：line2 修改 + line4 新增
+    // git2 库的统计结果：3 insertions, 2 deletions
+    // （可能将 line2 和 line3 都算作删除，然后 line2_modified, line3, line4 算作插入）
+    assert_eq!(insertions, 3);
+    assert_eq!(deletions, 2);
+
+    env::set_current_dir(original_dir)?;
+    Ok(())
+}
+
+#[test]
+#[serial]
+fn test_get_commit_line_stats_invalid_hash() -> Result<()> {
+    let temp_dir = TempDir::new()?;
+    let repo_path = temp_dir.path();
+    init_git_repo(repo_path)?;
+
+    let original_dir = env::current_dir()?;
+    env::set_current_dir(repo_path)?;
+
+    let git_repo = GitRepository::open(None)?;
+    let result = git_repo.get_commit_line_stats("invalid_hash");
+
+    assert!(result.is_err());
+    match result.unwrap_err() {
+        GcopError::InvalidInput(msg) => {
+            assert!(msg.contains("Invalid commit hash"));
+        }
+        _ => panic!("Expected InvalidInput error"),
+    }
+
+    env::set_current_dir(original_dir)?;
+    Ok(())
+}

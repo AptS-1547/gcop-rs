@@ -2,7 +2,7 @@
 
 ## 系统要求
 
-- **Rust**: 1.93.0 或更高版本（Rust 2024 edition）
+- **Rust**: 1.88.0 或更高版本（Rust 2024 edition）
 - **Git**: 2.0 或更高版本
 - **操作系统**: Linux、macOS 或 Windows
 
