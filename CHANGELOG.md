@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.9] - 2026-03-22
+
+### Security
+
+- **rustls-webpki**: Bumped 0.103.9 → 0.103.10 to fix CRL revocation enforcement bug (revoked certificates could be accepted under `UnknownStatusPolicy::Allow`)
+
+### Changed
+
+- **Dependencies**: Updated `clap` 4.5 → 4.6, `arc-swap` 1.8 → 1.9, `tracing-subscriber` 0.3.22 → 0.3.23, `tempfile` 3.26 → 3.27 and others
+
 ## [0.13.8] - 2026-03-09
 
 ### Added
