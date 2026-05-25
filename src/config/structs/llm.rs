@@ -18,6 +18,9 @@ pub enum ApiStyle {
     /// OpenAI API (and OpenAI-compatible APIs).
     #[serde(rename = "openai")]
     OpenAI,
+    /// OpenAI Responses API.
+    #[serde(rename = "openai-response")]
+    OpenAIResponse,
     /// Ollama local model API.
     Ollama,
     /// Google Gemini API.
@@ -29,6 +32,7 @@ impl std::fmt::Display for ApiStyle {
         match self {
             ApiStyle::Claude => write!(f, "claude"),
             ApiStyle::OpenAI => write!(f, "openai"),
+            ApiStyle::OpenAIResponse => write!(f, "openai-response"),
             ApiStyle::Ollama => write!(f, "ollama"),
             ApiStyle::Gemini => write!(f, "gemini"),
         }
@@ -42,6 +46,9 @@ impl std::str::FromStr for ApiStyle {
         match s.to_lowercase().as_str() {
             "claude" => Ok(ApiStyle::Claude),
             "openai" => Ok(ApiStyle::OpenAI),
+            "openai-response" | "openai_response" | "openai-responses" | "openai_responses" => {
+                Ok(ApiStyle::OpenAIResponse)
+            }
             "ollama" => Ok(ApiStyle::Ollama),
             "gemini" => Ok(ApiStyle::Gemini),
             _ => Err(format!("Unknown API style: '{}'", s)),
@@ -55,6 +62,7 @@ impl ApiStyle {
         match self {
             ApiStyle::Claude => "claude-sonnet-4-5-20250929",
             ApiStyle::OpenAI => "gpt-4o-mini",
+            ApiStyle::OpenAIResponse => "gpt-4o-mini",
             ApiStyle::Ollama => "llama3.2",
             ApiStyle::Gemini => "gemini-3-flash-preview",
         }

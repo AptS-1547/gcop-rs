@@ -2,7 +2,9 @@ use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
-use super::super::base::{ApiBackend, build_endpoint, get_temperature_optional, send_llm_request};
+use super::super::base::{
+    ApiBackend, build_endpoint, extract_extra_bool, get_temperature_optional, send_llm_request,
+};
 use super::super::utils::{DEFAULT_OLLAMA_BASE, OLLAMA_API_SUFFIX};
 use crate::config::{NetworkConfig, ProviderConfig};
 use crate::error::{GcopError, Result};
@@ -76,6 +78,7 @@ pub struct OllamaProvider {
     max_retry_delay_ms: u64,
     #[allow(dead_code)] // Reserved for future streaming output support
     colored: bool,
+    strip_thinking: bool,
 }
 
 #[derive(Serialize)]
@@ -114,6 +117,7 @@ impl OllamaProvider {
         let endpoint = build_endpoint(config, DEFAULT_OLLAMA_BASE, OLLAMA_API_SUFFIX);
         let model = config.model.clone();
         let temperature = get_temperature_optional(config);
+        let strip_thinking = extract_extra_bool(config, "strip_thinking").unwrap_or(false);
 
         Ok(Self {
             name: provider_name.to_string(),
@@ -125,6 +129,7 @@ impl OllamaProvider {
             retry_delay_ms: network_config.retry_delay_ms,
             max_retry_delay_ms: network_config.max_retry_delay_ms,
             colored,
+            strip_thinking,
         })
     }
 }
@@ -133,6 +138,10 @@ impl OllamaProvider {
 impl ApiBackend for OllamaProvider {
     fn name(&self) -> &str {
         &self.name
+    }
+
+    fn strip_thinking(&self) -> bool {
+        self.strip_thinking
     }
 
     async fn call_api(

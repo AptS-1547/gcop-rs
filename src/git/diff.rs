@@ -22,27 +22,45 @@ fn extract_filename_from_diff_header(line: &str) -> Option<String> {
 
     let rest = &line[PREFIX.len()..];
 
-    // Position the boundaries of a/ and b/ via the " b/" delimiter to avoid whitespace paths being truncated.
-    if let Some(b_pos) = rest.find(" b/") {
-        return rest[..b_pos]
-            .strip_prefix("a/")
-            .map(|filename| filename.to_string());
-    }
-
-    // Handle quoted paths: diff --git "a/path with spaces.rs" "b/path with spaces.rs"
+    // Handle quoted paths: diff --git "a/old path.rs" "b/new path.rs"
     if let Some(stripped) = rest.strip_prefix('"')
         && let Some(end) = stripped.find('"')
     {
-        return stripped[..end]
-            .strip_prefix("a/")
+        let remaining = stripped[end + 1..].trim_start();
+        if let Some(stripped) = remaining.strip_prefix('"')
+            && let Some(end) = stripped.find('"')
+        {
+            return stripped[..end]
+                .strip_prefix("b/")
+                .map(|filename| filename.to_string());
+        }
+    }
+
+    // Position the right-hand path via the " b/" delimiter to avoid whitespace paths being truncated.
+    // For renames this intentionally returns the new path, which is the path that must be staged.
+    if let Some(b_pos) = rest.rfind(" b/") {
+        return rest[b_pos + 1..]
+            .strip_prefix("b/")
             .map(|filename| filename.to_string());
     }
 
     // Fallback: Maintain compatibility
     rest.split_whitespace()
-        .next()
-        .and_then(|s| s.strip_prefix("a/"))
+        .nth(1)
+        .and_then(|s| s.strip_prefix("b/"))
         .map(|s| s.to_string())
+}
+
+fn is_diff_file_header_marker(line: &str, marker: &str) -> bool {
+    line == marker || line.starts_with(&format!("{marker} "))
+}
+
+fn is_insertion_line(line: &str, in_hunk: bool) -> bool {
+    line.starts_with('+') && (in_hunk || !is_diff_file_header_marker(line, "+++"))
+}
+
+fn is_deletion_line(line: &str, in_hunk: bool) -> bool {
+    line.starts_with('-') && (in_hunk || !is_diff_file_header_marker(line, "---"))
 }
 
 /// Extract statistics from diff text
@@ -51,14 +69,19 @@ pub fn parse_diff_stats(diff: &str) -> Result<DiffStats> {
     let mut insertions = 0;
     let mut deletions = 0;
 
+    let mut in_hunk = false;
+
     for line in diff.lines() {
         if line.starts_with("diff --git") {
+            in_hunk = false;
             if let Some(filename) = extract_filename_from_diff_header(line) {
                 files_changed.push(filename);
             }
-        } else if line.starts_with('+') && !line.starts_with("+++") {
+        } else if line.starts_with("@@") {
+            in_hunk = true;
+        } else if is_insertion_line(line, in_hunk) {
             insertions += 1;
-        } else if line.starts_with('-') && !line.starts_with("---") {
+        } else if is_deletion_line(line, in_hunk) {
             deletions += 1;
         }
     }
@@ -84,6 +107,7 @@ pub fn split_diff_by_file(diff: &str) -> Vec<FileDiff> {
     let mut current_lines: Vec<&str> = Vec::new();
     let mut current_insertions = 0usize;
     let mut current_deletions = 0usize;
+    let mut in_hunk = false;
 
     for line in diff.lines() {
         if line.starts_with("diff --git") {
@@ -102,11 +126,14 @@ pub fn split_diff_by_file(diff: &str) -> Vec<FileDiff> {
             }
             current_filename = extract_filename_from_diff_header(line);
             current_lines.push(line);
+            in_hunk = false;
         } else {
             if current_filename.is_some() {
-                if line.starts_with('+') && !line.starts_with("+++") {
+                if line.starts_with("@@") {
+                    in_hunk = true;
+                } else if is_insertion_line(line, in_hunk) {
                     current_insertions += 1;
-                } else if line.starts_with('-') && !line.starts_with("---") {
+                } else if is_deletion_line(line, in_hunk) {
                     current_deletions += 1;
                 }
             }
@@ -254,6 +281,56 @@ Binary files a/image.png and b/image.png differ
         assert_eq!(stats.deletions, 0);
     }
 
+    #[test]
+    fn test_parse_diff_stats_rename_uses_new_path() {
+        let diff = r#"diff --git a/old_name.rs b/new_name.rs
+similarity index 88%
+rename from old_name.rs
+rename to new_name.rs
+index 1234567..abcdefg 100644
+--- a/old_name.rs
++++ b/new_name.rs
+@@ -1 +1 @@
+-old
++new
+"#;
+        let stats = parse_diff_stats(diff).unwrap();
+        assert_eq!(stats.files_changed, vec!["new_name.rs".to_string()]);
+        assert_eq!(stats.insertions, 1);
+        assert_eq!(stats.deletions, 1);
+    }
+
+    #[test]
+    fn test_parse_diff_stats_quoted_rename_with_spaces_uses_new_path() {
+        let diff = r#"diff --git "a/old path/file name.rs" "b/new path/file name.rs"
+similarity index 100%
+rename from old path/file name.rs
+rename to new path/file name.rs
+"#;
+        let stats = parse_diff_stats(diff).unwrap();
+        assert_eq!(
+            stats.files_changed,
+            vec!["new path/file name.rs".to_string()]
+        );
+        assert_eq!(stats.insertions, 0);
+        assert_eq!(stats.deletions, 0);
+    }
+
+    #[test]
+    fn test_parse_diff_stats_counts_hunk_lines_that_look_like_file_headers() {
+        let diff = r#"diff --git a/notes.txt b/notes.txt
+--- a/notes.txt
++++ b/notes.txt
+@@ -1,2 +1,2 @@
+---- not a file header
+++++ not a file header
+"#;
+        let stats = parse_diff_stats(diff).unwrap();
+        assert_eq!(stats.files_changed, vec!["notes.txt".to_string()]);
+        assert_eq!(stats.insertions, 1);
+        assert_eq!(stats.deletions, 1);
+    }
+
     // === split_diff_by_file test ===
 
     #[test]
@@ -317,5 +394,23 @@ Binary files a/image.png and b/image.png differ
         assert_eq!(files[0].filename, "image.png");
         assert_eq!(files[0].insertions, 0);
         assert_eq!(files[0].deletions, 0);
+    }
+
+    #[test]
+    fn test_split_diff_by_file_rename_uses_new_path() {
+        let diff = "diff --git a/old_name.rs b/new_name.rs\n\
+                     similarity index 88%\n\
+                     rename from old_name.rs\n\
+                     rename to new_name.rs\n\
+                     --- a/old_name.rs\n\
+                     +++ b/new_name.rs\n\
+                     @@ -1 +1 @@\n\
+                     -old\n\
+                     +new";
+        let files = split_diff_by_file(diff);
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].filename, "new_name.rs");
+        assert_eq!(files[0].insertions, 1);
+        assert_eq!(files[0].deletions, 1);
     }
 }

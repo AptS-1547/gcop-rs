@@ -109,7 +109,7 @@ fn check_project_config_security(path: &Path) {
 /// Applies CI-mode environment overrides.
 ///
 /// When `CI=1`, provider config is built from:
-/// - `GCOP_CI_PROVIDER`: "claude", "openai", "ollama" or "gemini" (required)
+/// - `GCOP_CI_PROVIDER`: "claude", "openai", "openai-response", "ollama" or "gemini" (required)
 /// - `GCOP_CI_API_KEY`: API key (required)
 /// - `GCOP_CI_MODEL`: model name (optional, has a provider-specific default)
 /// - `GCOP_CI_ENDPOINT`: custom endpoint (optional)

@@ -236,6 +236,11 @@ pub trait LLMProvider: Send + Sync {
         false
     }
 
+    /// Whether XML-like reasoning tags should be stripped from generated text.
+    fn strip_thinking(&self) -> bool {
+        false
+    }
+
     /// Convenience: generates a commit message as a stream.
     ///
     /// Builds the prompt via [`build_commit_prompt_split`](crate::llm::prompt::build_commit_prompt_split),

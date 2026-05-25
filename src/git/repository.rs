@@ -1,5 +1,5 @@
 use chrono::{DateTime, Local, TimeZone};
-use git2::{DiffOptions, Repository, Sort};
+use git2::{DiffFindOptions, DiffOptions, Repository, Sort};
 use std::io::Write;
 
 use crate::config::FileConfig;
@@ -81,7 +81,10 @@ impl GitRepository {
 impl GitOperations for GitRepository {
     fn get_staged_diff(&self) -> Result<String> {
         // Read index.
-        let index = self.repo.index()?;
+        let mut index = self.repo.index()?;
+        // Force-reload from disk so changes made by external git processes
+        // through this repository wrapper, such as stage_files(), are visible.
+        index.read(true)?;
 
         // For an empty repository, compare empty tree (None) against the index.
         if self.is_empty()? {
@@ -298,9 +301,11 @@ impl GitOperations for GitRepository {
             Some(head.peel_to_tree()?)
         };
         let mut opts = DiffOptions::new();
-        let diff = self
-            .repo
-            .diff_tree_to_index(tree.as_ref(), Some(&index), Some(&mut opts))?;
+        let mut diff =
+            self.repo
+                .diff_tree_to_index(tree.as_ref(), Some(&index), Some(&mut opts))?;
+        let mut find_opts = DiffFindOptions::new();
+        diff.find_similar(Some(&mut find_opts))?;
 
         Ok(diff
             .deltas()
@@ -315,10 +320,14 @@ impl GitOperations for GitRepository {
         let workdir = self.get_workdir()?;
 
         if self.is_empty()? {
+            if self.get_staged_files()?.is_empty() {
+                return Ok(());
+            }
+
             // Empty repo: no HEAD to reset to, use git rm --cached
             let output = Command::new("git")
                 .current_dir(workdir)
-                .args(["rm", "--cached", "-r", "."])
+                .args(["rm", "--cached", "-r", "--", "."])
                 .output()?;
             if !output.status.success() {
                 let stderr = String::from_utf8_lossy(&output.stderr);
@@ -354,6 +363,8 @@ impl GitOperations for GitRepository {
             .current_dir(workdir)
             .env("GIT_LITERAL_PATHSPECS", "1")
             .arg("add")
+            .arg("-A")
+            .arg("--")
             .args(files)
             .output()?;
 
@@ -790,6 +801,98 @@ index 1234567..abcdefg 100644
         assert!(
             !staged.contains(&"l/page.tsx".to_string()),
             "l/page.tsx must NOT be staged as a glob side-effect"
+        );
+    }
+
+    #[test]
+    fn test_stage_files_path_starting_with_dash() {
+        let (dir, git_repo) = create_test_repo();
+
+        create_file(dir.path(), "init.txt", "init");
+        stage_file(&git_repo.repo, "init.txt");
+        create_commit(&git_repo.repo, "initial");
+
+        create_file(dir.path(), "-dash.txt", "dash");
+        git_repo.stage_files(&["-dash.txt".to_string()]).unwrap();
+
+        let staged = git_repo.get_staged_files().unwrap();
+        assert!(
+            staged.contains(&"-dash.txt".to_string()),
+            "path starting with '-' should be staged as a file, not parsed as a git option"
+        );
+    }
+
+    #[test]
+    fn test_stage_files_stages_deletion() {
+        let (dir, git_repo) = create_test_repo();
+
+        create_file(dir.path(), "removed.txt", "old");
+        stage_file(&git_repo.repo, "removed.txt");
+        create_commit(&git_repo.repo, "initial");
+
+        fs::remove_file(dir.path().join("removed.txt")).unwrap();
+        git_repo.stage_files(&["removed.txt".to_string()]).unwrap();
+
+        let diff = git_repo.get_staged_diff().unwrap();
+        assert!(diff.contains("removed.txt"), "diff was:\n{diff}");
+        assert!(diff.contains("-old"), "diff was:\n{diff}");
+
+        let stats = git_repo.get_diff_stats(&diff).unwrap();
+        assert_eq!(stats.files_changed, vec!["removed.txt".to_string()]);
+        assert_eq!(stats.insertions, 0);
+        assert_eq!(stats.deletions, 1);
+    }
+
+    #[test]
+    fn test_stage_files_rename_needs_both_old_and_new_paths() {
+        let (dir, git_repo) = create_test_repo();
+
+        create_file(dir.path(), "old_name.txt", "same");
+        stage_file(&git_repo.repo, "old_name.txt");
+        create_commit(&git_repo.repo, "initial");
+
+        fs::rename(
+            dir.path().join("old_name.txt"),
+            dir.path().join("new_name.txt"),
+        )
+        .unwrap();
+
+        git_repo
+            .stage_files(&["old_name.txt".to_string(), "new_name.txt".to_string()])
+            .unwrap();
+
+        let diff = git_repo.get_staged_diff().unwrap();
+        assert!(diff.contains("old_name.txt"), "diff was:\n{diff}");
+        assert!(diff.contains("new_name.txt"), "diff was:\n{diff}");
+
+        let staged = git_repo.get_staged_files().unwrap();
+        assert_eq!(staged, vec!["new_name.txt".to_string()]);
+    }
+
+    #[test]
+    fn test_unstage_all_empty_repo_without_staged_files_is_noop() {
+        let (_dir, git_repo) = create_test_repo();
+        git_repo.unstage_all().unwrap();
+
+        let staged = git_repo.get_staged_files().unwrap();
+        assert!(staged.is_empty());
+    }
+
+    #[test]
+    fn test_unstage_all_empty_repo_with_staged_file_clears_index() {
+        let (dir, git_repo) = create_test_repo();
+
+        create_file(dir.path(), "first.txt", "first");
+        stage_file(&git_repo.repo, "first.txt");
+        assert_eq!(git_repo.get_staged_files().unwrap(), vec!["first.txt"]);
+
+        git_repo.unstage_all().unwrap();
+
+        let staged = git_repo.get_staged_files().unwrap();
+        assert!(staged.is_empty());
+        assert!(
+            dir.path().join("first.txt").exists(),
+            "unstage_all must leave working-tree files intact"
         );
     }
 

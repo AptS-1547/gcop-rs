@@ -38,6 +38,7 @@ export GCOP_CI_API_KEY="sk-ant-your-key"
 
 **Solution**: Use one of the supported values:
 - `"claude"` - For Anthropic API compatible services
-- `"openai"` - For OpenAI API compatible services
+- `"openai"` - For OpenAI Chat Completions compatible services
+- `"openai-response"` - For OpenAI Responses API
 - `"ollama"` - For local Ollama
 - `"gemini"` - For Google Gemini GenerateContent API compatible services

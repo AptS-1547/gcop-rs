@@ -125,7 +125,7 @@ fn create_provider_from_config(
                 backends::ClaudeProvider::new(provider_config, name, network_config, colored)?;
             Ok(Arc::new(provider))
         }
-        ApiStyle::OpenAI => {
+        ApiStyle::OpenAI | ApiStyle::OpenAIResponse => {
             let provider =
                 backends::OpenAIProvider::new(provider_config, name, network_config, colored)?;
             Ok(Arc::new(provider))

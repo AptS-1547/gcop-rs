@@ -16,7 +16,16 @@ model = "claude-sonnet-4-5-20250929"
 
 # OpenAI
 # [llm.providers.openai]
+# api_style = "openai"  # optional for this built-in provider; inferred from the name
 # api_key = "sk-your-openai-key-here"
+# model = "gpt-4o-mini"
+# strip_thinking = true      # optional: remove <thinking>...</thinking> / <think>...</think> blocks
+#
+# OpenAI Responses API
+# [llm.providers.openai-response]
+# api_style = "openai-response"
+# api_key = "sk-your-openai-key-here"
+# endpoint = "https://api.openai.com"
 # model = "gpt-4o-mini"
 
 # Ollama (local, requires `ollama serve` running)

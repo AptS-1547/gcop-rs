@@ -646,7 +646,7 @@ dependencies = [
 
 [[package]]
 name = "gcop-rs"
-version = "0.13.9"
+version = "0.14.0"
 dependencies = [
  "anyhow",
  "arc-swap",

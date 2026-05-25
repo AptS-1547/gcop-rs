@@ -199,6 +199,23 @@ fn test_ci_mode_with_custom_model() {
 
 #[test]
 #[serial]
+fn test_ci_mode_with_openai_response_provider() {
+    let _ci = EnvGuard::set("CI", "1");
+    let _type = EnvGuard::set("GCOP_CI_PROVIDER", "openai-response");
+    let _key = EnvGuard::set("GCOP_CI_API_KEY", "sk-test");
+
+    let config = loader::load_config_from_path(None, None).unwrap();
+
+    let ci_provider = &config.llm.providers["ci"];
+    assert_eq!(
+        ci_provider.api_style,
+        Some(structs::ApiStyle::OpenAIResponse)
+    );
+    assert_eq!(ci_provider.model, "gpt-4o-mini");
+}
+
+#[test]
+#[serial]
 fn test_ci_mode_with_custom_endpoint() {
     let _ci = EnvGuard::set("CI", "1");
     let _type = EnvGuard::set("GCOP_CI_PROVIDER", "claude");

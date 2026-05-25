@@ -125,19 +125,40 @@ pub fn strip_thinking_tags(text: &str) -> String {
     result.trim().to_string()
 }
 
-/// Process commit message response: strip thinking tags, clean code fences, and log
-pub fn process_commit_response(response: String) -> String {
-    let stripped = strip_thinking_tags(&response);
-    let cleaned = clean_commit_response(&stripped);
+/// Process commit message response: optionally strip thinking tags, clean code fences, and log
+pub fn process_commit_response_with_options(response: String, strip_thinking: bool) -> String {
+    let maybe_stripped = if strip_thinking {
+        strip_thinking_tags(&response)
+    } else {
+        response
+    };
+    let cleaned = clean_commit_response(&maybe_stripped);
     tracing::debug!("Generated commit message: {}", cleaned);
     cleaned
 }
 
-/// Process review responses: strip thinking tags, then parse
-pub fn process_review_response(response: &str) -> Result<ReviewResult> {
+/// Process commit message response with default sanitization.
+pub fn process_commit_response(response: String) -> String {
+    process_commit_response_with_options(response, false)
+}
+
+/// Process review responses: optionally strip thinking tags, then parse
+pub fn process_review_response_with_options(
+    response: &str,
+    strip_thinking: bool,
+) -> Result<ReviewResult> {
     tracing::debug!("LLM review response: {}", response);
-    let stripped = strip_thinking_tags(response);
-    parse_review_response(&stripped)
+    if strip_thinking {
+        let stripped = strip_thinking_tags(response);
+        parse_review_response(&stripped)
+    } else {
+        parse_review_response(response)
+    }
+}
+
+/// Process review responses with default sanitization.
+pub fn process_review_response(response: &str) -> Result<ReviewResult> {
+    process_review_response_with_options(response, false)
 }
 
 #[cfg(test)]
@@ -428,6 +449,15 @@ Let me know if you need more."#;
     }
 
     #[test]
+    fn test_process_commit_response_preserves_thinking_by_default() {
+        let input = "<thinking>reasoning</thinking>\nfeat: done".to_string();
+        assert_eq!(
+            process_commit_response(input),
+            "<thinking>reasoning</thinking>\nfeat: done"
+        );
+    }
+
+    #[test]
     fn test_clean_commit_multiline_with_list_bare_fences() {
         // Real-world case: LLM wraps a multi-line commit message with bullet
         // list in bare code fences (no language tag).
@@ -506,19 +536,33 @@ Let me know if you need more."#;
         // strip_thinking_tags removes thinking, process_commit_response removes fence
         let stripped = strip_thinking_tags(input);
         assert_eq!(
-            process_commit_response(stripped),
+            process_commit_response_with_options(stripped, false),
             "refactor(core): simplify retry logic"
         );
     }
 
     #[test]
-    fn test_process_commit_response_strips_thinking_and_fence() {
+    fn test_process_commit_response_strips_thinking_and_fence_when_enabled() {
         // End-to-end: the exact pattern from the reported issue
         let input = "<thinking>\n用户要我为这个 git diff 生成一个 commit message。\n</thinking>\n\n```\nfeat(story-website): 新增角色展示功能模块\n```"
             .to_string();
         assert_eq!(
-            process_commit_response(input),
+            process_commit_response_with_options(input, true),
             "feat(story-website): 新增角色展示功能模块"
         );
+    }
+
+    #[test]
+    fn test_process_review_response_strips_thinking_when_enabled() {
+        let input = r#"<thinking>analysis</thinking>
+{
+  "summary": "ok",
+  "issues": [],
+  "suggestions": []
+}"#;
+
+        let result = process_review_response_with_options(input, true).unwrap();
+        assert!(result.issues.is_empty());
+        assert!(result.suggestions.is_empty());
     }
 }

@@ -13,6 +13,7 @@ use crate::error::{GcopError, Result};
 /// * `message` - Commit message
 pub fn commit_changes(message: &str) -> Result<()> {
     let output = Command::new("git")
+        .env("GCOP_SKIP_HOOK", "1")
         .args(["commit", "-m", message])
         .output()?;
 
@@ -41,6 +42,7 @@ pub fn commit_changes(message: &str) -> Result<()> {
 /// * `message` - New commit message
 pub fn commit_amend_changes(message: &str) -> Result<()> {
     let output = Command::new("git")
+        .env("GCOP_SKIP_HOOK", "1")
         .args(["commit", "--amend", "-m", message])
         .output()?;
 

@@ -27,6 +27,7 @@ max_tokens = 2000
 
 ```toml
 [llm.providers.openai]
+api_style = "openai"  # 内置 provider 可省略；会从名称推断
 api_key = "sk-your-openai-key"
 model = "gpt-4o-mini"
 temperature = 0.3
@@ -34,10 +35,22 @@ temperature = 0.3
 
 **获取 API Key**: https://platform.openai.com/
 
+对于需要或更适合 Responses API 的 OpenAI 模型，使用 `api_style = "openai-response"`：
+
+```toml
+[llm.providers.openai-response]
+api_style = "openai-response"
+api_key = "sk-your-openai-key"
+endpoint = "https://api.openai.com"
+model = "gpt-4o-mini"
+```
+
+该模式下 gcop-rs 会把 system prompt 作为 `instructions` 发送，把 user prompt 作为 `input` 发送，将 `max_tokens` 映射为 `max_output_tokens`，通过 `tool_choice = "none"` 禁用工具调用，并解析响应中的 `output_text` 内容。
+
 **示例模型**：
 - `gpt-4o-mini`（对应内置 CI 默认值）
 - `gpt-4o`
-- 任意兼容 Chat Completions 的 OpenAI 或兼容服务模型
+- 任意兼容 Chat Completions 或 Responses API 的 OpenAI 模型
 
 ### Ollama（本地）
 
@@ -131,6 +144,7 @@ model = "custom-model"
 | 值 | 说明 | 兼容服务 |
 |----|------|----------|
 | `"openai"` | OpenAI Chat Completions API | OpenAI、DeepSeek、通义千问、大多数自定义服务 |
+| `"openai-response"` | OpenAI Responses API | OpenAI Responses API |
 | `"claude"` | Anthropic Messages API | Claude、Claude 代理/镜像 |
 | `"ollama"` | Ollama Generate API | 仅本地 Ollama |
 | `"gemini"` | Google Gemini GenerateContent API | Gemini 以及兼容 Gemini 的端点 |
@@ -140,7 +154,17 @@ model = "custom-model"
 ## Endpoint 规则
 
 - Claude、OpenAI 和 Ollama 的 `endpoint` 可以填写基础 URL，也可以直接填写完整请求路径。
+- 使用 OpenAI Responses API 时设置 `api_style = "openai-response"`；`endpoint = "https://api.openai.com"` 这样的基础 URL 会自动拼接为 `/v1/responses`。
 - Gemini 的 `endpoint` 需要填写基础 URL；gcop-rs 会基于这个基础 URL 自动拼出 `/v1beta/models/{model}:generateContent`。
+
+## Thinking 标签
+
+部分 OpenAI 兼容模型会把可见推理内容放在 `<thinking>...</thinking>` 或 `<think>...</think>` 块中。gcop-rs 默认保留这些内容。要在生成 commit message 以及解析 review JSON 前移除它们，可以启用：
+
+```toml
+[llm.providers.openai]
+strip_thinking = true
+```
 
 ## 切换 Providers
 

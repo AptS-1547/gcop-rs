@@ -16,6 +16,10 @@ i18n!("locales", fallback = "en");
 fn main() -> Result<()> {
     human_panic::setup_panic!();
 
+    if should_skip_hook_before_config_load() {
+        return Ok(());
+    }
+
     // 0. Install rustls crypto provider
     rustls::crypto::ring::default_provider()
         .install_default()
@@ -170,6 +174,16 @@ fn main() -> Result<()> {
             }
         }
     })
+}
+
+fn should_skip_hook_before_config_load() -> bool {
+    if std::env::var("GCOP_SKIP_HOOK").as_deref() != Ok("1") {
+        return false;
+    }
+
+    let args = std::env::args().skip(1).collect::<Vec<_>>();
+    args.windows(2)
+        .any(|window| window[0] == "hook" && window[1] == "run")
 }
 
 /// Parse CLI arguments with localized help text

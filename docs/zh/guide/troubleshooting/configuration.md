@@ -38,6 +38,7 @@ export GCOP_CI_API_KEY="sk-ant-your-key"
 
 **解决方案**: 使用支持的值之一：
 - `"claude"` - 用于 Anthropic API 兼容服务
-- `"openai"` - 用于 OpenAI API 兼容服务
+- `"openai"` - 用于 OpenAI Chat Completions 兼容服务
+- `"openai-response"` - 用于 OpenAI Responses API
 - `"ollama"` - 用于本地 Ollama
 - `"gemini"` - 用于兼容 Google Gemini GenerateContent API 的服务

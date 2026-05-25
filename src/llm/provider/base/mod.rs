@@ -55,6 +55,11 @@ pub(crate) trait ApiBackend: Send + Sync {
 
     /// Verify configuration
     async fn validate(&self) -> Result<()>;
+
+    /// Whether to strip XML-like reasoning tags from model text.
+    fn strip_thinking(&self) -> bool {
+        false
+    }
 }
 
 /// Blanket impl: every `ApiBackend` automatically becomes an `LLMProvider`.
@@ -125,7 +130,7 @@ impl<T: ApiBackend> LLMProvider for T {
             user.len()
         );
         let response = self.call_api(&system, &user, progress).await?;
-        process_review_response(&response)
+        process_review_response_with_options(&response, self.strip_thinking())
     }
 
     fn name(&self) -> &str {
@@ -138,5 +143,9 @@ impl<T: ApiBackend> LLMProvider for T {
 
     fn supports_streaming(&self) -> bool {
         ApiBackend::supports_streaming(self)
+    }
+
+    fn strip_thinking(&self) -> bool {
+        ApiBackend::strip_thinking(self)
     }
 }

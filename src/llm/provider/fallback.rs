@@ -93,6 +93,13 @@ impl LLMProvider for FallbackProvider {
             .unwrap_or(false)
     }
 
+    fn strip_thinking(&self) -> bool {
+        self.providers
+            .first()
+            .map(|p| p.strip_thinking())
+            .unwrap_or(false)
+    }
+
     async fn validate(&self) -> Result<()> {
         if self.providers.is_empty() {
             return Err(GcopError::Config(
@@ -288,6 +295,7 @@ mod tests {
         name: String,
         should_fail: bool,
         supports_streaming: bool,
+        strip_thinking: bool,
         message: String,
     }
 
@@ -297,6 +305,7 @@ mod tests {
                 name: name.to_string(),
                 should_fail: false,
                 supports_streaming: false,
+                strip_thinking: false,
                 message: format!("message from {}", name),
             }
         }
@@ -308,6 +317,11 @@ mod tests {
 
         fn with_streaming(mut self) -> Self {
             self.supports_streaming = true;
+            self
+        }
+
+        fn with_strip_thinking(mut self) -> Self {
+            self.strip_thinking = true;
             self
         }
     }
@@ -373,6 +387,10 @@ mod tests {
             self.supports_streaming
         }
 
+        fn strip_thinking(&self) -> bool {
+            self.strip_thinking
+        }
+
         async fn validate(&self) -> Result<()> {
             if self.should_fail {
                 Err(GcopError::Config("validation failed".to_string()))
@@ -402,6 +420,13 @@ mod tests {
     fn test_supports_streaming_empty() {
         let fallback = FallbackProvider::new(vec![], false);
         assert!(!fallback.supports_streaming());
+    }
+
+    #[test]
+    fn test_strip_thinking_uses_first_provider() {
+        let provider = TestProvider::new("test").with_strip_thinking();
+        let fallback = FallbackProvider::new(vec![Arc::new(provider)], false);
+        assert!(fallback.strip_thinking());
     }
 
     // === Test validate ===

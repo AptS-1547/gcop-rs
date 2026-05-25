@@ -6,7 +6,7 @@ use crate::error::{GcopError, Result};
 use crate::git::repository::GitRepository;
 use crate::git::{GitOperations, find_git_root};
 use crate::llm::CommitContext;
-use crate::llm::provider::base::response::process_commit_response;
+use crate::llm::provider::base::response::process_commit_response_with_options;
 use crate::llm::provider::create_provider;
 
 /// Hook marker used to identify hooks installed by gcop-rs
@@ -17,6 +17,9 @@ const HOOK_SCRIPT: &str = r#"#!/bin/sh
 # gcop-rs prepare-commit-msg hook
 # Installed by: gcop-rs hook install
 # To remove: gcop-rs hook uninstall
+if [ "$GCOP_SKIP_HOOK" = "1" ]; then
+    exit 0
+fi
 if ! command -v gcop-rs >/dev/null 2>&1; then
     exit 0
 fi
@@ -25,7 +28,8 @@ gcop-rs hook run "$1" "$2" "$3"
 
 /// Install the prepare-commit-msg hook into the current git repository.
 ///
-/// If the hook already exists and was installed by gcop-rs, prints an info message.
+/// If the hook already exists and was installed by gcop-rs, prints an info message
+/// unless `--force` is used to refresh it.
 /// If the hook already exists but was NOT installed by gcop-rs, requires `--force`
 /// to overwrite.
 ///
@@ -46,7 +50,7 @@ pub fn install(force: bool) -> Result<()> {
     if hook_path.exists() {
         let content = fs::read_to_string(&hook_path)?;
 
-        if content.contains(HOOK_MARKER) {
+        if content.contains(HOOK_MARKER) && !force {
             eprintln!(
                 "{}",
                 rust_i18n::t!(
@@ -57,7 +61,7 @@ pub fn install(force: bool) -> Result<()> {
             return Ok(());
         }
 
-        if !force {
+        if !content.contains(HOOK_MARKER) && !force {
             eprintln!(
                 "{}",
                 rust_i18n::t!("hook.existing_hook", path = hook_path.display().to_string())
@@ -147,6 +151,10 @@ pub async fn run_hook_safe(
     verbose: bool,
     provider_override: Option<&str>,
 ) {
+    if should_skip_hook_from_env() {
+        return;
+    }
+
     if let Err(e) = run_hook_inner(
         commit_msg_file,
         source,
@@ -196,6 +204,10 @@ fn determine_hook_mode(source: &str, sha: &str) -> HookMode {
     }
 }
 
+fn should_skip_hook_from_env() -> bool {
+    std::env::var("GCOP_SKIP_HOOK").is_ok_and(|value| value == "1")
+}
+
 /// Internal hook logic that generates a commit message and writes it to the
 /// commit message file.
 ///
@@ -211,6 +223,10 @@ async fn run_hook_inner(
     _verbose: bool,
     provider_override: Option<&str>,
 ) -> Result<()> {
+    if should_skip_hook_from_env() {
+        return Ok(());
+    }
+
     let mode = determine_hook_mode(source, sha);
     if mode == HookMode::Skip {
         return Ok(());
@@ -281,7 +297,7 @@ async fn run_hook_inner(
 
     // Generate commit message
     let message = provider.send_prompt(&system, &user, None).await?;
-    let message = process_commit_response(message);
+    let message = process_commit_response_with_options(message, provider.strip_thinking());
 
     // Write generated message to the commit message file
     fs::write(commit_msg_file, &message)?;
@@ -295,6 +311,38 @@ async fn run_hook_inner(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
+    use std::path::Path;
+    use std::process::Command;
+    use tempfile::TempDir;
+
+    fn setup_git_repo() -> TempDir {
+        let temp_dir = TempDir::new().unwrap();
+        let repo_path = temp_dir.path();
+
+        Command::new("git")
+            .args(["init"])
+            .current_dir(repo_path)
+            .output()
+            .unwrap();
+
+        temp_dir
+    }
+
+    fn set_executable(path: &Path) {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = fs::metadata(path).unwrap().permissions();
+            perms.set_mode(0o755);
+            fs::set_permissions(path, perms).unwrap();
+        }
+
+        #[cfg(not(unix))]
+        {
+            let _ = path;
+        }
+    }
 
     // === determine_hook_mode tests ===
 
@@ -346,5 +394,43 @@ mod tests {
         // Any unrecognized source falls through to normal
         assert_eq!(determine_hook_mode("template", ""), HookMode::Normal);
         assert_eq!(determine_hook_mode("unknown", ""), HookMode::Normal);
+    }
+
+    #[test]
+    fn test_hook_script_respects_skip_env() {
+        assert!(HOOK_SCRIPT.contains(r#"[ "$GCOP_SKIP_HOOK" = "1" ]"#));
+        assert!(
+            HOOK_SCRIPT
+                .find("GCOP_SKIP_HOOK")
+                .expect("skip guard should exist")
+                < HOOK_SCRIPT
+                    .find(HOOK_MARKER)
+                    .expect("hook command should exist")
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_install_force_refreshes_existing_gcop_hook() {
+        let temp_dir = setup_git_repo();
+        let repo_path = temp_dir.path();
+        let hooks_dir = repo_path.join(".git").join("hooks");
+        let hook_path = hooks_dir.join("prepare-commit-msg");
+
+        fs::write(
+            &hook_path,
+            "#!/bin/sh\n# old gcop hook\ngcop-rs hook run \"$1\" \"$2\" \"$3\"\n",
+        )
+        .unwrap();
+        set_executable(&hook_path);
+
+        let original_dir = std::env::current_dir().unwrap();
+        std::env::set_current_dir(repo_path).unwrap();
+        let result = install(true);
+        std::env::set_current_dir(original_dir).unwrap();
+
+        assert!(result.is_ok());
+        let content = fs::read_to_string(&hook_path).unwrap();
+        assert_eq!(content, HOOK_SCRIPT);
     }
 }

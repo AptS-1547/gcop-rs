@@ -8,6 +8,9 @@ pub const CLAUDE_API_SUFFIX: &str = "/v1/messages";
 /// OpenAI API endpoint suffix
 pub const OPENAI_API_SUFFIX: &str = "/v1/chat/completions";
 
+/// OpenAI Responses API endpoint suffix
+pub const OPENAI_RESPONSES_API_SUFFIX: &str = "/v1/responses";
+
 /// Ollama API endpoint suffix
 pub const OLLAMA_API_SUFFIX: &str = "/api/generate";
 

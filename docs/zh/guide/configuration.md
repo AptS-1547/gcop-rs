@@ -100,10 +100,19 @@ max_tokens = 2000
 
 # OpenAI Provider
 [llm.providers.openai]
+api_style = "openai"  # 内置 provider 可省略；会从名称推断
 api_key = "sk-your-openai-key"
 endpoint = "https://api.openai.com"
 model = "gpt-4o-mini"
 temperature = 0.3
+# strip_thinking = true      # 可选：移除 <thinking>...</thinking> / <think>...</think> 块
+
+# OpenAI Responses API
+[llm.providers.openai-response]
+api_style = "openai-response"
+api_key = "sk-your-openai-key"
+endpoint = "https://api.openai.com"
+model = "gpt-4o-mini"
 
 # Ollama Provider（本地）
 [llm.providers.ollama]
@@ -177,12 +186,13 @@ scope_mappings = { "packages/core" = "core", "packages/ui" = "ui" }
 
 | 选项 | 类型 | 必需 | 说明 |
 |------|------|------|------|
-| `api_style` | String | 否 | API 风格：`"claude"`、`"openai"`、`"ollama"` 或 `"gemini"`（未设置时默认使用 provider 名称） |
+| `api_style` | String | 否 | API 风格：`"claude"`、`"openai"`、`"openai-response"`、`"ollama"` 或 `"gemini"`（未设置时默认使用 provider 名称） |
 | `api_key` | String | 是* | 在实例化或验证 provider 时使用的 API key（*Ollama 不需要） |
 | `endpoint` | String | 否 | 自定义端点或基础 URL。Claude/OpenAI/Ollama 可填写基础 URL 或完整请求路径；Gemini 需要填写基础 URL，因为 gcop-rs 会基于 `model` 自动拼接最终请求路径 |
 | `model` | String | 是 | 模型名称 |
 | `temperature` | Float | 否 | 温度参数（0.0-2.0）。Claude/OpenAI/Gemini 风格默认 0.3；Ollama 未设置时使用模型默认值 |
 | `max_tokens` | Integer | 否 | 最大响应 token 数。Claude 风格默认 2000；OpenAI 风格仅在设置时发送；Ollama 当前会忽略该字段 |
+| `strip_thinking` | Boolean | 否 | 从生成的 commit/review 文本中移除 `<thinking>...</thinking>` 与 `<think>...</think>` 块。默认 `false` |
 | `extra` | Object | 否 | 额外 provider 参数。未知键会保留；同时会兼容性读取其中的 `max_tokens` / `temperature` |
 
 `gcop-rs` 不会内置模型白名单；只要模型兼容所选 API 形态，就可以直接配置。
@@ -302,14 +312,14 @@ export GCOP_CI_API_KEY="sk-ant-your-key"
 | 变量 | 说明 | 示例 |
 |------|------|------|
 | `CI` | 启用 CI 模式 | `1` |
-| `GCOP_CI_PROVIDER` | Provider 类型 | `claude`、`openai`、`ollama` 或 `gemini` |
+| `GCOP_CI_PROVIDER` | Provider 类型 | `claude`、`openai`、`openai-response`、`ollama` 或 `gemini` |
 | `GCOP_CI_API_KEY` | API key | `sk-ant-...` |
 
 ### 可选变量
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
-| `GCOP_CI_MODEL` | 模型名称 | `claude-sonnet-4-5-20250929` (claude)<br>`gpt-4o-mini` (openai)<br>`llama3.2` (ollama)<br>`gemini-3-flash-preview` (gemini) |
+| `GCOP_CI_MODEL` | 模型名称 | `claude-sonnet-4-5-20250929` (claude)<br>`gpt-4o-mini` (openai/openai-response)<br>`llama3.2` (ollama)<br>`gemini-3-flash-preview` (gemini) |
 | `GCOP_CI_ENDPOINT` | 自定义 API 端点 | Provider 默认值 |
 
 ### 示例

@@ -8,7 +8,7 @@ pub mod openai;
 
 pub use claude::process_claude_stream;
 pub use gemini::process_gemini_stream;
-pub use openai::process_openai_stream;
+pub use openai::{process_openai_responses_stream, process_openai_stream};
 
 /// Parse SSE lines and extract data content
 pub(super) fn parse_sse_line(line: &str) -> Option<&str> {

@@ -100,10 +100,19 @@ max_tokens = 2000
 
 # OpenAI Provider
 [llm.providers.openai]
+api_style = "openai"  # optional for this built-in provider; inferred from the name
 api_key = "sk-your-openai-key"
 endpoint = "https://api.openai.com"
 model = "gpt-4o-mini"
 temperature = 0.3
+# strip_thinking = true      # Optional: remove <thinking>...</thinking> / <think>...</think> blocks
+
+# OpenAI Responses API
+[llm.providers.openai-response]
+api_style = "openai-response"
+api_key = "sk-your-openai-key"
+endpoint = "https://api.openai.com"
+model = "gpt-4o-mini"
 
 # Ollama Provider (local)
 [llm.providers.ollama]
@@ -177,12 +186,13 @@ Each provider under `[llm.providers.<name>]` supports:
 
 | Option | Type | Required | Description |
 |--------|------|----------|-------------|
-| `api_style` | String | No | API style: `"claude"`, `"openai"`, `"ollama"`, or `"gemini"` (defaults to provider name if not set) |
+| `api_style` | String | No | API style: `"claude"`, `"openai"`, `"openai-response"`, `"ollama"`, or `"gemini"` (defaults to provider name if not set) |
 | `api_key` | String | Yes* | API key used when a provider is instantiated or validated (*not required for Ollama) |
 | `endpoint` | String | No | Custom endpoint/base URL. Claude/OpenAI/Ollama accept either a base URL or a full request path; Gemini expects a base URL because gcop-rs derives the final request path from `model` |
 | `model` | String | Yes | Model name |
 | `temperature` | Float | No | Temperature (0.0-2.0). Claude/OpenAI/Gemini-style defaults to 0.3; Ollama uses provider default when omitted |
 | `max_tokens` | Integer | No | Max response tokens. Claude-style defaults to 2000; OpenAI-style sends only if set; Ollama currently ignores this field |
+| `strip_thinking` | Boolean | No | Remove `<thinking>...</thinking>` and `<think>...</think>` blocks from generated commit/review text. Default is `false` |
 | `extra` | Object | No | Additional provider-specific keys. Unknown keys are preserved; `max_tokens`/`temperature` are also read from here as a compatibility fallback |
 
 `gcop-rs` does not hardcode a model allowlist. Any model compatible with the selected API shape can be configured.
@@ -302,14 +312,14 @@ For CI/CD environments, gcop-rs provides a simplified configuration via environm
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `CI` | Enable CI mode | `1` |
-| `GCOP_CI_PROVIDER` | Provider type | `claude`, `openai`, `ollama`, or `gemini` |
+| `GCOP_CI_PROVIDER` | Provider type | `claude`, `openai`, `openai-response`, `ollama`, or `gemini` |
 | `GCOP_CI_API_KEY` | API key | `sk-ant-...` |
 
 ### Optional Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `GCOP_CI_MODEL` | Model name | `claude-sonnet-4-5-20250929` (claude)<br>`gpt-4o-mini` (openai)<br>`llama3.2` (ollama)<br>`gemini-3-flash-preview` (gemini) |
+| `GCOP_CI_MODEL` | Model name | `claude-sonnet-4-5-20250929` (claude)<br>`gpt-4o-mini` (openai/openai-response)<br>`llama3.2` (ollama)<br>`gemini-3-flash-preview` (gemini) |
 | `GCOP_CI_ENDPOINT` | Custom API endpoint | Provider default |
 
 ### Example

@@ -10,7 +10,7 @@ use crate::commands::json::{self, JsonOutput};
 use crate::config::AppConfig;
 use crate::error::{GcopError, Result};
 use crate::git::{DiffStats, GitOperations, repository::GitRepository};
-use crate::llm::provider::base::response::process_commit_response;
+use crate::llm::provider::base::response::process_commit_response_with_options;
 use crate::llm::{CommitContext, LLMProvider, ScopeInfo, provider::create_provider};
 use crate::ui;
 
@@ -448,7 +448,7 @@ async fn generate_message(
 
         let mut output = ui::StreamingOutput::new(colored);
         let message = output.process(stream_handle.receiver).await?;
-        let message = process_commit_response(message);
+        let message = process_commit_response_with_options(message, provider.strip_thinking());
 
         // If code fences were stripped, erase raw output and redisplay clean version
         output.redisplay_if_cleaned(&message);
@@ -467,7 +467,7 @@ async fn generate_message(
         let message = provider.send_prompt(&system, &user, Some(&spinner)).await?;
 
         spinner.finish_and_clear();
-        let message = process_commit_response(message);
+        let message = process_commit_response_with_options(message, provider.strip_thinking());
         Ok((message, false)) // Not shown yet
     }
 }

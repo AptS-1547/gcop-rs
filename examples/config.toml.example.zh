@@ -16,7 +16,16 @@ model = "claude-sonnet-4-5-20250929"
 
 # OpenAI
 # [llm.providers.openai]
+# api_style = "openai"  # 内置 provider 可省略；会从名称推断
 # api_key = "sk-your-openai-key-here"
+# model = "gpt-4o-mini"
+# strip_thinking = true      # 可选：移除 <thinking>...</thinking> / <think>...</think> 块
+#
+# OpenAI Responses API
+# [llm.providers.openai-response]
+# api_style = "openai-response"
+# api_key = "sk-your-openai-key-here"
+# endpoint = "https://api.openai.com"
 # model = "gpt-4o-mini"
 
 # Ollama（本地部署，需先运行 ollama serve）

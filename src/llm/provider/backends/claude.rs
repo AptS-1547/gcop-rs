@@ -4,8 +4,9 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 
 use super::super::base::{
-    ApiBackend, build_endpoint, extract_api_key, get_max_tokens, get_temperature, send_llm_request,
-    send_llm_request_streaming, validate_api_key, validate_http_endpoint,
+    ApiBackend, build_endpoint, extract_api_key, extract_extra_bool, get_max_tokens,
+    get_temperature, send_llm_request, send_llm_request_streaming, validate_api_key,
+    validate_http_endpoint,
 };
 use super::super::streaming::process_claude_stream;
 use super::super::utils::{CLAUDE_API_SUFFIX, DEFAULT_CLAUDE_BASE};
@@ -124,6 +125,7 @@ pub struct ClaudeProvider {
     retry_delay_ms: u64,
     max_retry_delay_ms: u64,
     colored: bool,
+    strip_thinking: bool,
 }
 
 #[derive(Clone, Serialize)]
@@ -171,6 +173,7 @@ impl ClaudeProvider {
         let model = config.model.clone();
         let max_tokens = get_max_tokens(config);
         let temperature = get_temperature(config);
+        let strip_thinking = extract_extra_bool(config, "strip_thinking").unwrap_or(false);
 
         Ok(Self {
             name: provider_name.to_string(),
@@ -184,6 +187,7 @@ impl ClaudeProvider {
             retry_delay_ms: network_config.retry_delay_ms,
             max_retry_delay_ms: network_config.max_retry_delay_ms,
             colored,
+            strip_thinking,
         })
     }
 }
@@ -258,6 +262,10 @@ impl ApiBackend for ClaudeProvider {
 
     fn supports_streaming(&self) -> bool {
         true
+    }
+
+    fn strip_thinking(&self) -> bool {
+        self.strip_thinking
     }
 
     async fn call_api_streaming(&self, system: &str, user_message: &str) -> Result<StreamHandle> {

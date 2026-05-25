@@ -63,6 +63,20 @@ pub fn extract_extra_f32(config: &ProviderConfig, key: &str) -> Option<f32> {
         .map(|v| v as f32)
 }
 
+/// Extract bool value from extra configuration
+pub fn extract_extra_bool(config: &ProviderConfig, key: &str) -> Option<bool> {
+    config.extra.get(key).and_then(|v| v.as_bool())
+}
+
+/// Extract string value from extra configuration
+pub fn extract_extra_string(config: &ProviderConfig, key: &str) -> Option<String> {
+    config
+        .extra
+        .get(key)
+        .and_then(|v| v.as_str())
+        .map(str::to_string)
+}
+
 /// Get max_tokens from configuration (explicit fields first, fallback to extra, lastly use default)
 pub fn get_max_tokens(config: &ProviderConfig) -> u32 {
     config

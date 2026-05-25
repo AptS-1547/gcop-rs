@@ -27,6 +27,7 @@ max_tokens = 2000
 
 ```toml
 [llm.providers.openai]
+api_style = "openai"  # optional for this built-in provider; inferred from the name
 api_key = "sk-your-openai-key"
 model = "gpt-4o-mini"
 temperature = 0.3
@@ -34,10 +35,22 @@ temperature = 0.3
 
 **Get API Key**: https://platform.openai.com/
 
+Use `api_style = "openai-response"` for OpenAI models that require or work better with the Responses API:
+
+```toml
+[llm.providers.openai-response]
+api_style = "openai-response"
+api_key = "sk-your-openai-key"
+endpoint = "https://api.openai.com"
+model = "gpt-4o-mini"
+```
+
+In that mode, gcop-rs sends the system prompt as `instructions`, the user prompt as `input`, maps `max_tokens` to `max_output_tokens`, disables tool calls with `tool_choice = "none"`, and parses `output_text` content from the response.
+
 **Example Models**:
 - `gpt-4o-mini` (matches the built-in CI default)
 - `gpt-4o`
-- Any Chat Completions compatible model from OpenAI or a compatible service
+- Any Chat Completions or Responses compatible model from OpenAI
 
 ### Ollama (Local)
 
@@ -131,6 +144,7 @@ The `api_style` parameter determines which API implementation to use:
 | Value | Description | Compatible Services |
 |-------|-------------|-------------------|
 | `"openai"` | OpenAI Chat Completions API | OpenAI, DeepSeek, Qwen, most custom services |
+| `"openai-response"` | OpenAI Responses API | OpenAI Responses API |
 | `"claude"` | Anthropic Messages API | Claude, Claude proxies/mirrors |
 | `"ollama"` | Ollama Generate API | Local Ollama only |
 | `"gemini"` | Google Gemini GenerateContent API | Gemini and Gemini-compatible endpoints |
@@ -140,7 +154,17 @@ If `api_style` is not specified, it defaults to the provider name (for backward 
 ## Endpoint Rules
 
 - Claude, OpenAI, and Ollama providers accept either a base URL or a full request path in `endpoint`.
+- For OpenAI Responses API, use `api_style = "openai-response"`; a base `endpoint = "https://api.openai.com"` will resolve to `/v1/responses`.
 - Gemini expects a base URL in `endpoint`; gcop-rs derives `/v1beta/models/{model}:generateContent` from that base.
+
+## Thinking Tags
+
+Some OpenAI-compatible models return visible reasoning in `<thinking>...</thinking>` or `<think>...</think>` blocks. gcop-rs preserves those blocks by default. To strip them from generated commit messages and review JSON before parsing, enable:
+
+```toml
+[llm.providers.openai]
+strip_thinking = true
+```
 
 ## Switching Providers
 
