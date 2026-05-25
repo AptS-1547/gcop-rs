@@ -147,11 +147,12 @@ pub fn process_review_response_with_options(
     response: &str,
     strip_thinking: bool,
 ) -> Result<ReviewResult> {
-    tracing::debug!("LLM review response: {}", response);
     if strip_thinking {
         let stripped = strip_thinking_tags(response);
+        tracing::debug!("LLM review response: {}", stripped);
         parse_review_response(&stripped)
     } else {
+        tracing::debug!("LLM review response: {}", response);
         parse_review_response(response)
     }
 }

@@ -546,8 +546,12 @@ async fn generate_message_no_streaming(
         print_verbose_prompt(&system, &user, true, false);
     }
 
-    // Use the non-streaming API directly
-    provider.send_prompt(&system, &user, None).await
+    // Use the non-streaming API directly and apply the same cleanup as UI mode.
+    let message = provider.send_prompt(&system, &user, None).await?;
+    Ok(process_commit_response_with_options(
+        message,
+        provider.strip_thinking(),
+    ))
 }
 
 /// JSON format successfully output

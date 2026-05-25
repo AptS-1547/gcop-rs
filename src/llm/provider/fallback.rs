@@ -6,8 +6,12 @@ use tracing::debug;
 
 use crate::config::AppConfig;
 use crate::error::{GcopError, Result};
+use crate::llm::provider::base::response::{
+    process_commit_response_with_options, strip_thinking_tags,
+};
 use crate::llm::{
-    LLMProvider, ProgressReporter, ReviewResult, ReviewType, StreamChunk, StreamHandle,
+    CommitContext, LLMProvider, ProgressReporter, ReviewResult, ReviewType, StreamChunk,
+    StreamHandle,
 };
 use crate::ui::colors;
 
@@ -80,6 +84,40 @@ impl FallbackProvider {
     }
 }
 
+fn strip_streaming_thinking(handle: StreamHandle) -> StreamHandle {
+    let (tx, rx) = mpsc::channel(32);
+    tokio::spawn(async move {
+        let mut receiver = handle.receiver;
+        let mut buffer = String::new();
+
+        while let Some(chunk) = receiver.recv().await {
+            match chunk {
+                StreamChunk::Delta(text) => {
+                    buffer.push_str(&text);
+                }
+                StreamChunk::Done => {
+                    let stripped = strip_thinking_tags(&buffer);
+                    if !stripped.is_empty() {
+                        let _ = tx.send(StreamChunk::Delta(stripped)).await;
+                    }
+                    let _ = tx.send(StreamChunk::Done).await;
+                    break;
+                }
+                StreamChunk::Error(error) => {
+                    let _ = tx.send(StreamChunk::Error(error)).await;
+                    break;
+                }
+                StreamChunk::Retry => {
+                    buffer.clear();
+                    let _ = tx.send(StreamChunk::Retry).await;
+                }
+            }
+        }
+    });
+
+    StreamHandle { receiver: rx }
+}
+
 #[async_trait]
 impl LLMProvider for FallbackProvider {
     fn name(&self) -> &str {
@@ -94,10 +132,7 @@ impl LLMProvider for FallbackProvider {
     }
 
     fn strip_thinking(&self) -> bool {
-        self.providers
-            .first()
-            .map(|p| p.strip_thinking())
-            .unwrap_or(false)
+        false
     }
 
     async fn validate(&self) -> Result<()> {
@@ -158,7 +193,13 @@ impl LLMProvider for FallbackProvider {
                 .send_prompt(system_prompt, user_prompt, progress)
                 .await
             {
-                Ok(msg) => return Ok(msg),
+                Ok(msg) => {
+                    return Ok(if provider.strip_thinking() {
+                        strip_thinking_tags(&msg)
+                    } else {
+                        msg
+                    });
+                }
                 Err(e) => {
                     if i < self.providers.len() - 1 {
                         colors::warning(
@@ -198,7 +239,12 @@ impl LLMProvider for FallbackProvider {
                 .send_prompt_streaming(system_prompt, user_prompt)
                 .await
             {
-                Ok(handle) => return Ok(handle),
+                Ok(handle) => {
+                    if provider.strip_thinking() {
+                        return Ok(strip_streaming_thinking(handle));
+                    }
+                    return Ok(handle);
+                }
                 Err(e) => {
                     colors::warning(
                         &rust_i18n::t!(
@@ -237,7 +283,22 @@ impl LLMProvider for FallbackProvider {
         Ok(StreamHandle { receiver: rx })
     }
 
-    // generate_commit_message: trait default (build prompt → send_prompt with fallback)
+    async fn generate_commit_message(
+        &self,
+        diff: &str,
+        context: Option<CommitContext>,
+        progress: Option<&dyn ProgressReporter>,
+    ) -> Result<String> {
+        let ctx = context.unwrap_or_default();
+        let (system, user) = crate::llm::prompt::build_commit_prompt_split(
+            diff,
+            &ctx,
+            ctx.custom_prompt.as_deref(),
+            ctx.convention.as_ref(),
+        );
+        let message = self.send_prompt(&system, &user, progress).await?;
+        Ok(process_commit_response_with_options(message, false))
+    }
 
     async fn review_code(
         &self,
@@ -423,10 +484,10 @@ mod tests {
     }
 
     #[test]
-    fn test_strip_thinking_uses_first_provider() {
+    fn test_strip_thinking_is_not_static_first_provider_policy() {
         let provider = TestProvider::new("test").with_strip_thinking();
         let fallback = FallbackProvider::new(vec![Arc::new(provider)], false);
-        assert!(fallback.strip_thinking());
+        assert!(!fallback.strip_thinking());
     }
 
     // === Test validate ===
@@ -481,6 +542,32 @@ mod tests {
         let result = fallback.generate_commit_message("diff", None, None).await;
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "message from fallback");
+    }
+
+    #[tokio::test]
+    async fn test_generate_commit_message_uses_successful_provider_strip_thinking() {
+        let provider1 = TestProvider::new("primary").with_failure();
+        let mut provider2 = TestProvider::new("fallback").with_strip_thinking();
+        provider2.message = "<think>hidden</think>\nfeat: clean".to_string();
+        let fallback = FallbackProvider::new(vec![Arc::new(provider1), Arc::new(provider2)], false);
+
+        let result = fallback.generate_commit_message("diff", None, None).await;
+
+        assert_eq!(result.unwrap(), "feat: clean");
+    }
+
+    #[tokio::test]
+    async fn test_generate_commit_message_preserves_thinking_when_successful_provider_keeps_it() {
+        let mut provider1 = TestProvider::new("primary").with_strip_thinking();
+        provider1.message = "<think>ignored</think>\nfeat: primary".to_string();
+        let mut provider2 = TestProvider::new("fallback");
+        provider2.message = "<think>visible</think>\nfeat: fallback".to_string();
+        let provider1 = provider1.with_failure();
+        let fallback = FallbackProvider::new(vec![Arc::new(provider1), Arc::new(provider2)], false);
+
+        let result = fallback.generate_commit_message("diff", None, None).await;
+
+        assert_eq!(result.unwrap(), "<think>visible</think>\nfeat: fallback");
     }
 
     #[tokio::test]

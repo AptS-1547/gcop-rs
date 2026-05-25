@@ -48,9 +48,17 @@ struct OpenAIResponsesStreamResponse {
 }
 
 #[derive(Debug, serde::Deserialize)]
+struct OpenAIResponsesErrorEnvelope {
+    #[serde(default)]
+    pub error: Option<OpenAIResponsesStreamError>,
+}
+
+#[derive(Debug, serde::Deserialize)]
 struct OpenAIResponsesStreamError {
     #[serde(default)]
     pub code: Option<String>,
+    #[serde(rename = "type", default)]
+    pub error_type: Option<String>,
     pub message: String,
 }
 
@@ -185,6 +193,10 @@ pub async fn process_openai_responses_stream(
                     return Ok(());
                 }
 
+                if let Some(error) = parse_openai_responses_error_envelope(data) {
+                    return Err(openai_responses_error(error));
+                }
+
                 match serde_json::from_str::<OpenAIResponsesEvent>(data) {
                     Ok(event) => match event.event_type.as_str() {
                         "response.output_text.delta" => {
@@ -209,7 +221,8 @@ pub async fn process_openai_responses_stream(
                         "response.failed" => {
                             return Err(openai_responses_event_error(
                                 event.response,
-                                "response failed",
+                                rust_i18n::t!("provider.openai.stream.response_failed")
+                                    .into_owned(),
                             ));
                         }
                         "response.incomplete" => {
@@ -244,6 +257,12 @@ pub async fn process_openai_responses_stream(
     Ok(())
 }
 
+fn parse_openai_responses_error_envelope(data: &str) -> Option<OpenAIResponsesStreamError> {
+    serde_json::from_str::<OpenAIResponsesErrorEnvelope>(data)
+        .ok()
+        .and_then(|envelope| envelope.error)
+}
+
 fn warn_openai_responses_parse_errors(parse_errors: usize, colored: bool) {
     if parse_errors > 0 {
         colors::warning(
@@ -255,29 +274,56 @@ fn warn_openai_responses_parse_errors(parse_errors: usize, colored: bool) {
 
 fn openai_responses_event_error(
     response: Option<OpenAIResponsesStreamResponse>,
-    fallback: &str,
+    fallback: String,
 ) -> GcopError {
     let detail = response
         .and_then(|response| response.error)
-        .map(|error| {
-            let code = error.code.unwrap_or_else(|| "unknown".to_string());
-            format!("{}: {}", code, error.message)
-        })
-        .unwrap_or_else(|| fallback.to_string());
+        .map(format_openai_responses_error)
+        .unwrap_or(fallback);
 
-    GcopError::Llm(format!("OpenAI Responses API error: {}", detail))
+    GcopError::Llm(
+        rust_i18n::t!(
+            "provider.openai.responses_api_error_detail",
+            detail = detail
+        )
+        .to_string(),
+    )
+}
+
+fn openai_responses_error(error: OpenAIResponsesStreamError) -> GcopError {
+    let detail = format_openai_responses_error(error);
+    GcopError::Llm(
+        rust_i18n::t!(
+            "provider.openai.responses_api_error_detail",
+            detail = detail
+        )
+        .to_string(),
+    )
+}
+
+fn format_openai_responses_error(error: OpenAIResponsesStreamError) -> String {
+    let code = error
+        .code
+        .or(error.error_type)
+        .unwrap_or_else(|| rust_i18n::t!("provider.openai.unknown_error_code").to_string());
+    format!("{}: {}", code, error.message)
 }
 
 fn openai_responses_incomplete_error(response: Option<OpenAIResponsesStreamResponse>) -> GcopError {
     let reason = response
         .and_then(|response| response.incomplete_details)
         .map(|details| details.reason)
-        .unwrap_or_else(|| "unknown".to_string());
+        .unwrap_or_else(|| {
+            rust_i18n::t!("provider.openai.stream.unknown_incomplete_reason").to_string()
+        });
 
-    GcopError::Llm(format!(
-        "OpenAI Responses API response incomplete: {}",
-        reason
-    ))
+    GcopError::Llm(
+        rust_i18n::t!(
+            "provider.openai.stream.response_incomplete",
+            reason = reason
+        )
+        .to_string(),
+    )
 }
 
 #[cfg(test)]
@@ -429,6 +475,68 @@ mod tests {
         assert_eq!(delta_text(&chunks[0]), "Hello");
         assert_eq!(delta_text(&chunks[1]), " world");
         assert_done(&chunks[2]);
+    }
+
+    #[tokio::test]
+    async fn test_openai_responses_done_event_completes() {
+        let body = "data: [DONE]\n";
+        let (tx, rx) = mpsc::channel(16);
+        let result = process_openai_responses_stream(sse_response(body), tx, false).await;
+
+        assert!(result.is_ok());
+        let chunks = drain(rx).await;
+        assert_eq!(chunks.len(), 1);
+        assert_done(&chunks[0]);
+    }
+
+    #[tokio::test]
+    async fn test_openai_responses_ignores_unknown_events() {
+        let body = concat!(
+            "data: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_123\"},\"sequence_number\":1}\n",
+            "data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_123\",\"status\":\"completed\"},\"sequence_number\":2}\n",
+        );
+        let (tx, rx) = mpsc::channel(16);
+        let result = process_openai_responses_stream(sse_response(body), tx, false).await;
+
+        assert!(result.is_ok());
+        let chunks = drain(rx).await;
+        assert_eq!(chunks.len(), 1);
+        assert_done(&chunks[0]);
+    }
+
+    #[tokio::test]
+    async fn test_openai_responses_top_level_error_envelope() {
+        let body = "data: {\"error\":{\"type\":\"rate_limit_error\",\"message\":\"Concurrency limit exceeded for account, please retry later\"}}\n";
+        let (tx, rx) = mpsc::channel(16);
+        let result = process_openai_responses_stream(sse_response(body), tx, false).await;
+
+        assert!(
+            matches!(
+                result,
+                Err(GcopError::Llm(ref message))
+                    if message.contains("rate_limit_error")
+                        && message.contains("Concurrency limit exceeded")
+            ),
+            "Expected Responses API error, got {:?}",
+            result
+        );
+        let chunks = drain(rx).await;
+        assert!(chunks.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_openai_responses_parse_errors_are_truncated_error() {
+        let body = "data: {\"not\":\"a responses event\"}\n";
+        let (tx, rx) = mpsc::channel(16);
+        let result = process_openai_responses_stream(sse_response(body), tx, false).await;
+
+        assert!(
+            matches!(result, Err(GcopError::LlmStreamTruncated { ref provider, .. }) if provider == "OpenAI"),
+            "Expected LlmStreamTruncated, got {:?}",
+            result
+        );
+        let chunks = drain(rx).await;
+        assert!(chunks.is_empty());
     }
 
     #[tokio::test]

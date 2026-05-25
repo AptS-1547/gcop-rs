@@ -177,11 +177,21 @@ fn main() -> Result<()> {
 }
 
 fn should_skip_hook_before_config_load() -> bool {
-    if std::env::var("GCOP_SKIP_HOOK").as_deref() != Ok("1") {
+    should_skip_hook_args_before_config_load(
+        std::env::var("GCOP_SKIP_HOOK").as_deref() == Ok("1"),
+        std::env::args().skip(1),
+    )
+}
+
+fn should_skip_hook_args_before_config_load(
+    skip_env: bool,
+    args: impl IntoIterator<Item = String>,
+) -> bool {
+    if !skip_env {
         return false;
     }
 
-    let args = std::env::args().skip(1).collect::<Vec<_>>();
+    let args = args.into_iter().collect::<Vec<_>>();
     args.windows(2)
         .any(|window| window[0] == "hook" && window[1] == "run")
 }
@@ -356,4 +366,37 @@ fn handle_command_error(e: &error::GcopError, colored: bool) -> ! {
         println!("{}", ui::info(&suggestion, colored));
     }
     std::process::exit(1);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn args(values: &[&str]) -> Vec<String> {
+        values.iter().map(|value| value.to_string()).collect()
+    }
+
+    #[test]
+    fn test_skip_hook_before_config_load_requires_env() {
+        assert!(!should_skip_hook_args_before_config_load(
+            false,
+            args(&["hook", "run", ".git/COMMIT_EDITMSG"])
+        ));
+    }
+
+    #[test]
+    fn test_skip_hook_before_config_load_detects_hook_run() {
+        assert!(should_skip_hook_args_before_config_load(
+            true,
+            args(&["--verbose", "hook", "run", ".git/COMMIT_EDITMSG"])
+        ));
+    }
+
+    #[test]
+    fn test_skip_hook_before_config_load_ignores_other_commands() {
+        assert!(!should_skip_hook_args_before_config_load(
+            true,
+            args(&["commit", "--provider", "openai"])
+        ));
+    }
 }

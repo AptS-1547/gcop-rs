@@ -187,11 +187,17 @@ struct ResponseIncompleteDetails {
 impl OpenAIResponsesResponse {
     fn into_text(self) -> Result<String> {
         if let Some(error) = self.error {
-            let code = error.code.unwrap_or_else(|| "unknown".to_string());
-            return Err(GcopError::Llm(format!(
-                "OpenAI Responses API error ({}): {}",
-                code, error.message
-            )));
+            let code = error
+                .code
+                .unwrap_or_else(|| rust_i18n::t!("provider.openai.unknown_error_code").to_string());
+            return Err(GcopError::Llm(
+                rust_i18n::t!(
+                    "provider.openai.responses_api_error",
+                    code = code,
+                    message = error.message
+                )
+                .to_string(),
+            ));
         }
 
         if let Some(details) = self.incomplete_details {
@@ -654,6 +660,7 @@ mod tests {
     use std::collections::HashMap;
 
     use crate::error::GcopError;
+    use crate::llm::StreamChunk;
     use crate::llm::provider::test_utils::{
         ensure_crypto_provider, test_network_config_no_retry, test_provider_config,
     };
@@ -790,6 +797,33 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_openai_responses_uses_configured_max_output_tokens() {
+        ensure_crypto_provider();
+        let mut server = Server::new_async().await;
+        let mock = server
+            .mock("POST", "/v1/responses")
+            .match_body(mockito::Matcher::PartialJson(serde_json::json!({
+                "max_output_tokens": 123,
+                "tool_choice": "none"
+            })))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"output_text":"Limited"}"#)
+            .create_async()
+            .await;
+
+        let mut config = responses_provider_config(server.url());
+        config.max_tokens = Some(123);
+
+        let provider =
+            OpenAIProvider::new(&config, "openai", &test_network_config_no_retry(), false).unwrap();
+
+        let result = provider.call_api("system", "hi", None).await.unwrap();
+        assert_eq!(result, "Limited");
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
     async fn test_openai_responses_inferred_from_provider_name() {
         ensure_crypto_provider();
         let mut server = Server::new_async().await;
@@ -814,6 +848,35 @@ mod tests {
 
         let result = provider.call_api("system", "hi", None).await.unwrap();
         assert_eq!(result, "Inferred mode");
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn test_openai_responses_incomplete_empty_response_errors() {
+        ensure_crypto_provider();
+        let mut server = Server::new_async().await;
+        let mock = server
+            .mock("POST", "/v1/responses")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"incomplete_details":{"reason":"max_output_tokens"},"output":[]}"#)
+            .create_async()
+            .await;
+
+        let provider = OpenAIProvider::new(
+            &responses_provider_config(server.url()),
+            "openai",
+            &test_network_config_no_retry(),
+            false,
+        )
+        .unwrap();
+
+        let err = provider.call_api("system", "hi", None).await.unwrap_err();
+        assert!(
+            matches!(err, GcopError::Llm(ref message) if message.contains("empty response")),
+            "Expected empty response error, got {:?}",
+            err
+        );
         mock.assert_async().await;
     }
 
@@ -897,7 +960,96 @@ mod tests {
         )
         .unwrap();
 
-        provider.validate().await.unwrap();
+        ApiBackend::validate(&provider).await.unwrap();
+        mock.assert_async().await;
+    }
+
+    async fn assert_next_delta(receiver: &mut mpsc::Receiver<StreamChunk>, expected: &str) {
+        match receiver.recv().await {
+            Some(StreamChunk::Delta(text)) => assert_eq!(text, expected),
+            other => panic!("Expected Delta({expected:?}), got {other:?}"),
+        }
+    }
+
+    async fn assert_next_done(receiver: &mut mpsc::Receiver<StreamChunk>) {
+        match receiver.recv().await {
+            Some(StreamChunk::Done) => {}
+            other => panic!("Expected Done, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_openai_chat_completions_streaming_request() {
+        ensure_crypto_provider();
+        let mut server = Server::new_async().await;
+        let mock = server
+            .mock("POST", "/v1/chat/completions")
+            .match_body(mockito::Matcher::PartialJson(serde_json::json!({
+                "stream": true,
+                "messages": [
+                    {"role": "system", "content": "system"},
+                    {"role": "user", "content": "hi"}
+                ]
+            })))
+            .with_status(200)
+            .with_header("content-type", "text/event-stream")
+            .with_body(
+                "data: {\"choices\":[{\"delta\":{\"content\":\"Hi\"},\"finish_reason\":null}]}\n\
+                 data: [DONE]\n",
+            )
+            .create_async()
+            .await;
+
+        let provider = OpenAIProvider::new(
+            &test_provider_config(
+                server.url(),
+                Some("sk-test".to_string()),
+                "gpt-4o-mini".to_string(),
+            ),
+            "openai",
+            &test_network_config_no_retry(),
+            false,
+        )
+        .unwrap();
+
+        let mut handle = provider.call_api_streaming("system", "hi").await.unwrap();
+        assert_next_delta(&mut handle.receiver, "Hi").await;
+        assert_next_done(&mut handle.receiver).await;
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn test_openai_responses_streaming_request() {
+        ensure_crypto_provider();
+        let mut server = Server::new_async().await;
+        let mock = server
+            .mock("POST", "/v1/responses")
+            .match_body(mockito::Matcher::PartialJson(serde_json::json!({
+                "instructions": "system",
+                "input": "hi",
+                "stream": true,
+                "tool_choice": "none"
+            })))
+            .with_status(200)
+            .with_header("content-type", "text/event-stream")
+            .with_body(
+                "data: {\"type\":\"response.output_text.delta\",\"delta\":\"Hi\",\"sequence_number\":1}\n\
+                 data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_123\",\"status\":\"completed\"},\"sequence_number\":2}\n",
+            )
+            .create_async()
+            .await;
+
+        let provider = OpenAIProvider::new(
+            &responses_provider_config(server.url()),
+            "openai",
+            &test_network_config_no_retry(),
+            false,
+        )
+        .unwrap();
+
+        let mut handle = provider.call_api_streaming("system", "hi").await.unwrap();
+        assert_next_delta(&mut handle.receiver, "Hi").await;
+        assert_next_done(&mut handle.receiver).await;
         mock.assert_async().await;
     }
 }

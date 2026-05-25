@@ -1,4 +1,5 @@
 use std::fs;
+use std::path::Path;
 
 use crate::commands::smart_truncate_diff;
 use crate::config::AppConfig;
@@ -42,7 +43,11 @@ pub fn install(force: bool) -> Result<()> {
         )))
     })?;
 
-    let hooks_dir = git_root.join(".git").join("hooks");
+    install_in_repo(&git_root, force)
+}
+
+fn install_in_repo(repo_path: &Path, force: bool) -> Result<()> {
+    let hooks_dir = repo_path.join(".git").join("hooks");
     fs::create_dir_all(&hooks_dir)?;
 
     let hook_path = hooks_dir.join("prepare-commit-msg");
@@ -312,7 +317,6 @@ async fn run_hook_inner(
 mod tests {
     use super::*;
     use serial_test::serial;
-    use std::path::Path;
     use std::process::Command;
     use tempfile::TempDir;
 
@@ -424,10 +428,7 @@ mod tests {
         .unwrap();
         set_executable(&hook_path);
 
-        let original_dir = std::env::current_dir().unwrap();
-        std::env::set_current_dir(repo_path).unwrap();
-        let result = install(true);
-        std::env::set_current_dir(original_dir).unwrap();
+        let result = install_in_repo(repo_path, true);
 
         assert!(result.is_ok());
         let content = fs::read_to_string(&hook_path).unwrap();

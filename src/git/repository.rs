@@ -76,6 +76,17 @@ impl GitRepository {
 
         Ok((commit_tree, parent_tree))
     }
+
+    fn enable_similarity_detection(diff: &mut git2::Diff<'_>) -> Result<()> {
+        let mut find_opts = DiffFindOptions::new();
+        find_opts
+            .renames(true)
+            .copies(true)
+            .rename_threshold(50)
+            .copy_threshold(50);
+        diff.find_similar(Some(&mut find_opts))?;
+        Ok(())
+    }
 }
 
 impl GitOperations for GitRepository {
@@ -89,9 +100,10 @@ impl GitOperations for GitRepository {
         // For an empty repository, compare empty tree (None) against the index.
         if self.is_empty()? {
             let mut opts = DiffOptions::new();
-            let diff = self
+            let mut diff = self
                 .repo
                 .diff_tree_to_index(None, Some(&index), Some(&mut opts))?;
+            Self::enable_similarity_detection(&mut diff)?;
             return self.diff_to_string(&diff);
         }
 
@@ -101,9 +113,10 @@ impl GitOperations for GitRepository {
 
         // Create diff (HEAD tree vs index)
         let mut opts = DiffOptions::new();
-        let diff = self
-            .repo
-            .diff_tree_to_index(Some(&head_tree), Some(&index), Some(&mut opts))?;
+        let mut diff =
+            self.repo
+                .diff_tree_to_index(Some(&head_tree), Some(&index), Some(&mut opts))?;
+        Self::enable_similarity_detection(&mut diff)?;
 
         self.diff_to_string(&diff)
     }
@@ -304,8 +317,7 @@ impl GitOperations for GitRepository {
         let mut diff =
             self.repo
                 .diff_tree_to_index(tree.as_ref(), Some(&index), Some(&mut opts))?;
-        let mut find_opts = DiffFindOptions::new();
-        diff.find_similar(Some(&mut find_opts))?;
+        Self::enable_similarity_detection(&mut diff)?;
 
         Ok(diff
             .deltas()
@@ -550,6 +562,33 @@ mod tests {
         let diff = git_repo.get_staged_diff().unwrap();
         assert!(diff.contains("-hello"));
         assert!(diff.contains("+hello world"));
+    }
+
+    #[test]
+    fn test_get_staged_diff_detects_rename() {
+        let (dir, git_repo) = create_test_repo();
+        create_file(dir.path(), "old_name.txt", "same content");
+        stage_file(&git_repo.repo, "old_name.txt");
+        create_commit(&git_repo.repo, "Initial commit");
+
+        fs::rename(
+            dir.path().join("old_name.txt"),
+            dir.path().join("new_name.txt"),
+        )
+        .unwrap();
+
+        let mut index = git_repo.repo.index().unwrap();
+        index.remove_path(Path::new("old_name.txt")).unwrap();
+        index.add_path(Path::new("new_name.txt")).unwrap();
+        index.write().unwrap();
+
+        let diff = git_repo.get_staged_diff().unwrap();
+
+        assert!(
+            diff.contains("rename from old_name.txt"),
+            "diff was:\n{diff}"
+        );
+        assert!(diff.contains("rename to new_name.txt"), "diff was:\n{diff}");
     }
 
     // === Test get_uncommitted_diff ===

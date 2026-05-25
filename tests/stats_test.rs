@@ -89,6 +89,40 @@ fn test_repo_stats_multiple_commits() {
     assert!((8..=10).contains(&days), "Expected 8-10 days, got {}", days);
 }
 
+#[test]
+fn test_repo_stats_author_sort_tiebreaks_by_name() {
+    let commits = vec![
+        create_test_commit("Bob", "bob@example.com", 1, "fix: bob"),
+        create_test_commit("Alice", "alice@example.com", 2, "fix: alice"),
+    ];
+
+    let stats = RepoStats::from_commits(&commits, None);
+    let names = stats
+        .authors
+        .iter()
+        .map(|author| author.name.as_str())
+        .collect::<Vec<_>>();
+
+    assert_eq!(names, vec!["Alice", "Bob"]);
+}
+
+#[test]
+fn test_repo_stats_author_sort_tiebreaks_by_email_when_name_equal() {
+    let commits = vec![
+        create_test_commit("Alex", "z@example.com", 1, "fix: z"),
+        create_test_commit("Alex", "a@example.com", 2, "fix: a"),
+    ];
+
+    let stats = RepoStats::from_commits(&commits, None);
+    let emails = stats
+        .authors
+        .iter()
+        .map(|author| author.email.as_str())
+        .collect::<Vec<_>>();
+
+    assert_eq!(emails, vec!["a@example.com", "z@example.com"]);
+}
+
 // === 作者过滤测试 ===
 
 #[test]

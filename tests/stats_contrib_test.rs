@@ -16,6 +16,24 @@ use tempfile::TempDir;
 
 // ========== 辅助函数 ==========
 
+struct DirGuard {
+    original: std::path::PathBuf,
+}
+
+impl DirGuard {
+    fn enter(path: &Path) -> Result<Self> {
+        let original = env::current_dir()?;
+        env::set_current_dir(path)?;
+        Ok(Self { original })
+    }
+}
+
+impl Drop for DirGuard {
+    fn drop(&mut self) {
+        let _ = env::set_current_dir(&self.original);
+    }
+}
+
 fn init_git_repo(path: &Path) -> Result<git2::Repository> {
     git2::Repository::init(path).map_err(gcop_rs::error::GcopError::from)
 }
@@ -71,8 +89,7 @@ fn test_compute_contrib_stats_basic() -> Result<()> {
         "test@example.com",
     )?;
 
-    let original_dir = env::current_dir()?;
-    env::set_current_dir(repo_path)?;
+    let _dir_guard = DirGuard::enter(repo_path)?;
 
     let git_repo = GitRepository::open(None)?;
     let commits = git_repo.get_commit_history()?;
@@ -88,7 +105,6 @@ fn test_compute_contrib_stats_basic() -> Result<()> {
     assert_eq!(contrib.authors[0].total, 5);
     assert!((contrib.authors[0].percentage - 100.0).abs() < 0.01);
 
-    env::set_current_dir(original_dir)?;
     Ok(())
 }
 
@@ -122,8 +138,7 @@ fn test_compute_contrib_stats_multiple_commits() -> Result<()> {
         "test@example.com",
     )?;
 
-    let original_dir = env::current_dir()?;
-    env::set_current_dir(repo_path)?;
+    let _dir_guard = DirGuard::enter(repo_path)?;
 
     let git_repo = GitRepository::open(None)?;
     let commits = git_repo.get_commit_history()?;
@@ -135,7 +150,6 @@ fn test_compute_contrib_stats_multiple_commits() -> Result<()> {
     assert_eq!(contrib.total_deletions, 2);
     assert_eq!(contrib.total_lines, 8);
 
-    env::set_current_dir(original_dir)?;
     Ok(())
 }
 
@@ -182,8 +196,7 @@ fn test_compute_contrib_stats_skip_merge_commits() -> Result<()> {
         "test@example.com",
     )?;
 
-    let original_dir = env::current_dir()?;
-    env::set_current_dir(repo_path)?;
+    let _dir_guard = DirGuard::enter(repo_path)?;
 
     let git_repo = GitRepository::open(None)?;
     let commits = git_repo.get_commit_history()?;
@@ -192,7 +205,6 @@ fn test_compute_contrib_stats_skip_merge_commits() -> Result<()> {
     // Merge commit 应该被跳过
     assert_eq!(contrib.merge_commits_skipped, 1);
 
-    env::set_current_dir(original_dir)?;
     Ok(())
 }
 
@@ -230,8 +242,7 @@ fn test_compute_contrib_stats_merge_count_respects_author_filter() -> Result<()>
         "bob@example.com",
     )?;
 
-    let original_dir = env::current_dir()?;
-    env::set_current_dir(repo_path)?;
+    let _dir_guard = DirGuard::enter(repo_path)?;
 
     let git_repo = GitRepository::open(None)?;
     let commits = git_repo.get_commit_history()?;
@@ -241,7 +252,6 @@ fn test_compute_contrib_stats_merge_count_respects_author_filter() -> Result<()>
     assert_eq!(alice_contrib.merge_commits_skipped, 0);
     assert_eq!(bob_contrib.merge_commits_skipped, 1);
 
-    env::set_current_dir(original_dir)?;
     Ok(())
 }
 
@@ -252,8 +262,7 @@ fn test_compute_contrib_stats_empty_repo() -> Result<()> {
     let repo_path = temp_dir.path();
     init_git_repo(repo_path)?;
 
-    let original_dir = env::current_dir()?;
-    env::set_current_dir(repo_path)?;
+    let _dir_guard = DirGuard::enter(repo_path)?;
 
     let git_repo = GitRepository::open(None)?;
     let commits = git_repo.get_commit_history()?;
@@ -264,6 +273,5 @@ fn test_compute_contrib_stats_empty_repo() -> Result<()> {
     assert_eq!(contrib.total_lines, 0);
     assert_eq!(contrib.authors.len(), 0);
 
-    env::set_current_dir(original_dir)?;
     Ok(())
 }
