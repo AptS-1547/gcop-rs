@@ -111,10 +111,7 @@ pub fn strip_thinking_tags(text: &str) -> String {
     for tag in &["thinking", "think"] {
         let open = format!("<{}>", tag);
         let close = format!("</{}>", tag);
-        loop {
-            let Some(start) = result.find(&open) else {
-                break;
-            };
+        while let Some(start) = result.find(&open) {
             if let Some(rel_end) = result[start..].find(&close) {
                 let end = start + rel_end + close.len();
                 result = format!("{}{}", &result[..start], &result[end..]);

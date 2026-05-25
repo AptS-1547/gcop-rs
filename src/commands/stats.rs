@@ -84,19 +84,7 @@ pub struct RepoStats {
 impl RepoStats {
     /// Calculate statistics from commit history
     pub fn from_commits(commits: &[CommitInfo], author_filter: Option<&str>) -> Self {
-        // Filter commits
-        let filtered: Vec<&CommitInfo> = if let Some(filter) = author_filter {
-            let filter_lower = filter.to_lowercase();
-            commits
-                .iter()
-                .filter(|c| {
-                    c.author_name.to_lowercase().contains(&filter_lower)
-                        || c.author_email.to_lowercase().contains(&filter_lower)
-                })
-                .collect()
-        } else {
-            commits.iter().collect()
-        };
+        let filtered = filter_commits_by_author(commits, author_filter);
 
         // basic statistics
         let total_commits = filtered.len();
@@ -120,7 +108,12 @@ impl RepoStats {
         }
 
         let mut authors: Vec<AuthorStats> = author_map.into_values().collect();
-        authors.sort_by(|a, b| b.commits.cmp(&a.commits));
+        authors.sort_by(|a, b| {
+            b.commits
+                .cmp(&a.commits)
+                .then_with(|| a.name.cmp(&b.name))
+                .then_with(|| a.email.cmp(&b.email))
+        });
         let total_authors = authors.len();
 
         // Statistics for the last 4 weeks
@@ -229,6 +222,38 @@ impl RepoStats {
     }
 }
 
+fn author_matches_filter(name: &str, email: &str, filter_lower: &str) -> bool {
+    name.to_lowercase().contains(filter_lower) || email.to_lowercase().contains(filter_lower)
+}
+
+fn commit_matches_author_filter(commit: &CommitInfo, filter_lower: &str) -> bool {
+    author_matches_filter(&commit.author_name, &commit.author_email, filter_lower)
+}
+
+fn filter_commits_by_author<'a>(
+    commits: &'a [CommitInfo],
+    author_filter: Option<&str>,
+) -> Vec<&'a CommitInfo> {
+    if let Some(filter) = author_filter {
+        let filter_lower = filter.to_lowercase();
+        commits
+            .iter()
+            .filter(|commit| commit_matches_author_filter(commit, &filter_lower))
+            .collect()
+    } else {
+        commits.iter().collect()
+    }
+}
+
+fn is_commit_header_line(line: &str) -> bool {
+    if !line.contains('|') {
+        return false;
+    }
+
+    let hash = line.split('|').next().unwrap_or("");
+    (40..=64).contains(&hash.len()) && hash.chars().all(|c| c.is_ascii_hexdigit())
+}
+
 /// Compute per-author line-level contribution statistics.
 ///
 /// Uses `git log --numstat` for fast batch processing instead of
@@ -240,6 +265,8 @@ pub fn compute_contrib_stats(
 ) -> Result<ContribStats> {
     use std::collections::HashMap;
     use std::process::Command;
+
+    let filtered_commits = filter_commits_by_author(commits, author_filter);
 
     // Get repository workdir for running git command
     let workdir = git.get_workdir()?;
@@ -289,8 +316,7 @@ pub fn compute_contrib_stats(
             continue;
         }
 
-        // Check if this is a commit header line (contains | and has 40-char hex hash at start)
-        if trimmed.len() > 40 && trimmed.chars().take(40).all(|c| c.is_ascii_hexdigit()) {
+        if is_commit_header_line(trimmed) {
             // Commit header line: hash|name|email|parents
             let parts: Vec<&str> = trimmed.split('|').collect();
             if parts.len() >= 3 {
@@ -321,10 +347,8 @@ pub fn compute_contrib_stats(
     // Apply author filter if specified
     if let Some(filter) = author_filter {
         let filter_lower = filter.to_lowercase();
-        author_map.retain(|_, (name, email, _, _)| {
-            name.to_lowercase().contains(&filter_lower)
-                || email.to_lowercase().contains(&filter_lower)
-        });
+        author_map
+            .retain(|_, (name, email, _, _)| author_matches_filter(name, email, &filter_lower));
     }
 
     let total_ins: usize = author_map.values().map(|v| v.2).sum();
@@ -359,8 +383,11 @@ pub fn compute_contrib_stats(
             .then_with(|| a.email.cmp(&b.email))
     });
 
-    // Count merge commits from original commit list
-    let merge_skipped = commits.iter().filter(|c| c.parent_count > 1).count();
+    // Count merge commits from the same author-filtered commit scope.
+    let merge_skipped = filtered_commits
+        .iter()
+        .filter(|commit| commit.parent_count > 1)
+        .count();
 
     Ok(ContribStats {
         total_insertions: total_ins,

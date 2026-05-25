@@ -373,9 +373,10 @@ mod tests {
 
     #[test]
     fn test_stats_options() {
-        let opts = StatsOptions::from_cli("markdown", false, Some("author@example.com"), false);
+        let opts = StatsOptions::from_cli("markdown", false, Some("author@example.com"), true);
 
         assert_eq!(opts.format, OutputFormat::Markdown);
         assert_eq!(opts.author, Some("author@example.com"));
+        assert!(opts.contrib);
     }
 }

@@ -52,6 +52,30 @@ impl GitRepository {
         })?;
         Ok(String::from_utf8_lossy(&output).to_string())
     }
+
+    fn resolve_commit_trees(
+        &self,
+        commit_ref: &str,
+    ) -> Result<(git2::Tree<'_>, Option<git2::Tree<'_>>)> {
+        let commit = self
+            .repo
+            .revparse_single(commit_ref)
+            .and_then(|obj| obj.peel_to_commit())
+            .map_err(|_| {
+                GcopError::InvalidInput(
+                    rust_i18n::t!("git.invalid_commit_hash", hash = commit_ref).to_string(),
+                )
+            })?;
+
+        let commit_tree = commit.tree()?;
+        let parent_tree = if commit.parent_count() > 0 {
+            Some(commit.parent(0)?.tree()?)
+        } else {
+            None
+        };
+
+        Ok((commit_tree, parent_tree))
+    }
 }
 
 impl GitOperations for GitRepository {
@@ -95,25 +119,7 @@ impl GitOperations for GitRepository {
     }
 
     fn get_commit_diff(&self, commit_hash: &str) -> Result<String> {
-        // Find commit — accept both hex SHA and refs (e.g. "HEAD")
-        let commit = self
-            .repo
-            .revparse_single(commit_hash)
-            .and_then(|obj| obj.peel_to_commit())
-            .map_err(|_| {
-                GcopError::InvalidInput(
-                    rust_i18n::t!("git.invalid_commit_hash", hash = commit_hash).to_string(),
-                )
-            })?;
-
-        let commit_tree = commit.tree()?;
-
-        // Get the parent commit (if any)
-        let parent_tree = if commit.parent_count() > 0 {
-            Some(commit.parent(0)?.tree()?)
-        } else {
-            None
-        };
+        let (commit_tree, parent_tree) = self.resolve_commit_trees(commit_hash)?;
 
         // Build diff.
         let mut opts = DiffOptions::new();
@@ -184,8 +190,7 @@ impl GitOperations for GitRepository {
 
         if head.is_branch() {
             // Read branch name.
-            let branch_name = head.shorthand().map(|s| s.to_string());
-            Ok(branch_name)
+            Ok(Some(head.shorthand()?.to_string()))
         } else {
             // HEAD is in detached state
             Ok(None)
@@ -259,22 +264,7 @@ impl GitOperations for GitRepository {
     }
 
     fn get_commit_line_stats(&self, hash: &str) -> Result<(usize, usize)> {
-        let commit = self
-            .repo
-            .revparse_single(hash)
-            .and_then(|obj| obj.peel_to_commit())
-            .map_err(|_| {
-                GcopError::InvalidInput(
-                    rust_i18n::t!("git.invalid_commit_hash", hash = hash).to_string(),
-                )
-            })?;
-
-        let commit_tree = commit.tree()?;
-        let parent_tree = if commit.parent_count() > 0 {
-            Some(commit.parent(0)?.tree()?)
-        } else {
-            None
-        };
+        let (commit_tree, parent_tree) = self.resolve_commit_trees(hash)?;
 
         let mut opts = DiffOptions::new();
         let diff = self.repo.diff_tree_to_tree(

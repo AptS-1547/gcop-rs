@@ -49,7 +49,6 @@ gcop-rs stats --author "john" --contrib
 ```
 
 > **Note**: In `json`/`markdown` formats, stats output is non-interactive (no step/spinner UI lines).
-
 > **Note**: `--contrib` computes line-level insert/delete stats per commit and skips merge commits.
 
 **Output Format (text)**:

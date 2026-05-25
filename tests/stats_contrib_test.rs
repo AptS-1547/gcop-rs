@@ -37,11 +37,13 @@ fn create_commit(
     repo: &git2::Repository,
     message: &str,
     parents: Vec<&git2::Commit>,
+    author_name: &str,
+    author_email: &str,
 ) -> Result<git2::Oid> {
     let mut index = repo.index()?;
     let tree_id = index.write_tree()?;
     let tree = repo.find_tree(tree_id)?;
-    let sig = git2::Signature::now("Test User", "test@example.com")?;
+    let sig = git2::Signature::now(author_name, author_email)?;
 
     let parent_commits: Vec<&git2::Commit> = parents.to_vec();
     let oid = repo.commit(Some("HEAD"), &sig, &sig, message, &tree, &parent_commits)?;
@@ -61,7 +63,13 @@ fn test_compute_contrib_stats_basic() -> Result<()> {
     // 第一个 commit（5 行插入）
     create_test_file(repo_path, "test.txt", "line1\nline2\nline3\nline4\nline5")?;
     add_file_to_index(&repo, "test.txt")?;
-    create_commit(&repo, "Initial commit", vec![])?;
+    create_commit(
+        &repo,
+        "Initial commit",
+        vec![],
+        "Test User",
+        "test@example.com",
+    )?;
 
     let original_dir = env::current_dir()?;
     env::set_current_dir(repo_path)?;
@@ -94,13 +102,25 @@ fn test_compute_contrib_stats_multiple_commits() -> Result<()> {
     // 第一个 commit（3 行）
     create_test_file(repo_path, "test.txt", "line1\nline2\nline3")?;
     add_file_to_index(&repo, "test.txt")?;
-    let first_commit_id = create_commit(&repo, "First commit", vec![])?;
+    let first_commit_id = create_commit(
+        &repo,
+        "First commit",
+        vec![],
+        "Test User",
+        "test@example.com",
+    )?;
 
     // 第二个 commit（删除 1 行，添加 2 行）
     create_test_file(repo_path, "test.txt", "line1\nline2_modified\nline3\nline4")?;
     add_file_to_index(&repo, "test.txt")?;
     let first_commit = repo.find_commit(first_commit_id)?;
-    create_commit(&repo, "Second commit", vec![&first_commit])?;
+    create_commit(
+        &repo,
+        "Second commit",
+        vec![&first_commit],
+        "Test User",
+        "test@example.com",
+    )?;
 
     let original_dir = env::current_dir()?;
     env::set_current_dir(repo_path)?;
@@ -129,34 +149,37 @@ fn test_compute_contrib_stats_skip_merge_commits() -> Result<()> {
     // 创建主分支的第一个 commit
     create_test_file(repo_path, "main.txt", "main content")?;
     add_file_to_index(&repo, "main.txt")?;
-    let main_commit_id = create_commit(&repo, "Main commit", vec![])?;
+    let main_commit_id = create_commit(
+        &repo,
+        "Main commit",
+        vec![],
+        "Test User",
+        "test@example.com",
+    )?;
     let main_commit = repo.find_commit(main_commit_id)?;
 
     // 在主分支上再创建一个 commit
     create_test_file(repo_path, "main2.txt", "main2 content")?;
     add_file_to_index(&repo, "main2.txt")?;
-    let main2_commit_id = create_commit(&repo, "Main commit 2", vec![&main_commit])?;
+    let main2_commit_id = create_commit(
+        &repo,
+        "Main commit 2",
+        vec![&main_commit],
+        "Test User",
+        "test@example.com",
+    )?;
     let main2_commit = repo.find_commit(main2_commit_id)?;
 
     // 创建一个 merge commit（手动指定 2 个 parent）
     // 注意：这里我们不实际创建分支，只是创建一个有 2 个 parent 的 commit
     create_test_file(repo_path, "merge.txt", "merge content")?;
     add_file_to_index(&repo, "merge.txt")?;
-
-    // 创建 merge commit（parent_count = 2）
-    let mut index = repo.index()?;
-    let tree_id = index.write_tree()?;
-    let tree = repo.find_tree(tree_id)?;
-    let sig = git2::Signature::now("Test User", "test@example.com")?;
-
-    // 使用 2 个 parent 创建 merge commit
-    repo.commit(
-        Some("HEAD"),
-        &sig,
-        &sig,
+    create_commit(
+        &repo,
         "Merge commit",
-        &tree,
-        &[&main2_commit, &main_commit], // 2 个 parent
+        vec![&main2_commit, &main_commit],
+        "Test User",
+        "test@example.com",
     )?;
 
     let original_dir = env::current_dir()?;
@@ -168,6 +191,55 @@ fn test_compute_contrib_stats_skip_merge_commits() -> Result<()> {
 
     // Merge commit 应该被跳过
     assert_eq!(contrib.merge_commits_skipped, 1);
+
+    env::set_current_dir(original_dir)?;
+    Ok(())
+}
+
+#[test]
+#[serial]
+fn test_compute_contrib_stats_merge_count_respects_author_filter() -> Result<()> {
+    let temp_dir = TempDir::new()?;
+    let repo_path = temp_dir.path();
+    let repo = init_git_repo(repo_path)?;
+
+    create_test_file(repo_path, "alice.txt", "alice\n")?;
+    add_file_to_index(&repo, "alice.txt")?;
+    let alice_commit_id =
+        create_commit(&repo, "Alice commit", vec![], "Alice", "alice@example.com")?;
+    let alice_commit = repo.find_commit(alice_commit_id)?;
+
+    create_test_file(repo_path, "bob.txt", "bob\n")?;
+    add_file_to_index(&repo, "bob.txt")?;
+    let bob_commit_id = create_commit(
+        &repo,
+        "Bob commit",
+        vec![&alice_commit],
+        "Bob",
+        "bob@example.com",
+    )?;
+    let bob_commit = repo.find_commit(bob_commit_id)?;
+
+    create_test_file(repo_path, "merge.txt", "merge\n")?;
+    add_file_to_index(&repo, "merge.txt")?;
+    create_commit(
+        &repo,
+        "Bob merge",
+        vec![&bob_commit, &alice_commit],
+        "Bob",
+        "bob@example.com",
+    )?;
+
+    let original_dir = env::current_dir()?;
+    env::set_current_dir(repo_path)?;
+
+    let git_repo = GitRepository::open(None)?;
+    let commits = git_repo.get_commit_history()?;
+    let alice_contrib = compute_contrib_stats(&commits, &git_repo, Some("alice@example.com"))?;
+    let bob_contrib = compute_contrib_stats(&commits, &git_repo, Some("bob@example.com"))?;
+
+    assert_eq!(alice_contrib.merge_commits_skipped, 0);
+    assert_eq!(bob_contrib.merge_commits_skipped, 1);
 
     env::set_current_dir(original_dir)?;
     Ok(())
