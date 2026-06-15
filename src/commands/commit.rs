@@ -360,7 +360,7 @@ fn handle_waiting_for_action(
                 &rust_i18n::t!("commit.opening_editor"),
                 colored,
             );
-            match ui::edit_text(message) {
+            match ui::edit_text_with_filename(message, "COMMIT_EDITMSG") {
                 Ok(edited) => {
                     display_edited_message(&edited, colored);
                     UserAction::Edit {

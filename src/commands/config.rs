@@ -59,7 +59,7 @@ fn edit(colored: bool) -> Result<()> {
         );
 
         // Open the editor using the edit crate (automatic fallback: $VISUAL > $EDITOR > platform preset list)
-        let edited = edit::edit(&content)?;
+        let edited = ui::edit_text_with_suffix(&content, ".toml")?;
 
         // Verify configuration (deserialized through config crate, path consistent with load_config)
         let validation: std::result::Result<crate::config::AppConfig, _> =
