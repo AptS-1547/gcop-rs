@@ -694,7 +694,7 @@ fn edit_groups_in_editor(
 ) -> Result<Option<Vec<CommitGroup>>> {
     let content = format_groups_for_editor(groups);
 
-    match ui::edit_text(&content) {
+    match ui::edit_text_with_suffix(&content, ".toml", true) {
         Ok(edited) => {
             let parsed = parse_groups_from_editor(&edited, expected_files)?;
             Ok(Some(parsed))

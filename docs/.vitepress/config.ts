@@ -1,29 +1,4 @@
 import { defineConfig } from 'vitepress'
-import { readdirSync } from 'node:fs'
-import { resolve } from 'node:path'
-
-// 自动扫描 release-notes 目录
-function getReleaseNotes(locale: 'en' | 'zh' = 'en') {
-  const basePath = locale === 'zh' ? '../zh/release-notes' : '../release-notes'
-  const linkPrefix = locale === 'zh' ? '/zh/release-notes' : '/release-notes'
-  const dir = resolve(__dirname, basePath)
-  const files = readdirSync(dir)
-    .filter((f) => f.endsWith('.md'))
-    .map((f) => f.replace('.md', ''))
-    .sort((a, b) => {
-      // 按版本号降序排列
-      const [aMajor, aMinor, aPatch] = a.replace('v', '').split('.').map(Number)
-      const [bMajor, bMinor, bPatch] = b.replace('v', '').split('.').map(Number)
-      if (bMajor !== aMajor) return bMajor - aMajor
-      if (bMinor !== aMinor) return bMinor - aMinor
-      return bPatch - aPatch
-    })
-
-  return files.map((v) => ({ text: v, link: `${linkPrefix}/${v}` }))
-}
-
-const releaseNotes = getReleaseNotes('en')
-const releaseNotesZh = getReleaseNotes('zh')
 
 export default defineConfig({
   title: 'gcop-rs',
@@ -63,7 +38,6 @@ export default defineConfig({
               { text: 'Provider 健康检查', link: '/zh/guide/provider-health' },
             ],
           },
-          { text: '发布说明', link: releaseNotesZh[0]?.link || '/zh/release-notes/' },
           { text: '关于', link: '/zh/guide/about' },
         ],
         sidebar: {
@@ -169,12 +143,6 @@ export default defineConfig({
               ],
             },
           ],
-          '/zh/release-notes/': [
-            {
-              text: '发布说明',
-              items: releaseNotesZh,
-            },
-          ],
         },
       },
     },
@@ -201,7 +169,6 @@ export default defineConfig({
           { text: 'Provider Health Checks', link: '/guide/provider-health' },
         ],
       },
-      { text: 'Release Notes', link: releaseNotes[0]?.link || '/release-notes/' },
       { text: 'About', link: '/guide/about' },
     ],
 
@@ -306,12 +273,6 @@ export default defineConfig({
               ],
             },
           ],
-        },
-      ],
-      '/release-notes/': [
-        {
-          text: 'Release Notes',
-          items: releaseNotes,
         },
       ],
     },

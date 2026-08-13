@@ -23,29 +23,35 @@ jobs:
 
       - name: Get version from tag
         id: get_version
-        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
 
-      - name: Read release notes
-        id: release_notes
+      - name: Extract release notes from changelog
         run: |
           VERSION=${{ steps.get_version.outputs.version }}
-          NOTES_FILE="docs/release-notes/v${VERSION}.md"
-          if [ -f "$NOTES_FILE" ]; then
-            {
-              echo "body<<EOF"
-              cat "$NOTES_FILE"
-              echo "EOF"
-            } >> $GITHUB_OUTPUT
-          else
-            echo "body=Release v${VERSION}" >> $GITHUB_OUTPUT
+          awk -v version="$VERSION" '
+            BEGIN { header = "## [" version "]" }
+            index($0, header) == 1 && \
+              (length($0) == length(header) || substr($0, length(header) + 1, 1) == " ") {
+              found = 1
+              capture = 1
+              next
+            }
+            capture && /^## \[/ { exit }
+            capture { print }
+            END { if (!found) exit 2 }
+          ' CHANGELOG.md > release-notes.md
+
+          if ! grep -q '[^[:space:]]' release-notes.md; then
+            echo "CHANGELOG.md section for ${VERSION} is empty" >&2
+            exit 1
           fi
 
       - name: Create Release
         id: create_release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           name: Release ${{ steps.get_version.outputs.version }}
-          body: ${{ steps.release_notes.outputs.body }}
+          body_path: release-notes.md
           draft: true
           prerelease: false
 
@@ -112,7 +118,7 @@ jobs:
           cp ${{ matrix.artifact_name }} gcop-rs-v${VERSION}-${{ matrix.platform }}
 
       - name: Upload binary to release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           draft: true
           files: target/${{ matrix.target }}/release/gcop-rs-v${{ needs.create-release.outputs.version }}-${{ matrix.platform }}
