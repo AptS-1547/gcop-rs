@@ -238,7 +238,6 @@ scope_mappings = { "packages/core" = "core", "packages/ui" = "ui" }
 | `language` | String | `null`（自动） | 强制 UI 语言（如 `"en"`、`"zh-CN"`）；未设置时自动检测 |
 
 > **兼容旧字段：** 旧版配置里可能还包含 `commit.confirm_before_commit`、`review.show_full_diff`、`ui.verbose` 等字段。当前版本会忽略这些字段。
-
 > **关于流式输出：** `llm.stream_transport` 控制 OpenAI、Claude 和 Gemini 风格 API 的 HTTP SSE；`ui.streaming` 只控制交互式 commit 是否以打字机效果渲染增量。Ollama 无论这两个设置如何均使用缓冲响应。
 
 ### 网络设置

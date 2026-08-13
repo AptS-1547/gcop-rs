@@ -327,6 +327,7 @@ impl LLMProvider for FallbackProvider {
                             handle
                         };
                         let mut completed = false;
+                        let mut ended_with_error = false;
 
                         while let Some(chunk) = handle.receiver.recv().await {
                             match chunk {
@@ -337,6 +338,7 @@ impl LLMProvider for FallbackProvider {
                                 }
                                 StreamChunk::Error(error) => {
                                     last_error = Some(error);
+                                    ended_with_error = true;
                                     break;
                                 }
                                 chunk => {
@@ -348,7 +350,7 @@ impl LLMProvider for FallbackProvider {
                         if completed {
                             return;
                         }
-                        if last_error.is_none() {
+                        if !ended_with_error {
                             last_error = Some(GcopError::LlmStreamTruncated {
                                 provider: provider.name().to_owned(),
                                 detail: rust_i18n::t!("stream.truncated").to_string(),
@@ -739,6 +741,29 @@ mod tests {
             matches!(chunks.get(2), Some(StreamChunk::Delta(text)) if text == "message from fallback")
         );
         assert!(matches!(chunks.last(), Some(StreamChunk::Done)));
+    }
+
+    #[tokio::test]
+    async fn test_streaming_reports_truncated_fallback_after_primary_failure() {
+        let primary = TestProvider::new("primary").with_failure();
+        let fallback = TestProvider::new("fallback").with_truncated_stream();
+        let provider = FallbackProvider::new(vec![Arc::new(primary), Arc::new(fallback)], false);
+
+        let mut handle = provider
+            .send_prompt_streaming("system", "user")
+            .await
+            .expect("wrapper should return a handle");
+        let mut final_error = None;
+        while let Some(chunk) = handle.receiver.recv().await {
+            if let StreamChunk::Error(error) = chunk {
+                final_error = Some(error);
+            }
+        }
+
+        assert!(
+            matches!(final_error, Some(GcopError::LlmStreamTruncated { ref provider, .. }) if provider == "fallback"),
+            "expected fallback truncation error, got {final_error:?}"
+        );
     }
 
     #[tokio::test]

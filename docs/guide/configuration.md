@@ -238,7 +238,6 @@ These settings are prompt-level guidance for commit generation. They influence m
 | `language` | String | `null` (auto) | Force UI language (e.g., `"en"`, `"zh-CN"`); if unset, gcop-rs auto-detects |
 
 > **Legacy Keys:** Older config files may still contain keys such as `commit.confirm_before_commit`, `review.show_full_diff`, or `ui.verbose`. These keys are currently ignored.
-
 > **Note on Streaming:** `llm.stream_transport` controls HTTP SSE for OpenAI-, Claude-, and Gemini-style APIs. `ui.streaming` only controls whether interactive commit flows render those deltas as a typewriter effect. Ollama uses buffered responses regardless of either setting.
 
 ### Network Settings
