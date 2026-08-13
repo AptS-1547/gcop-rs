@@ -12,7 +12,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 
-use crate::error::Result;
+use crate::error::{GcopError, Result};
 
 /// Progress reporting interface for LLM operations.
 ///
@@ -37,14 +37,14 @@ pub trait ProgressReporter: Send + Sync {
 /// [`Done`]: StreamChunk::Done
 /// [`Error`]: StreamChunk::Error
 /// [`Retry`]: StreamChunk::Retry
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum StreamChunk {
     /// Text delta (append to existing content).
     Delta(String),
     /// Stream ended normally.
     Done,
-    /// Stream terminated with an error description.
-    Error(String),
+    /// Stream terminated with a structured error.
+    Error(GcopError),
     /// Stream is being retried; UI should clear buffered output.
     Retry,
 }
@@ -85,14 +85,8 @@ pub struct StreamHandle {
 ///   [`spawn_stream_with_retry`](crate::llm::provider::base::spawn_stream_with_retry)
 ///   which discards partial output before re-sending). When a
 ///   [`ProgressReporter`] is supplied it is notified.
-/// * [`StreamChunk::Error`] - returned as `Err(GcopError::Llm(_))`. Note:
-///   the original [`GcopError`](crate::error::GcopError) classification
-///   (`LlmTimeout`, `LlmConnectionFailed`, …) is stringified into the
-///   chunk by [`spawn_stream_with_retry`](crate::llm::provider::base::spawn_stream_with_retry),
-///   so the variant-based suggestion logic in
-///   [`localized_suggestion`](crate::error::GcopError::localized_suggestion)
-///   cannot fire for stream-originated errors. Tracked as a follow-up:
-///   change `StreamChunk::Error`'s payload to a structured kind.
+/// * [`StreamChunk::Error`] - returned unchanged so provider-specific error
+///   classification and suggestions remain available to the caller.
 /// * [`StreamChunk::Done`] - return the accumulated buffer.
 /// * Channel closure without `Done` or `Error` - returned as
 ///   `Err(GcopError::LlmStreamTruncated { provider, .. })` where `provider`
@@ -119,9 +113,7 @@ pub async fn collect_stream(
                     p.append_suffix(&rust_i18n::t!("stream.retry_suffix"));
                 }
             }
-            StreamChunk::Error(e) => {
-                return Err(crate::error::GcopError::Llm(e));
-            }
+            StreamChunk::Error(e) => return Err(e),
             StreamChunk::Done => {
                 completed = true;
                 break;
@@ -129,7 +121,7 @@ pub async fn collect_stream(
         }
     }
     if !completed {
-        return Err(crate::error::GcopError::LlmStreamTruncated {
+        return Err(GcopError::LlmStreamTruncated {
             provider: provider_name.to_string(),
             detail: rust_i18n::t!("stream.truncated").to_string(),
         });
@@ -240,7 +232,7 @@ pub trait LLMProvider: Send + Sync {
                 let _ = tx.send(StreamChunk::Done).await;
             }
             Err(e) => {
-                let _ = tx.send(StreamChunk::Error(e.to_string())).await;
+                let _ = tx.send(StreamChunk::Error(e)).await;
             }
         }
         Ok(StreamHandle { receiver: rx })
@@ -698,13 +690,28 @@ mod tests {
     async fn test_collect_returns_err_on_error_chunk() {
         let provider = MockProvider::streaming(vec![
             StreamChunk::Delta("partial".into()),
-            StreamChunk::Error("boom".into()),
+            StreamChunk::Error(GcopError::Llm("boom".into())),
         ]);
         let err = provider
             .send_prompt_collect("sys", "user", None)
             .await
             .expect_err("expected Err on StreamChunk::Error");
         assert!(err.to_string().contains("boom"), "got: {}", err);
+    }
+
+    #[tokio::test]
+    async fn test_collect_preserves_structured_error_variant() {
+        let provider = MockProvider::streaming(vec![StreamChunk::Error(GcopError::LlmTimeout {
+            provider: "mock".into(),
+            detail: "timed out".into(),
+        })]);
+
+        let err = provider
+            .send_prompt_collect("sys", "user", None)
+            .await
+            .expect_err("expected stream timeout");
+
+        assert!(matches!(err, GcopError::LlmTimeout { provider, .. } if provider == "mock"));
     }
 
     #[tokio::test]

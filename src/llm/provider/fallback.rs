@@ -221,64 +221,159 @@ impl LLMProvider for FallbackProvider {
         }))
     }
 
+    async fn send_prompt_collect(
+        &self,
+        system_prompt: &str,
+        user_prompt: &str,
+        progress: Option<&dyn ProgressReporter>,
+    ) -> Result<String> {
+        let mut last_error = None;
+
+        for (i, provider) in self.providers.iter().enumerate() {
+            if i > 0
+                && let Some(p) = progress
+            {
+                p.append_suffix(&rust_i18n::t!(
+                    "provider.fallback_suffix",
+                    provider = provider.name()
+                ));
+            }
+
+            match provider
+                .send_prompt_collect(system_prompt, user_prompt, progress)
+                .await
+            {
+                Ok(message) => {
+                    return Ok(if provider.strip_thinking() {
+                        strip_thinking_tags(&message)
+                    } else {
+                        message
+                    });
+                }
+                Err(error) => {
+                    if i < self.providers.len() - 1 {
+                        colors::warning(
+                            &rust_i18n::t!(
+                                "provider.fallback_provider_failed",
+                                provider = provider.name(),
+                                error = error.to_string()
+                            ),
+                            self.colored,
+                        );
+                    }
+                    last_error = Some(error);
+                }
+            }
+        }
+
+        Err(last_error.unwrap_or_else(|| {
+            GcopError::Llm(rust_i18n::t!("provider.no_providers_available").to_string())
+        }))
+    }
+
     async fn send_prompt_streaming(
         &self,
         system_prompt: &str,
         user_prompt: &str,
     ) -> Result<StreamHandle> {
-        let mut last_error = None;
-        let mut tried_streaming = false;
-
-        for provider in &self.providers {
-            if !provider.supports_streaming() {
-                continue;
-            }
-            tried_streaming = true;
-
-            match provider
-                .send_prompt_streaming(system_prompt, user_prompt)
-                .await
-            {
-                Ok(handle) => {
-                    if provider.strip_thinking() {
-                        return Ok(strip_streaming_thinking(handle));
-                    }
-                    return Ok(handle);
-                }
-                Err(e) => {
-                    colors::warning(
-                        &rust_i18n::t!(
-                            "provider.fallback_streaming_failed",
-                            provider = provider.name(),
-                            error = e.to_string()
-                        ),
-                        self.colored,
-                    );
-                    last_error = Some(e);
-                }
-            }
-        }
-
-        if tried_streaming {
-            colors::warning(
-                &rust_i18n::t!("provider.all_streaming_failed"),
-                self.colored,
-            );
-        }
-
         let (tx, rx) = mpsc::channel(32);
-        let result = self.send_prompt(system_prompt, user_prompt, None).await;
+        let providers = self.providers.clone();
+        let system_prompt = system_prompt.to_owned();
+        let user_prompt = user_prompt.to_owned();
+        let colored = self.colored;
 
-        match result {
-            Ok(message) => {
-                let _ = tx.send(StreamChunk::Delta(message)).await;
-                let _ = tx.send(StreamChunk::Done).await;
+        tokio::spawn(async move {
+            let mut last_error = None;
+
+            for (index, provider) in providers.iter().enumerate() {
+                if index > 0 {
+                    let _ = tx.send(StreamChunk::Retry).await;
+                    colors::warning(
+                        &rust_i18n::t!("provider.fallback_suffix", provider = provider.name()),
+                        colored,
+                    );
+                }
+
+                if !provider.supports_streaming() {
+                    match provider
+                        .send_prompt(&system_prompt, &user_prompt, None)
+                        .await
+                    {
+                        Ok(message) => {
+                            let message = if provider.strip_thinking() {
+                                strip_thinking_tags(&message)
+                            } else {
+                                message
+                            };
+                            let _ = tx.send(StreamChunk::Delta(message)).await;
+                            let _ = tx.send(StreamChunk::Done).await;
+                            return;
+                        }
+                        Err(error) => {
+                            last_error = Some(error);
+                            continue;
+                        }
+                    }
+                }
+
+                match provider
+                    .send_prompt_streaming(&system_prompt, &user_prompt)
+                    .await
+                {
+                    Ok(handle) => {
+                        let mut handle = if provider.strip_thinking() {
+                            strip_streaming_thinking(handle)
+                        } else {
+                            handle
+                        };
+                        let mut completed = false;
+
+                        while let Some(chunk) = handle.receiver.recv().await {
+                            match chunk {
+                                StreamChunk::Done => {
+                                    let _ = tx.send(StreamChunk::Done).await;
+                                    completed = true;
+                                    break;
+                                }
+                                StreamChunk::Error(error) => {
+                                    last_error = Some(error);
+                                    break;
+                                }
+                                chunk => {
+                                    let _ = tx.send(chunk).await;
+                                }
+                            }
+                        }
+
+                        if completed {
+                            return;
+                        }
+                        if last_error.is_none() {
+                            last_error = Some(GcopError::LlmStreamTruncated {
+                                provider: provider.name().to_owned(),
+                                detail: rust_i18n::t!("stream.truncated").to_string(),
+                            });
+                        }
+                    }
+                    Err(error) => {
+                        colors::warning(
+                            &rust_i18n::t!(
+                                "provider.fallback_streaming_failed",
+                                provider = provider.name(),
+                                error = error.to_string()
+                            ),
+                            colored,
+                        );
+                        last_error = Some(error);
+                    }
+                }
             }
-            Err(e) => {
-                let error = last_error.map(|le| le.to_string()).unwrap_or(e.to_string());
-                let _ = tx.send(StreamChunk::Error(error)).await;
-            }
-        }
+
+            let error = last_error.unwrap_or_else(|| {
+                GcopError::Llm(rust_i18n::t!("provider.no_providers_available").to_string())
+            });
+            let _ = tx.send(StreamChunk::Error(error)).await;
+        });
 
         Ok(StreamHandle { receiver: rx })
     }
@@ -358,6 +453,7 @@ mod tests {
         name: String,
         should_fail: bool,
         supports_streaming: bool,
+        stream_ends_without_done: bool,
         strip_thinking: bool,
         message: String,
     }
@@ -368,6 +464,7 @@ mod tests {
                 name: name.to_string(),
                 should_fail: false,
                 supports_streaming: false,
+                stream_ends_without_done: false,
                 strip_thinking: false,
                 message: format!("message from {}", name),
             }
@@ -380,6 +477,12 @@ mod tests {
 
         fn with_streaming(mut self) -> Self {
             self.supports_streaming = true;
+            self
+        }
+
+        fn with_truncated_stream(mut self) -> Self {
+            self.supports_streaming = true;
+            self.stream_ends_without_done = true;
             self
         }
 
@@ -414,9 +517,12 @@ mod tests {
             } else {
                 let (tx, rx) = mpsc::channel(32);
                 let message = self.message.clone();
+                let stream_ends_without_done = self.stream_ends_without_done;
                 tokio::spawn(async move {
                     let _ = tx.send(StreamChunk::Delta(message)).await;
-                    let _ = tx.send(StreamChunk::Done).await;
+                    if !stream_ends_without_done {
+                        let _ = tx.send(StreamChunk::Done).await;
+                    }
                 });
                 Ok(StreamHandle { receiver: rx })
             }
@@ -544,6 +650,95 @@ mod tests {
         let result = fallback.generate_commit_message("diff", None, None).await;
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "message from fallback");
+    }
+
+    #[tokio::test]
+    async fn test_collect_falls_back_after_stream_handle_truncates() {
+        let primary = TestProvider::new("primary").with_truncated_stream();
+        let fallback = TestProvider::new("fallback");
+        let provider = FallbackProvider::new(vec![Arc::new(primary), Arc::new(fallback)], false);
+
+        let message = provider
+            .send_prompt_collect("system", "user", None)
+            .await
+            .expect("fallback should replace a truncated primary stream");
+
+        assert_eq!(message, "message from fallback");
+    }
+
+    #[tokio::test]
+    async fn test_collect_uses_streaming_fallback_after_non_streaming_primary_fails() {
+        let primary = TestProvider::new("primary").with_failure();
+        let fallback = TestProvider::new("fallback").with_streaming();
+        let provider = FallbackProvider::new(vec![Arc::new(primary), Arc::new(fallback)], false);
+
+        let message = provider
+            .send_prompt_collect("system", "user", None)
+            .await
+            .expect("streaming fallback should be selected per provider");
+
+        assert_eq!(message, "message from fallback");
+    }
+
+    #[tokio::test]
+    async fn test_collect_applies_successful_fallback_thinking_policy() {
+        let primary = TestProvider::new("primary").with_truncated_stream();
+        let mut fallback = TestProvider::new("fallback").with_strip_thinking();
+        fallback.message = "<think>hidden</think>\nfeat: fallback".into();
+        let provider = FallbackProvider::new(vec![Arc::new(primary), Arc::new(fallback)], false);
+
+        let message = provider
+            .send_prompt_collect("system", "user", None)
+            .await
+            .expect("fallback should succeed");
+
+        assert_eq!(message, "feat: fallback");
+    }
+
+    #[tokio::test]
+    async fn test_collect_preserves_last_structured_stream_error() {
+        let primary = TestProvider::new("primary").with_truncated_stream();
+        let fallback = TestProvider::new("fallback").with_truncated_stream();
+        let provider = FallbackProvider::new(vec![Arc::new(primary), Arc::new(fallback)], false);
+
+        let error = provider
+            .send_prompt_collect("system", "user", None)
+            .await
+            .expect_err("all truncated streams must fail");
+
+        assert!(
+            matches!(error, GcopError::LlmStreamTruncated { ref provider, .. } if provider == "fallback"),
+            "expected final fallback error to keep its structured variant, got {error:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_streaming_falls_back_after_primary_stream_truncates() {
+        let primary = TestProvider::new("primary").with_truncated_stream();
+        let fallback = TestProvider::new("fallback").with_streaming();
+        let provider = FallbackProvider::new(vec![Arc::new(primary), Arc::new(fallback)], false);
+
+        let mut handle = provider
+            .send_prompt_streaming("system", "user")
+            .await
+            .expect("wrapper should return a handle");
+        let mut chunks = Vec::new();
+        while let Some(chunk) = handle.receiver.recv().await {
+            chunks.push(chunk);
+        }
+
+        assert!(
+            matches!(chunks.first(), Some(StreamChunk::Delta(text)) if text == "message from primary")
+        );
+        assert!(
+            chunks
+                .iter()
+                .any(|chunk| matches!(chunk, StreamChunk::Retry))
+        );
+        assert!(
+            matches!(chunks.get(2), Some(StreamChunk::Delta(text)) if text == "message from fallback")
+        );
+        assert!(matches!(chunks.last(), Some(StreamChunk::Done)));
     }
 
     #[tokio::test]

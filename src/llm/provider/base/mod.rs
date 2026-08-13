@@ -106,7 +106,7 @@ impl<T: ApiBackend> LLMProvider for T {
                     let _ = tx.send(crate::llm::StreamChunk::Done).await;
                 }
                 Err(e) => {
-                    let _ = tx.send(crate::llm::StreamChunk::Error(e.to_string())).await;
+                    let _ = tx.send(crate::llm::StreamChunk::Error(e)).await;
                 }
             }
             Ok(StreamHandle { receiver: rx })

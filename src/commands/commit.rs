@@ -516,17 +516,9 @@ async fn generate_message(
         let mut spinner = ui::Spinner::new_with_cancel_hint(&spinner_message, colored);
         spinner.start_time_display();
 
-        // `supports_streaming()` is already the single gate: it returns
-        // `false` whenever the provider lacks SSE OR when the user disabled
-        // `[llm].stream_transport` (the factory plumbs the flag into each
-        // provider). No call-site predicate needed.
-        let message = if provider.supports_streaming() {
-            provider
-                .send_prompt_collect(&system, &user, Some(&spinner))
-                .await?
-        } else {
-            provider.send_prompt(&system, &user, Some(&spinner)).await?
-        };
+        let message = provider
+            .send_prompt_collect(&system, &user, Some(&spinner))
+            .await?;
 
         spinner.finish_and_clear();
         let message = process_commit_response_with_options(message, provider.strip_thinking());
@@ -614,13 +606,7 @@ async fn generate_message_no_streaming(
         print_verbose_prompt(&system, &user, true, false);
     }
 
-    // HTTP transport: stream via SSE when the provider supports it.
-    // `supports_streaming()` already incorporates `LLMConfig::stream_transport`.
-    let message = if provider.supports_streaming() {
-        provider.send_prompt_collect(&system, &user, None).await?
-    } else {
-        provider.send_prompt(&system, &user, None).await?
-    };
+    let message = provider.send_prompt_collect(&system, &user, None).await?;
     Ok(process_commit_response_with_options(
         message,
         provider.strip_thinking(),

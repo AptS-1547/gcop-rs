@@ -89,6 +89,7 @@ model = "claude-sonnet-4-5-20250929"
 default_provider = "claude"
 # fallback_providers = ["openai", "gemini", "ollama"]  # 主 provider 失败时自动切换
 max_diff_size = 102400  # 截断前的最大 diff 字节数（适用于 commit/review/hook 的非 split 流程）
+stream_transport = true  # 支持 SSE 的 provider 使用流式 HTTP，即使调用方只收集最终文本
 
 # Claude Provider
 [llm.providers.claude]
@@ -145,11 +146,11 @@ min_severity = "info"  # critical | warning | info（仅 text 输出生效）
 # UI 设置
 [ui]
 colored = true
-streaming = true  # 启用流式输出（实时打字效果）
+streaming = true  # 在交互式 commit 中实时渲染 SSE 增量
 language = "en"  # 可选：强制 UI 语言（如 "en"、"zh-CN"）
 
-# 注意：流式输出支持 OpenAI、Claude 与 Gemini 风格的 API。
-# Ollama 会自动回退到转圈圈模式。
+# `stream_transport` 控制 HTTP SSE；`ui.streaming` 只控制实时渲染。
+# Ollama 不支持 SSE，会使用缓冲响应。
 
 # 网络设置
 [network]
@@ -180,6 +181,7 @@ scope_mappings = { "packages/core" = "core", "packages/ui" = "ui" }
 | `default_provider` | String | `"claude"` | 默认使用的 LLM provider |
 | `fallback_providers` | Array | `[]` | 备用 provider 列表，主 provider 失败时自动切换 |
 | `max_diff_size` | Integer | `102400` | 在 commit/review/hook 的非 split 流程中发送给 LLM 的最大 diff 大小（字节）；超出时会截断 |
+| `stream_transport` | Boolean | `true` | 对支持的 provider 使用 HTTP SSE；JSON、hook、拆分提交和非交互流程也会收集最终文本。仅在端点拒绝 SSE 时设为 `false` |
 
 ### Provider 设置
 
@@ -232,12 +234,12 @@ scope_mappings = { "packages/core" = "core", "packages/ui" = "ui" }
 | 选项 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `colored` | Boolean | `true` | 启用彩色输出 |
-| `streaming` | Boolean | `true` | 启用流式输出（实时打字效果） |
+| `streaming` | Boolean | `true` | 在交互式 commit 中实时渲染已收到的增量；不控制 HTTP 传输方式 |
 | `language` | String | `null`（自动） | 强制 UI 语言（如 `"en"`、`"zh-CN"`）；未设置时自动检测 |
 
 > **兼容旧字段：** 旧版配置里可能还包含 `commit.confirm_before_commit`、`review.show_full_diff`、`ui.verbose` 等字段。当前版本会忽略这些字段。
 
-> **关于流式输出：** OpenAI、Claude 和 Gemini 风格的 API 支持流式输出。使用 Ollama 时，系统会自动回退到转圈圈模式（等待完整响应）。
+> **关于流式输出：** `llm.stream_transport` 控制 OpenAI、Claude 和 Gemini 风格 API 的 HTTP SSE；`ui.streaming` 只控制交互式 commit 是否以打字机效果渲染增量。Ollama 无论这两个设置如何均使用缓冲响应。
 
 ### 网络设置
 
@@ -360,9 +362,12 @@ gcop-rs commit --yes
 **示例**：
 
 ```bash
-# 关闭彩色与流式输出
+# 关闭彩色与实时流式输出
 export GCOP__UI__COLORED=false
 export GCOP__UI__STREAMING=false
+
+# 对拒绝流式请求的端点关闭 HTTP SSE
+export GCOP__LLM__STREAM_TRANSPORT=false
 
 # 切换默认 provider
 export GCOP__LLM__DEFAULT_PROVIDER=openai

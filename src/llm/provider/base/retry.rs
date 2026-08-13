@@ -458,7 +458,7 @@ pub(crate) fn spawn_stream_with_retry<ProcessFn, ProcessFut, ResendFn, ResendFut
                             ),
                             colored,
                         );
-                        let _ = error_tx.send(StreamChunk::Error(e.to_string())).await;
+                        let _ = error_tx.send(StreamChunk::Error(e)).await;
                         return;
                     }
 
@@ -490,9 +490,7 @@ pub(crate) fn spawn_stream_with_retry<ProcessFn, ProcessFut, ResendFn, ResendFut
                                 ),
                                 colored,
                             );
-                            let _ = error_tx
-                                .send(StreamChunk::Error(retry_err.to_string()))
-                                .await;
+                            let _ = error_tx.send(StreamChunk::Error(retry_err)).await;
                             return;
                         }
                     }

@@ -7,7 +7,7 @@ use std::io::{self, Write};
 use colored::Colorize;
 use tokio::sync::mpsc;
 
-use crate::error::{GcopError, Result};
+use crate::error::Result;
 use crate::llm::StreamChunk;
 
 /// Streaming text output
@@ -50,12 +50,12 @@ impl StreamingOutput {
                         eprintln!(
                             "{} {}",
                             "✗".red(),
-                            rust_i18n::t!("stream.error", error = e.as_str()).red()
+                            rust_i18n::t!("stream.error", error = e.to_string()).red()
                         );
                     } else {
-                        eprintln!("✗ {}", rust_i18n::t!("stream.error", error = e.as_str()));
+                        eprintln!("✗ {}", rust_i18n::t!("stream.error", error = e.to_string()));
                     }
-                    return Err(GcopError::Llm(e));
+                    return Err(e);
                 }
                 StreamChunk::Retry => {
                     // Stream is being retried; erase previous output and reset buffer

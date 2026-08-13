@@ -147,17 +147,15 @@ pub async fn process_openai_stream(
         }
     }
 
-    // Stream ended without [DONE] received
-    if parse_errors > 0 {
-        // All received lines failed to parse — treat as error
-        return Err(GcopError::LlmStreamTruncated {
-            provider: "OpenAI".to_string(),
-            detail: rust_i18n::t!("provider.stream.openai_parse_errors", count = parse_errors)
-                .to_string(),
-        });
-    }
-    let _ = tx.send(StreamChunk::Done).await;
-    Ok(())
+    let detail = if parse_errors > 0 {
+        rust_i18n::t!("provider.stream.openai_parse_errors", count = parse_errors).to_string()
+    } else {
+        rust_i18n::t!("provider.stream.openai_ended_without_done").to_string()
+    };
+    Err(GcopError::LlmStreamTruncated {
+        provider: OPENAI_PROVIDER_NAME.to_string(),
+        detail,
+    })
 }
 
 /// Handling OpenAI Responses API streaming responses.
@@ -245,16 +243,15 @@ pub async fn process_openai_responses_stream(
         }
     }
 
-    if parse_errors > 0 {
-        return Err(GcopError::LlmStreamTruncated {
-            provider: OPENAI_PROVIDER_NAME.to_string(),
-            detail: rust_i18n::t!("provider.stream.openai_parse_errors", count = parse_errors)
-                .to_string(),
-        });
-    }
-
-    let _ = tx.send(StreamChunk::Done).await;
-    Ok(())
+    let detail = if parse_errors > 0 {
+        rust_i18n::t!("provider.stream.openai_parse_errors", count = parse_errors).to_string()
+    } else {
+        rust_i18n::t!("provider.stream.openai_ended_without_done").to_string()
+    };
+    Err(GcopError::LlmStreamTruncated {
+        provider: OPENAI_PROVIDER_NAME.to_string(),
+        detail,
+    })
 }
 
 fn parse_openai_responses_error_envelope(data: &str) -> Option<OpenAIResponsesStreamError> {
@@ -431,24 +428,25 @@ mod tests {
         assert!(chunks.is_empty());
     }
 
-    /// Stream ends without [DONE] but with zero parse errors → silent recovery:
-    /// sends Done and returns Ok. This is the current intentional behaviour.
+    /// A clean EOF without `[DONE]` or `finish_reason` is still incomplete.
     #[tokio::test]
-    async fn test_openai_clean_truncation_sends_done() {
+    async fn test_openai_clean_truncation_returns_error_without_done() {
         let body =
             "data: {\"choices\":[{\"delta\":{\"content\":\"partial\"},\"finish_reason\":null}]}\n";
         let (tx, rx) = mpsc::channel(16);
         let result = process_openai_stream(sse_response(body), tx, false).await;
 
         assert!(
-            result.is_ok(),
-            "Expected Ok for clean truncation, got {:?}",
-            result
+            matches!(result, Err(GcopError::LlmStreamTruncated { ref provider, .. }) if provider == "OpenAI")
         );
         let chunks = drain(rx).await;
-        // Delta was emitted, then Done was sent as silent recovery
         assert_eq!(delta_text(&chunks[0]), "partial");
-        assert_done(chunks.last().unwrap());
+        assert!(
+            !chunks
+                .iter()
+                .any(|chunk| matches!(chunk, StreamChunk::Done)),
+            "truncated streams must not emit Done: {chunks:?}"
+        );
     }
 
     #[test]
@@ -537,6 +535,25 @@ mod tests {
         );
         let chunks = drain(rx).await;
         assert!(chunks.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_openai_responses_clean_truncation_returns_error_without_done() {
+        let body = "data: {\"type\":\"response.output_text.delta\",\"delta\":\"partial\"}\n";
+        let (tx, rx) = mpsc::channel(16);
+        let result = process_openai_responses_stream(sse_response(body), tx, false).await;
+
+        assert!(
+            matches!(result, Err(GcopError::LlmStreamTruncated { ref provider, .. }) if provider == "OpenAI")
+        );
+        let chunks = drain(rx).await;
+        assert_eq!(delta_text(&chunks[0]), "partial");
+        assert!(
+            !chunks
+                .iter()
+                .any(|chunk| matches!(chunk, StreamChunk::Done)),
+            "truncated streams must not emit Done: {chunks:?}"
+        );
     }
 
     #[tokio::test]

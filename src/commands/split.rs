@@ -272,15 +272,11 @@ async fn generate_groups(
     let mut spinner = ui::Spinner::new_with_cancel_hint(&spinner_msg, colored);
     spinner.start_time_display();
 
-    // Direct query with pre-built prompts. `supports_streaming()` already
-    // accounts for the user-facing `[llm].stream_transport` opt-out.
-    let raw_response = if provider.supports_streaming() {
-        provider
-            .send_prompt_collect(&system, &user, Some(&spinner))
-            .await?
-    } else {
-        provider.send_prompt(&system, &user, Some(&spinner)).await?
-    };
+    // Direct query with pre-built prompts. Collection handles transport
+    // capability, opt-out, and provider fallback internally.
+    let raw_response = provider
+        .send_prompt_collect(&system, &user, Some(&spinner))
+        .await?;
 
     spinner.finish_and_clear();
 

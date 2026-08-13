@@ -89,6 +89,7 @@ model = "claude-sonnet-4-5-20250929"
 default_provider = "claude"
 # fallback_providers = ["openai", "gemini", "ollama"]  # Auto-fallback when main provider fails
 max_diff_size = 102400  # Max diff bytes before truncation (commit/review/hook non-split flows)
+stream_transport = true  # Use SSE for supported providers, even when output is buffered
 
 # Claude Provider
 [llm.providers.claude]
@@ -145,11 +146,11 @@ min_severity = "info"  # critical | warning | info (applies to text output)
 # UI Settings
 [ui]
 colored = true
-streaming = true  # Enable streaming output (real-time typing effect)
+streaming = true  # Render SSE deltas live in interactive commit flows
 language = "en"  # Optional: force UI language (e.g., "en", "zh-CN")
 
-# Note: Streaming is supported by OpenAI-, Claude-, and Gemini-style APIs.
-# For Ollama providers, it automatically falls back to spinner mode.
+# `stream_transport` controls HTTP SSE; `ui.streaming` only controls live rendering.
+# Ollama does not support SSE and uses buffered responses.
 
 # Network Settings
 [network]
@@ -180,6 +181,7 @@ scope_mappings = { "packages/core" = "core", "packages/ui" = "ui" }
 | `default_provider` | String | `"claude"` | Default LLM provider to use |
 | `fallback_providers` | Array | `[]` | Fallback provider list; automatically tries next when main provider fails |
 | `max_diff_size` | Integer | `102400` | Maximum diff size (bytes) sent to LLM in commit/review/hook non-split flows; larger inputs are truncated |
+| `stream_transport` | Boolean | `true` | Use HTTP SSE with supported providers, including JSON, hooks, split commits, and non-interactive flows that buffer the final response; set `false` only for endpoints that reject SSE |
 
 ### Provider Settings
 
@@ -232,12 +234,12 @@ These settings are prompt-level guidance for commit generation. They influence m
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `colored` | Boolean | `true` | Enable colored output |
-| `streaming` | Boolean | `true` | Enable streaming output (real-time typing effect) |
+| `streaming` | Boolean | `true` | Render received deltas live in interactive commit flows; does not control HTTP transport |
 | `language` | String | `null` (auto) | Force UI language (e.g., `"en"`, `"zh-CN"`); if unset, gcop-rs auto-detects |
 
 > **Legacy Keys:** Older config files may still contain keys such as `commit.confirm_before_commit`, `review.show_full_diff`, or `ui.verbose`. These keys are currently ignored.
 
-> **Note on Streaming:** OpenAI, Claude, and Gemini style APIs support streaming. When using Ollama providers, the system automatically falls back to spinner mode (waiting for complete response).
+> **Note on Streaming:** `llm.stream_transport` controls HTTP SSE for OpenAI-, Claude-, and Gemini-style APIs. `ui.streaming` only controls whether interactive commit flows render those deltas as a typewriter effect. Ollama uses buffered responses regardless of either setting.
 
 ### Network Settings
 
@@ -360,9 +362,12 @@ In addition to CI-mode provider env vars, gcop-rs supports overriding configurat
 **Examples**:
 
 ```bash
-# Disable colors and streaming output
+# Disable colors and live streaming output
 export GCOP__UI__COLORED=false
 export GCOP__UI__STREAMING=false
+
+# Disable HTTP SSE for endpoints that reject streaming requests
+export GCOP__LLM__STREAM_TRANSPORT=false
 
 # Switch default provider
 export GCOP__LLM__DEFAULT_PROVIDER=openai
