@@ -22,7 +22,7 @@ pub fn edit_text(initial_content: &str) -> Result<String> {
 ///
 /// The suffix lets editors infer the correct syntax highlighting from the
 /// temporary filename, e.g. `.toml` for configuration.
-pub fn edit_text_with_suffix(
+pub(crate) fn edit_text_with_suffix(
     initial_content: &str,
     suffix: &str,
     reject_empty: bool,
@@ -33,13 +33,14 @@ pub fn edit_text_with_suffix(
     validate_edited_text(edited, reject_empty)
 }
 
-/// Call the system editor with a specific temporary filename.
+/// Call the system editor with Git's conventional commit-message filename.
 ///
-/// Some editors detect syntax from well-known filenames instead of extensions,
-/// such as `COMMIT_EDITMSG` for Git commit messages.
-pub fn edit_text_with_filename(initial_content: &str, filename: &str) -> Result<String> {
+/// Some editors detect commit-message syntax from the `COMMIT_EDITMSG` filename
+/// instead of an extension. Keep the name fixed so this helper cannot create a
+/// file outside its temporary directory.
+pub(crate) fn edit_commit_message(initial_content: &str) -> Result<String> {
     let temp_dir = tempfile::Builder::new().prefix("gcop-editor-").tempdir()?;
-    let path = temp_dir.path().join(filename);
+    let path = temp_dir.path().join(COMMIT_EDITMSG_FILENAME);
     fs::write(&path, initial_content)?;
     edit::edit_file(&path)?;
     let edited = match fs::read_to_string(&path) {
@@ -52,6 +53,8 @@ pub fn edit_text_with_filename(initial_content: &str, filename: &str) -> Result<
     validate_edited_text(edited, true)
 }
 
+const COMMIT_EDITMSG_FILENAME: &str = "COMMIT_EDITMSG";
+
 fn validate_edited_text(edited: String, reject_empty: bool) -> Result<String> {
     // Remove leading and trailing whitespace and check if it is empty
     let trimmed = edited.trim();
@@ -62,4 +65,21 @@ fn validate_edited_text(edited: String, reject_empty: bool) -> Result<String> {
 
     // Returns the edited content (preserving the user's formatting)
     Ok(edited)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rejecting_empty_edits_reports_cancellation() {
+        let result = validate_edited_text(" \n\t ".to_string(), true);
+        assert!(matches!(result, Err(GcopError::UserCancelled)));
+    }
+
+    #[test]
+    fn allowing_empty_edits_preserves_content() {
+        let edited = " \n\t ".to_string();
+        assert_eq!(validate_edited_text(edited.clone(), false).unwrap(), edited);
+    }
 }
