@@ -450,6 +450,7 @@ impl LLMProvider for FallbackProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::llm::collect_stream;
 
     struct TestProvider {
         name: String,
@@ -801,6 +802,18 @@ mod tests {
         assert!(result.is_err());
     }
 
+    #[tokio::test]
+    async fn test_collect_empty_provider_list_reports_configuration_error() {
+        let fallback = FallbackProvider::new(vec![], false);
+
+        let error = fallback
+            .send_prompt_collect("system", "user", None)
+            .await
+            .unwrap_err();
+
+        assert!(matches!(error, GcopError::Llm(_)));
+    }
+
     // === Test review_code ===
 
     #[tokio::test]
@@ -837,13 +850,25 @@ mod tests {
             .await;
         assert!(result.is_ok());
 
-        let mut handle = result.unwrap();
-        let chunk = handle.receiver.recv().await;
-        assert!(chunk.is_some());
-        match chunk.unwrap() {
-            StreamChunk::Delta(msg) => assert_eq!(msg, "message from primary"),
-            _ => panic!("Expected Delta chunk"),
-        }
+        let message = collect_stream(result.unwrap(), None, "fallback")
+            .await
+            .unwrap();
+        assert_eq!(message, "message from primary");
+    }
+
+    #[tokio::test]
+    async fn test_streaming_non_streaming_provider_emits_collected_message() {
+        let mut provider = TestProvider::new("buffered").with_strip_thinking();
+        provider.message = "<think>hidden</think>\nfeat: buffered".to_string();
+        let fallback = FallbackProvider::new(vec![Arc::new(provider)], false);
+
+        let handle = fallback
+            .send_prompt_streaming("system", "user")
+            .await
+            .unwrap();
+        let message = collect_stream(handle, None, "fallback").await.unwrap();
+
+        assert_eq!(message, "feat: buffered");
     }
 
     #[tokio::test]

@@ -115,6 +115,7 @@ fn lines_to_erase_for(buffer: &str) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::GcopError;
 
     #[test]
     fn test_lines_to_erase_single_line() {
@@ -153,5 +154,25 @@ mod tests {
         output.buffer = "feat: update".to_string();
         // Should not panic or produce output
         output.redisplay_if_cleaned("feat: update");
+    }
+
+    #[tokio::test]
+    async fn test_process_preserves_structured_stream_error() {
+        let (tx, rx) = mpsc::channel(1);
+        tx.send(StreamChunk::Error(GcopError::LlmTimeout {
+            provider: "test".to_string(),
+            detail: "timed out".to_string(),
+        }))
+        .await
+        .unwrap();
+        drop(tx);
+
+        let error = StreamingOutput::new(false).process(rx).await.unwrap_err();
+
+        assert!(matches!(
+            error,
+            GcopError::LlmTimeout { provider, detail }
+                if provider == "test" && detail == "timed out"
+        ));
     }
 }
