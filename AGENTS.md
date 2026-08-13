@@ -293,7 +293,6 @@ RUST_LOG=debug gcop-rs commit
 ## Release Checklist (Quick)
 
 1. 更新版本（`Cargo.toml` + `python/pyproject.toml`）
-2. 更新 `CHANGELOG.md`
-3. 更新 release notes（中英文）
-4. 跑 `cargo test` / `cargo fmt --check`
-5. 打 tag 并推送
+2. 更新 `CHANGELOG.md` 中对应版本段（发布工作流从这里生成 GitHub Release body）
+3. 跑 `cargo test` / `cargo fmt --check`
+4. 打 tag 并推送
