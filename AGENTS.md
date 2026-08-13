@@ -77,10 +77,10 @@ cargo clippy --all-targets --all-features -- -D warnings
 
 ```bash
 cd docs
-pnpm install
-pnpm dev
-pnpm build
-pnpm preview
+bun install --frozen-lockfile
+bun run docs:dev
+bun run docs:build
+bun run docs:preview
 ```
 
 ---
