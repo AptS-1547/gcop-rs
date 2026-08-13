@@ -54,21 +54,21 @@ futures-util = { version = "0.3", default-features = false, features = ["std"] }
 git2 = {version = "0.21", default-features = false }
 globset = "0.4"
 httpdate = "1.0"
-indicatif = "0.18.4"
+indicatif = "0.18.6"
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls-no-provider", "socks", "stream", "system-proxy"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
-rust-i18n = "4.0"
+rust-i18n = "4.2"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sys-locale = "0.3"
 tempfile = "3.27"           # 临时文件/目录
 thiserror = "2.0"
-tokio = { version = "1.52", features = ["rt-multi-thread", "macros", "sync", "time"] }
+tokio = { version = "1.53", features = ["rt-multi-thread", "macros", "sync", "time"] }
 toml = "1.1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 mockall = { version = "0.14", optional = true }  # 测试工具
-which = "8.0.2"
+which = "8.0.5"
 edit = { version = "0.1.5", features = ["better-path", "quoted-env"] }
 serde_yaml_ng = "0.10.0"
 human-panic = "2.0.8"
@@ -83,7 +83,7 @@ test-utils = ["mockall"]  # 测试工具 feature
 [dev-dependencies]
 mockito = "1.7"             # HTTP API mock
 pretty_assertions = "1.4"   # 更好的 assert 输出
-serial_test = "3.4"         # 环境变量测试串行化
+serial_test = "3.5"         # 环境变量测试串行化
 gcop-rs = { path = ".", features = ["test-utils"] }  # 启用测试工具 feature
 bytes = "1"                 # 构造测试 streaming response
 http = "1"                  # 构造测试 HTTP response

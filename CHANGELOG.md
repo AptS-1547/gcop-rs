@@ -7,12 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-08-14
+
 ### Added
 
 - **Independent Streaming Transport**: Added `[llm].stream_transport` (default `true`) to use SSE for supported providers in JSON, hooks, split commits, and other buffered flows; `[ui].streaming` now exclusively controls interactive live rendering
 - **Lockfile Diff Summaries**: Common dependency lockfiles are always sent to the LLM as summary-only entries, preserving file names and `+N -M` change counts while omitting full patch content; covers commit, review, hook, and split commit prompts, including lockfile-only changes
 - **Configurable Lockfile Patterns**: Added `[file].lockfile_patterns` for extra glob patterns such as `**/*.lock`; built-in lockfiles include Cargo, npm/yarn/pnpm, Poetry/Pipfile/uv, Composer/Gemfile, Go, Bun, Deno, Nix flake, Conan, Pub, Mix, Stack, and CocoaPods lockfiles
 - **Editor File Type Detection**: Configuration and split-group edits now use `.toml` temporary files, while commit-message edits use the conventional `COMMIT_EDITMSG` filename for editor syntax detection
+
+### Changed
+
+- **Dependencies**: Updated `indicatif` 0.18.4 -> 0.18.6, `rust-i18n` 4.0 -> 4.2, `tokio` 1.52 -> 1.53, `which` 8.0.2 -> 8.0.5, `serial_test` 3.4 -> 3.5, and refreshed transitive dependencies; this includes patched `crossbeam-epoch` 0.9.20 and `anyhow` 1.0.104
 
 ## [0.14.0] - 2026-05-25
 
@@ -729,7 +735,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Edit action properly returns to menu without triggering regeneration
 - Commit message display no longer duplicates after editing
 
-[Unreleased]: https://github.com/AptS-1547/gcop-rs/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/AptS-1547/gcop-rs/compare/v0.14.1...HEAD
+[0.14.1]: https://github.com/AptS-1547/gcop-rs/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/AptS-1547/gcop-rs/compare/v0.13.9...v0.14.0
 [0.13.9]: https://github.com/AptS-1547/gcop-rs/compare/v0.13.8...v0.13.9
 [0.13.8]: https://github.com/AptS-1547/gcop-rs/compare/v0.13.7...v0.13.8
