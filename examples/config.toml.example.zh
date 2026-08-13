@@ -8,6 +8,9 @@
 [llm]
 # 可选: "claude" | "openai" | "ollama" | "gemini"
 default_provider = "claude"
+# 对支持的 provider 使用 SSE，即使 JSON、hook、拆分提交等流程只收集最终文本。
+# 仅在端点拒绝 SSE 时设为 false。
+stream_transport = true
 
 # Claude
 [llm.providers.claude]
@@ -55,6 +58,7 @@ allow_edit = true
 [ui]
 colored = true
 streaming = true
+# `streaming` 只控制终端实时渲染；HTTP SSE 由上方配置控制。
 # language = "zh-CN"
 
 # 更多配置项（自定义 provider、fallback、网络、review 等）请参考:

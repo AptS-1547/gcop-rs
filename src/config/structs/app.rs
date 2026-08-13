@@ -154,8 +154,16 @@ impl Default for ReviewConfig {
 ///
 /// # Fields
 /// - `colored`: enable colored output (default: `true`)
-/// - `streaming`: enable streaming output (typewriter effect, default: `true`)
+/// - `streaming`: enable live typewriter rendering in interactive commit mode (default: `true`)
 /// - `language`: UI language in BCP 47 format (for example `"en"`, `"zh-CN"`), auto-detected by default
+///
+/// # Note on `streaming`
+///
+/// This flag governs **UI rendering only** — whether deltas are flushed to
+/// stdout as they arrive in the interactive commit flow. The HTTP transport
+/// streaming decision (SSE vs. single JSON response) is controlled
+/// independently by
+/// [`LLMConfig::stream_transport`](crate::config::structs::llm::LLMConfig::stream_transport).
 ///
 /// # Example
 /// ```toml
@@ -170,7 +178,10 @@ pub struct UIConfig {
     #[serde(default = "default_true")]
     pub colored: bool,
 
-    /// Whether to enable streaming output (real-time typing effect).
+    /// Whether to enable live typewriter rendering of streamed responses in
+    /// interactive (non-`-y`, non-JSON, non-`--split`, TTY) commit flows.
+    ///
+    /// Decoupled from HTTP transport streaming — see [`LLMConfig::stream_transport`](crate::config::structs::llm::LLMConfig::stream_transport).
     #[serde(default = "default_true")]
     pub streaming: bool,
 

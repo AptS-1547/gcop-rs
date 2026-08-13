@@ -395,6 +395,8 @@ git.invalid_timestamp_warning: "Warning: Invalid timestamp %{timestamp} in commi
 
 # Streaming UI
 stream.error: "Stream error: %{error}"
+stream.retry_suffix: "(stream retrying)"
+stream.truncated: "stream ended without a Done or Error signal"
 
 # Provider messages
 provider.retrying_suffix: "(Retrying %{attempt}/%{max})"
@@ -436,10 +438,12 @@ provider.http_client_create_failed: "Failed to create HTTP client: %{error}"
 provider.provider_not_found: "Provider '%{name}' not found in config"
 provider.unsupported_api_style: "Unsupported api_style: '%{style}' for provider '%{provider}'"
 provider.stream.openai_parse_errors: "OpenAI stream completed with %{count} parse error(s)"
+provider.stream.openai_ended_without_done: "OpenAI stream ended without [DONE] or finish_reason"
 provider.stream.claude_parse_errors: "Claude stream completed with %{count} parse error(s)"
 provider.stream.claude_ended_with_errors: "Claude stream ended without message_stop, %{count} parse error(s)"
 provider.stream.claude_ended_without_stop: "Claude stream ended without message_stop event"
 provider.stream.gemini_parse_errors: "Gemini stream completed with %{count} parse error(s)"
+provider.stream.gemini_ended_without_finish_reason: "Gemini stream ended without finishReason"
 provider.stream.gemini_finish_reason_warning: "Gemini stream ended with reason: %{reason} (output may be incomplete)"
 provider.gemini_content_blocked: "Gemini content blocked (reason: %{reason}). The model refused to generate a response."
 

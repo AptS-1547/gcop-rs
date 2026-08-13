@@ -7,7 +7,7 @@ use std::io::{self, Write};
 use colored::Colorize;
 use tokio::sync::mpsc;
 
-use crate::error::{GcopError, Result};
+use crate::error::Result;
 use crate::llm::StreamChunk;
 
 /// Streaming text output
@@ -50,12 +50,12 @@ impl StreamingOutput {
                         eprintln!(
                             "{} {}",
                             "✗".red(),
-                            rust_i18n::t!("stream.error", error = e.as_str()).red()
+                            rust_i18n::t!("stream.error", error = e.to_string()).red()
                         );
                     } else {
-                        eprintln!("✗ {}", rust_i18n::t!("stream.error", error = e.as_str()));
+                        eprintln!("✗ {}", rust_i18n::t!("stream.error", error = e.to_string()));
                     }
-                    return Err(GcopError::Llm(e));
+                    return Err(e);
                 }
                 StreamChunk::Retry => {
                     // Stream is being retried; erase previous output and reset buffer
@@ -115,6 +115,7 @@ fn lines_to_erase_for(buffer: &str) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::GcopError;
 
     #[test]
     fn test_lines_to_erase_single_line() {
@@ -153,5 +154,25 @@ mod tests {
         output.buffer = "feat: update".to_string();
         // Should not panic or produce output
         output.redisplay_if_cleaned("feat: update");
+    }
+
+    #[tokio::test]
+    async fn test_process_preserves_structured_stream_error() {
+        let (tx, rx) = mpsc::channel(1);
+        tx.send(StreamChunk::Error(GcopError::LlmTimeout {
+            provider: "test".to_string(),
+            detail: "timed out".to_string(),
+        }))
+        .await
+        .unwrap();
+        drop(tx);
+
+        let error = StreamingOutput::new(false).process(rx).await.unwrap_err();
+
+        assert!(matches!(
+            error,
+            GcopError::LlmTimeout { provider, detail }
+                if provider == "test" && detail == "timed out"
+        ));
     }
 }

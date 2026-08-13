@@ -12,7 +12,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 
-use crate::error::Result;
+use crate::error::{GcopError, Result};
 
 /// Progress reporting interface for LLM operations.
 ///
@@ -37,14 +37,14 @@ pub trait ProgressReporter: Send + Sync {
 /// [`Done`]: StreamChunk::Done
 /// [`Error`]: StreamChunk::Error
 /// [`Retry`]: StreamChunk::Retry
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum StreamChunk {
     /// Text delta (append to existing content).
     Delta(String),
     /// Stream ended normally.
     Done,
-    /// Stream terminated with an error description.
-    Error(String),
+    /// Stream terminated with a structured error.
+    Error(GcopError),
     /// Stream is being retried; UI should clear buffered output.
     Retry,
 }
@@ -74,6 +74,59 @@ pub enum StreamChunk {
 pub struct StreamHandle {
     /// Stream chunk receiver.
     pub receiver: mpsc::Receiver<StreamChunk>,
+}
+
+/// Drain a streaming handle into a single accumulated `String`.
+///
+/// Semantics match [`StreamingOutput::process`](crate::ui::StreamingOutput::process)
+/// for non-rendering callers (JSON, `--split`, hooks, `-y` non-TTY):
+/// * [`StreamChunk::Delta`] - appended to the buffer.
+/// * [`StreamChunk::Retry`] - the buffer is cleared (mirrors
+///   [`spawn_stream_with_retry`](crate::llm::provider::base::spawn_stream_with_retry)
+///   which discards partial output before re-sending). When a
+///   [`ProgressReporter`] is supplied it is notified.
+/// * [`StreamChunk::Error`] - returned unchanged so provider-specific error
+///   classification and suggestions remain available to the caller.
+/// * [`StreamChunk::Done`] - return the accumulated buffer.
+/// * Channel closure without `Done` or `Error` - returned as
+///   `Err(GcopError::LlmStreamTruncated { provider, .. })` where `provider`
+///   is the value passed in (the actual backend identity, e.g. `"Claude"`).
+///
+/// This is used by the default impl of
+/// [`LLMProvider::send_prompt_collect`] so any provider that overrides
+/// `send_prompt_streaming` automatically gains "stream-the-HTTP,
+/// accumulate-the-string" behavior at the call sites that don't need
+/// live UI rendering.
+pub async fn collect_stream(
+    mut handle: StreamHandle,
+    progress: Option<&dyn ProgressReporter>,
+    provider_name: &str,
+) -> Result<String> {
+    let mut buffer = String::new();
+    let mut completed = false;
+    while let Some(chunk) = handle.receiver.recv().await {
+        match chunk {
+            StreamChunk::Delta(text) => buffer.push_str(&text),
+            StreamChunk::Retry => {
+                buffer.clear();
+                if let Some(p) = progress {
+                    p.append_suffix(&rust_i18n::t!("stream.retry_suffix"));
+                }
+            }
+            StreamChunk::Error(e) => return Err(e),
+            StreamChunk::Done => {
+                completed = true;
+                break;
+            }
+        }
+    }
+    if !completed {
+        return Err(GcopError::LlmStreamTruncated {
+            provider: provider_name.to_string(),
+            detail: rust_i18n::t!("stream.truncated").to_string(),
+        });
+    }
+    Ok(buffer)
 }
 
 /// Unified interface implemented by all LLM providers.
@@ -179,16 +232,43 @@ pub trait LLMProvider: Send + Sync {
                 let _ = tx.send(StreamChunk::Done).await;
             }
             Err(e) => {
-                let _ = tx.send(StreamChunk::Error(e.to_string())).await;
+                let _ = tx.send(StreamChunk::Error(e)).await;
             }
         }
         Ok(StreamHandle { receiver: rx })
     }
 
+    /// Returns the assistant message, using HTTP streaming transport
+    /// when the provider supports it. Otherwise falls back to
+    /// [`send_prompt`](Self::send_prompt).
+    ///
+    /// The intent is to keep the HTTP connection alive on slow models /
+    /// CDNs (e.g. Cloudflare 524 first-byte timeouts) for any caller
+    /// that only needs the final string, regardless of TTY, `-y`,
+    /// `--json`, or `--split`.
+    async fn send_prompt_collect(
+        &self,
+        system_prompt: &str,
+        user_prompt: &str,
+        progress: Option<&dyn ProgressReporter>,
+    ) -> Result<String> {
+        if !self.supports_streaming() {
+            return self.send_prompt(system_prompt, user_prompt, progress).await;
+        }
+        let handle = self
+            .send_prompt_streaming(system_prompt, user_prompt)
+            .await?;
+        collect_stream(handle, progress, self.name()).await
+    }
+
     /// Convenience: generates a commit message from diff + context.
     ///
     /// Builds the prompt via [`build_commit_prompt_split`](crate::llm::prompt::build_commit_prompt_split),
-    /// then delegates to [`send_prompt`](Self::send_prompt).
+    /// then delegates to [`send_prompt_collect`](Self::send_prompt_collect) so
+    /// the HTTP transport streams via SSE when the provider supports it —
+    /// symmetric with [`review_code`](Self::review_code) and the migrated
+    /// command paths. Falls through to `send_prompt` for non-streaming
+    /// providers.
     async fn generate_commit_message(
         &self,
         diff: &str,
@@ -202,7 +282,7 @@ pub trait LLMProvider: Send + Sync {
             ctx.custom_prompt.as_deref(),
             ctx.convention.as_ref(),
         );
-        let response = self.send_prompt(&system, &user, progress).await?;
+        let response = self.send_prompt_collect(&system, &user, progress).await?;
         tracing::debug!("Generated commit message: {}", response);
         Ok(response)
     }
@@ -478,5 +558,208 @@ impl IssueSeverity {
             Self::Warning => label.yellow().bold().to_string(),
             Self::Info => label.blue().bold().to_string(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::{Arc, Mutex};
+
+    use crate::error::GcopError;
+
+    /// Inline mock LLMProvider for drainer tests. Holds a pre-built script of
+    /// `StreamChunk`s for `send_prompt_streaming`, plus a fallback response
+    /// for `send_prompt`.
+    struct MockProvider {
+        chunks: Mutex<Option<Vec<StreamChunk>>>,
+        send_prompt_response: Mutex<Option<Result<String>>>,
+        supports_stream: bool,
+        streaming_called: AtomicBool,
+    }
+
+    impl MockProvider {
+        fn streaming(chunks: Vec<StreamChunk>) -> Self {
+            Self {
+                chunks: Mutex::new(Some(chunks)),
+                send_prompt_response: Mutex::new(Some(Ok("from-send-prompt".into()))),
+                supports_stream: true,
+                streaming_called: AtomicBool::new(false),
+            }
+        }
+
+        fn non_streaming(response: Result<String>) -> Self {
+            Self {
+                chunks: Mutex::new(None),
+                send_prompt_response: Mutex::new(Some(response)),
+                supports_stream: false,
+                streaming_called: AtomicBool::new(false),
+            }
+        }
+    }
+
+    #[async_trait]
+    impl LLMProvider for MockProvider {
+        async fn send_prompt(
+            &self,
+            _system_prompt: &str,
+            _user_prompt: &str,
+            _progress: Option<&dyn ProgressReporter>,
+        ) -> Result<String> {
+            self.send_prompt_response
+                .lock()
+                .unwrap()
+                .take()
+                .unwrap_or_else(|| Err(GcopError::Other("send_prompt response consumed".into())))
+        }
+
+        async fn send_prompt_streaming(
+            &self,
+            _system_prompt: &str,
+            _user_prompt: &str,
+        ) -> Result<StreamHandle> {
+            self.streaming_called.store(true, Ordering::SeqCst);
+            let chunks = self.chunks.lock().unwrap().take().unwrap_or_default();
+            let (tx, rx) = mpsc::channel(32);
+            for chunk in chunks {
+                tx.send(chunk).await.expect("mock channel send");
+            }
+            // tx drops at end of function; channel closes after buffered chunks drain.
+            Ok(StreamHandle { receiver: rx })
+        }
+
+        async fn review_code(
+            &self,
+            _diff: &str,
+            _review_type: ReviewType,
+            _custom_prompt: Option<&str>,
+            _progress: Option<&dyn ProgressReporter>,
+        ) -> Result<ReviewResult> {
+            unreachable!("review_code not exercised in drainer tests")
+        }
+
+        fn name(&self) -> &str {
+            "mock"
+        }
+
+        async fn validate(&self) -> Result<()> {
+            Ok(())
+        }
+
+        fn supports_streaming(&self) -> bool {
+            self.supports_stream
+        }
+    }
+
+    struct RecordingProgress {
+        suffixes: Arc<Mutex<Vec<String>>>,
+    }
+
+    impl ProgressReporter for RecordingProgress {
+        fn append_suffix(&self, suffix: &str) {
+            self.suffixes.lock().unwrap().push(suffix.to_string());
+        }
+    }
+
+    #[tokio::test]
+    async fn test_collect_accumulates_deltas_in_order() {
+        let provider = MockProvider::streaming(vec![
+            StreamChunk::Delta("Hel".into()),
+            StreamChunk::Delta("lo, ".into()),
+            StreamChunk::Delta("world".into()),
+            StreamChunk::Done,
+        ]);
+        let result = provider.send_prompt_collect("sys", "user", None).await;
+        assert_eq!(result.unwrap(), "Hello, world");
+    }
+
+    #[tokio::test]
+    async fn test_collect_clears_buffer_on_retry() {
+        let provider = MockProvider::streaming(vec![
+            StreamChunk::Delta("partial".into()),
+            StreamChunk::Retry,
+            StreamChunk::Delta("final".into()),
+            StreamChunk::Done,
+        ]);
+        let result = provider.send_prompt_collect("sys", "user", None).await;
+        assert_eq!(result.unwrap(), "final");
+    }
+
+    #[tokio::test]
+    async fn test_collect_returns_err_on_error_chunk() {
+        let provider = MockProvider::streaming(vec![
+            StreamChunk::Delta("partial".into()),
+            StreamChunk::Error(GcopError::Llm("boom".into())),
+        ]);
+        let err = provider
+            .send_prompt_collect("sys", "user", None)
+            .await
+            .expect_err("expected Err on StreamChunk::Error");
+        assert!(err.to_string().contains("boom"), "got: {}", err);
+    }
+
+    #[tokio::test]
+    async fn test_collect_preserves_structured_error_variant() {
+        let provider = MockProvider::streaming(vec![StreamChunk::Error(GcopError::LlmTimeout {
+            provider: "mock".into(),
+            detail: "timed out".into(),
+        })]);
+
+        let err = provider
+            .send_prompt_collect("sys", "user", None)
+            .await
+            .expect_err("expected stream timeout");
+
+        assert!(matches!(err, GcopError::LlmTimeout { provider, .. } if provider == "mock"));
+    }
+
+    #[tokio::test]
+    async fn test_collect_returns_err_on_premature_close() {
+        // Send a Delta then drop tx without Done/Error/Retry — drainer must
+        // surface a truncation error rather than silently returning "partial".
+        let provider = MockProvider::streaming(vec![StreamChunk::Delta("oops".into())]);
+        let err = provider
+            .send_prompt_collect("sys", "user", None)
+            .await
+            .expect_err("expected Err on premature close");
+        match err {
+            GcopError::LlmStreamTruncated { .. } => {}
+            other => panic!("expected LlmStreamTruncated, got: {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_collect_falls_back_when_provider_not_streaming() {
+        let provider = MockProvider::non_streaming(Ok("from-buffered".into()));
+        let result = provider.send_prompt_collect("sys", "user", None).await;
+        assert_eq!(result.unwrap(), "from-buffered");
+        assert!(
+            !provider.streaming_called.load(Ordering::SeqCst),
+            "send_prompt_streaming must not be called when supports_streaming is false"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_collect_forwards_retry_to_progress() {
+        let provider = MockProvider::streaming(vec![
+            StreamChunk::Delta("partial".into()),
+            StreamChunk::Retry,
+            StreamChunk::Delta("final".into()),
+            StreamChunk::Done,
+        ]);
+        let suffixes = Arc::new(Mutex::new(Vec::<String>::new()));
+        let progress = RecordingProgress {
+            suffixes: suffixes.clone(),
+        };
+        let result = provider
+            .send_prompt_collect("sys", "user", Some(&progress))
+            .await;
+        assert_eq!(result.unwrap(), "final");
+        let recorded = suffixes.lock().unwrap();
+        assert!(
+            !recorded.is_empty(),
+            "expected ProgressReporter::append_suffix to be invoked on Retry"
+        );
     }
 }

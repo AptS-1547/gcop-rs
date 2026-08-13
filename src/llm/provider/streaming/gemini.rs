@@ -127,15 +127,15 @@ pub async fn process_gemini_stream(
         }
     }
 
-    // The stream ended without receiving finishReason: STOP
-    if parse_errors > 0 {
-        colors::warning(
-            &rust_i18n::t!("provider.stream.gemini_parse_errors", count = parse_errors),
-            colored,
-        );
-    }
-    let _ = tx.send(StreamChunk::Done).await;
-    Ok(())
+    let detail = if parse_errors > 0 {
+        rust_i18n::t!("provider.stream.gemini_parse_errors", count = parse_errors).to_string()
+    } else {
+        rust_i18n::t!("provider.stream.gemini_ended_without_finish_reason").to_string()
+    };
+    Err(GcopError::LlmStreamTruncated {
+        provider: "Gemini".to_string(),
+        detail,
+    })
 }
 
 #[cfg(test)]
@@ -294,21 +294,23 @@ mod tests {
         assert_done(chunks.last().unwrap());
     }
 
-    /// Gemini stream ends without any finishReason → not treated as an error.
-    /// Unlike Claude, Gemini silently sends Done.
+    /// Gemini stream ending without a finish reason is incomplete.
     #[tokio::test]
-    async fn test_gemini_no_finish_reason_sends_done() {
+    async fn test_gemini_no_finish_reason_returns_error_without_done() {
         let body = "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"incomplete\"}],\"role\":\"model\"}}]}\n";
         let (tx, rx) = mpsc::channel(16);
         let result = process_gemini_stream(sse_response(body), tx, false).await;
 
         assert!(
-            result.is_ok(),
-            "Gemini should silently recover, got {:?}",
-            result
+            matches!(result, Err(GcopError::LlmStreamTruncated { ref provider, .. }) if provider == "Gemini")
         );
         let chunks = drain(rx).await;
         assert_eq!(delta_text(&chunks[0]), "incomplete");
-        assert_done(chunks.last().unwrap());
+        assert!(
+            !chunks
+                .iter()
+                .any(|chunk| matches!(chunk, StreamChunk::Done)),
+            "truncated streams must not emit Done: {chunks:?}"
+        );
     }
 }

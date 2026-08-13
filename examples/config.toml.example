@@ -8,6 +8,9 @@
 [llm]
 # Options: "claude" | "openai" | "ollama" | "gemini"
 default_provider = "claude"
+# Use SSE for supported providers even when the response is buffered (JSON, hooks, split commits).
+# Set false only for endpoints that reject SSE.
+stream_transport = true
 
 # Claude
 [llm.providers.claude]
@@ -55,6 +58,7 @@ allow_edit = true
 [ui]
 colored = true
 streaming = true
+# `streaming` only controls live terminal rendering; HTTP SSE is configured above.
 # language = "en"
 
 # For advanced options (custom providers, fallback, network, review, etc.):

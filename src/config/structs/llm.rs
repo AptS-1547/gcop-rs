@@ -216,6 +216,21 @@ pub struct LLMConfig {
     /// Oversized diffs are truncated before prompt generation in commit/review/hook non-split flows.
     #[serde(default = "default_max_diff_size")]
     pub max_diff_size: usize,
+
+    /// HTTP transport: use Server-Sent Events (SSE) for LLM requests.
+    ///
+    /// This is **independent of UI rendering**. When `true` (the default),
+    /// every call site that needs the full assistant message routes through
+    /// `LLMProvider::send_prompt_collect`, which uses the streaming HTTP
+    /// transport even when the caller will not render the response live
+    /// (e.g. `--json`, `--split`, `commit -y`, git hooks). This avoids
+    /// first-byte timeouts on slow models / CDNs (e.g. Cloudflare 524).
+    ///
+    /// Set to `false` only as an escape hatch when an LLM endpoint refuses
+    /// SSE entirely. UI live rendering is controlled separately by
+    /// [`UIConfig::streaming`](crate::config::structs::app::UIConfig::streaming).
+    #[serde(default = "default_true")]
+    pub stream_transport: bool,
 }
 
 impl Default for LLMConfig {
@@ -225,10 +240,68 @@ impl Default for LLMConfig {
             fallback_providers: Vec::new(),
             providers: HashMap::new(),
             max_diff_size: default_max_diff_size(),
+            stream_transport: default_true(),
         }
     }
 }
 
 fn default_max_diff_size() -> usize {
     100 * 1024 // 100KB
+}
+
+fn default_true() -> bool {
+    true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Backward-compatibility:loading a [llm] section without
+    /// `stream_transport` must default to `true` (HTTP streaming on),
+    /// matching the user-expected behavior after this fix.
+    #[test]
+    fn test_llm_config_default_stream_transport_is_true() {
+        let toml = r#"
+            default_provider = "claude"
+        "#;
+        let cfg: LLMConfig = toml::from_str(toml).expect("LLMConfig deserialization");
+        assert!(
+            cfg.stream_transport,
+            "default stream_transport must be true"
+        );
+    }
+
+    /// Operator escape hatch:explicit `stream_transport = false` must be
+    /// honored (for endpoints that refuse SSE entirely).
+    #[test]
+    fn test_llm_config_explicit_stream_transport_false() {
+        let toml = r#"
+            default_provider = "claude"
+            stream_transport = false
+        "#;
+        let cfg: LLMConfig = toml::from_str(toml).expect("LLMConfig deserialization");
+        assert!(!cfg.stream_transport);
+    }
+
+    /// Round-trip:explicit `stream_transport = true` survives serialization.
+    #[test]
+    fn test_llm_config_explicit_stream_transport_true_roundtrip() {
+        let toml = r#"
+            default_provider = "claude"
+            stream_transport = true
+        "#;
+        let cfg: LLMConfig = toml::from_str(toml).expect("LLMConfig deserialization");
+        assert!(cfg.stream_transport);
+        // Serialize back and ensure the key is present.
+        let serialized = toml::to_string(&cfg).expect("LLMConfig serialization");
+        assert!(serialized.contains("stream_transport"));
+    }
+
+    /// Default impl matches deserialized-from-empty:both are `true`.
+    #[test]
+    fn test_llm_config_default_impl_matches_serde_default() {
+        let from_default = LLMConfig::default();
+        assert!(from_default.stream_transport);
+    }
 }

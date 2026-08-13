@@ -51,6 +51,10 @@ pub struct GeminiProvider {
     max_retry_delay_ms: u64,
     colored: bool,
     strip_thinking: bool,
+    /// HTTP transport may use SSE. Set by the factory from
+    /// `LLMConfig::stream_transport`. When `false`, [`supports_streaming`] returns
+    /// `false` and all paths fall through to non-streaming HTTP.
+    stream_transport_enabled: bool,
 }
 
 // ============================================================================
@@ -123,6 +127,7 @@ impl GeminiProvider {
         provider_name: &str,
         network_config: &NetworkConfig,
         colored: bool,
+        stream_transport_enabled: bool,
     ) -> Result<Self> {
         let api_key = extract_api_key(config, "Gemini")?;
         let base_url = config
@@ -149,6 +154,7 @@ impl GeminiProvider {
             max_retry_delay_ms: network_config.max_retry_delay_ms,
             colored,
             strip_thinking,
+            stream_transport_enabled,
         })
     }
 
@@ -262,7 +268,9 @@ impl ApiBackend for GeminiProvider {
     }
 
     fn supports_streaming(&self) -> bool {
-        true
+        // Provider supports SSE natively; final gate is the
+        // `stream_transport_enabled` flag plumbed from `LLMConfig`.
+        self.stream_transport_enabled
     }
 
     fn strip_thinking(&self) -> bool {
@@ -402,6 +410,7 @@ mod tests {
             "gemini",
             &test_network_config_no_retry(),
             false,
+            true,
         )
         .unwrap();
 
@@ -433,6 +442,7 @@ mod tests {
             "gemini",
             &test_network_config_no_retry(),
             false,
+            true,
         )
         .unwrap();
 
@@ -464,6 +474,7 @@ mod tests {
             "gemini",
             &test_network_config_no_retry(),
             false,
+            true,
         )
         .unwrap();
 
@@ -496,6 +507,7 @@ mod tests {
             "gemini",
             &test_network_config_no_retry(),
             false,
+            true,
         )
         .unwrap();
 
@@ -534,6 +546,7 @@ mod tests {
             "gemini",
             &test_network_config_no_retry(),
             false,
+            true,
         )
         .unwrap();
 

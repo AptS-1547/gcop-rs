@@ -304,8 +304,11 @@ async fn run_hook_inner(
         eprintln!("gcop-rs: {}", rust_i18n::t!("hook.generating"));
     }
 
-    // Generate commit message
-    let message = provider.send_prompt(&system, &user, None).await?;
+    // Generate commit message. HTTP transport streams via SSE when supported
+    // — protects long hook runs from CDN timeouts (Cloudflare 524) without
+    // changing what the hook writes to disk. The collection method handles
+    // transport capability, opt-out, and provider fallback internally.
+    let message = provider.send_prompt_collect(&system, &user, None).await?;
     let message = process_commit_response_with_options(message, provider.strip_thinking());
 
     // Write generated message to the commit message file

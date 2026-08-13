@@ -458,7 +458,7 @@ pub(crate) fn spawn_stream_with_retry<ProcessFn, ProcessFut, ResendFn, ResendFut
                             ),
                             colored,
                         );
-                        let _ = error_tx.send(StreamChunk::Error(e.to_string())).await;
+                        let _ = error_tx.send(StreamChunk::Error(e)).await;
                         return;
                     }
 
@@ -490,9 +490,7 @@ pub(crate) fn spawn_stream_with_retry<ProcessFn, ProcessFut, ResendFn, ResendFut
                                 ),
                                 colored,
                             );
-                            let _ = error_tx
-                                .send(StreamChunk::Error(retry_err.to_string()))
-                                .await;
+                            let _ = error_tx.send(StreamChunk::Error(retry_err)).await;
                             return;
                         }
                     }
@@ -521,6 +519,23 @@ pub(crate) fn calculate_exponential_backoff(
 mod tests {
     use super::*;
     use crate::error::GcopError;
+    use crate::llm::StreamChunk;
+
+    async fn mock_response() -> reqwest::Response {
+        let mut server = mockito::Server::new_async().await;
+        let response_mock = server
+            .mock("GET", "/stream")
+            .with_status(200)
+            .create_async()
+            .await;
+        let response = make_client()
+            .get(format!("{}/stream", server.url()))
+            .send()
+            .await
+            .unwrap();
+        response_mock.assert_async().await;
+        response
+    }
 
     // === parse_retry_after tests ===
 
@@ -930,5 +945,70 @@ mod tests {
 
         assert!(matches!(err, GcopError::Llm(_)));
         mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn test_stream_worker_preserves_terminal_processing_error() {
+        let response = mock_response().await;
+        let (tx, mut rx) = tokio::sync::mpsc::channel(1);
+
+        spawn_stream_with_retry(
+            response,
+            tx,
+            false,
+            "Test",
+            0,
+            0,
+            0,
+            |_response, _tx, _colored| async {
+                Err(GcopError::LlmTimeout {
+                    provider: "Test".to_string(),
+                    detail: "timed out".to_string(),
+                })
+            },
+            || async { unreachable!("terminal processing errors are not retried") },
+        );
+
+        let error = rx.recv().await.unwrap();
+        assert!(matches!(
+            error,
+            StreamChunk::Error(GcopError::LlmTimeout { provider, detail })
+                if provider == "Test" && detail == "timed out"
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_stream_worker_preserves_resend_error() {
+        let response = mock_response().await;
+        let (tx, mut rx) = tokio::sync::mpsc::channel(1);
+
+        spawn_stream_with_retry(
+            response,
+            tx,
+            false,
+            "Test",
+            1,
+            0,
+            0,
+            |_response, _tx, _colored| async {
+                Err(GcopError::LlmStreamTruncated {
+                    provider: "Test".to_string(),
+                    detail: "truncated".to_string(),
+                })
+            },
+            || async {
+                Err(GcopError::LlmConnectionFailed {
+                    provider: "Test".to_string(),
+                    detail: "reconnect failed".to_string(),
+                })
+            },
+        );
+
+        let error = rx.recv().await.unwrap();
+        assert!(matches!(
+            error,
+            StreamChunk::Error(GcopError::LlmConnectionFailed { provider, detail })
+                if provider == "Test" && detail == "reconnect failed"
+        ));
     }
 }

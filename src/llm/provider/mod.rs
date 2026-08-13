@@ -92,7 +92,13 @@ pub fn create_single_provider(
         GcopError::Config(rust_i18n::t!("provider.provider_not_found", name = name).to_string())
     })?;
 
-    create_provider_from_config(provider_config, name, &config.network, colored)
+    create_provider_from_config(
+        provider_config,
+        name,
+        &config.network,
+        colored,
+        config.llm.stream_transport,
+    )
 }
 
 /// Create specific Provider implementation based on configuration
@@ -101,6 +107,7 @@ fn create_provider_from_config(
     name: &str,
     network_config: &NetworkConfig,
     colored: bool,
+    stream_transport: bool,
 ) -> Result<Arc<dyn LLMProvider>> {
     // Decide which API style to use
     // Prefer using api_style field, otherwise infer from provider name (backward compatibility)
@@ -121,24 +128,98 @@ fn create_provider_from_config(
     // Create corresponding Provider implementation according to API style (exhaustive matching)
     match api_style {
         ApiStyle::Claude => {
-            let provider =
-                backends::ClaudeProvider::new(provider_config, name, network_config, colored)?;
+            let provider = backends::ClaudeProvider::new(
+                provider_config,
+                name,
+                network_config,
+                colored,
+                stream_transport,
+            )?;
             Ok(Arc::new(provider))
         }
         ApiStyle::OpenAI | ApiStyle::OpenAIResponse => {
-            let provider =
-                backends::OpenAIProvider::new(provider_config, name, network_config, colored)?;
+            let provider = backends::OpenAIProvider::new(
+                provider_config,
+                name,
+                network_config,
+                colored,
+                stream_transport,
+            )?;
             Ok(Arc::new(provider))
         }
         ApiStyle::Ollama => {
-            let provider =
-                backends::OllamaProvider::new(provider_config, name, network_config, colored)?;
+            let provider = backends::OllamaProvider::new(
+                provider_config,
+                name,
+                network_config,
+                colored,
+                stream_transport,
+            )?;
             Ok(Arc::new(provider))
         }
         ApiStyle::Gemini => {
-            let provider =
-                backends::GeminiProvider::new(provider_config, name, network_config, colored)?;
+            let provider = backends::GeminiProvider::new(
+                provider_config,
+                name,
+                network_config,
+                colored,
+                stream_transport,
+            )?;
             Ok(Arc::new(provider))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn provider_config(style: ApiStyle) -> ProviderConfig {
+        ProviderConfig {
+            api_style: Some(style),
+            endpoint: Some("http://127.0.0.1:1".to_string()),
+            api_key: Some("test-key".to_string()),
+            model: style.default_model().to_string(),
+            max_tokens: None,
+            temperature: None,
+            extra: Default::default(),
+        }
+    }
+
+    #[test]
+    fn factory_constructs_every_backend_with_stream_transport_enabled() {
+        crate::llm::provider::test_utils::ensure_crypto_provider();
+        let network = NetworkConfig::default();
+
+        for style in [
+            ApiStyle::Claude,
+            ApiStyle::OpenAI,
+            ApiStyle::OpenAIResponse,
+            ApiStyle::Ollama,
+            ApiStyle::Gemini,
+        ] {
+            let config = provider_config(style);
+            let provider =
+                create_provider_from_config(&config, &style.to_string(), &network, false, true)
+                    .unwrap_or_else(|error| panic!("failed to construct {style}: {error}"));
+
+            assert_eq!(provider.name(), style.to_string());
+            assert_eq!(provider.supports_streaming(), style != ApiStyle::Ollama);
+        }
+    }
+
+    #[test]
+    fn single_provider_propagates_disabled_stream_transport() {
+        crate::llm::provider::test_utils::ensure_crypto_provider();
+        let mut config = AppConfig::default();
+        config.llm.stream_transport = false;
+        config
+            .llm
+            .providers
+            .insert("gemini".to_string(), provider_config(ApiStyle::Gemini));
+
+        let provider = create_single_provider(&config, "gemini", false).unwrap();
+
+        assert!(!provider.supports_streaming());
     }
 }

@@ -107,11 +107,16 @@ struct OllamaResponse {
 
 impl OllamaProvider {
     /// Builds an Ollama provider from runtime configuration.
+    ///
+    /// `_stream_transport_enabled` is accepted for signature parity with the
+    /// other backends (the factory dispatches uniformly), but Ollama does not
+    /// support SSE at all — its `supports_streaming()` is always `false`.
     pub fn new(
         config: &ProviderConfig,
         provider_name: &str,
         network_config: &NetworkConfig,
         colored: bool,
+        _stream_transport_enabled: bool,
     ) -> Result<Self> {
         // Ollama local deployment, no API key required
         let endpoint = build_endpoint(config, DEFAULT_OLLAMA_BASE, OLLAMA_API_SUFFIX);
@@ -250,6 +255,7 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     use crate::error::GcopError;
+    use crate::llm::LLMProvider;
     use crate::llm::provider::test_utils::{
         ensure_crypto_provider, test_network_config_no_retry, test_provider_config,
     };
@@ -271,6 +277,7 @@ mod tests {
             "ollama",
             &test_network_config_no_retry(),
             false,
+            true,
         )
         .unwrap();
 
@@ -295,6 +302,7 @@ mod tests {
             "ollama",
             &test_network_config_no_retry(),
             false,
+            true,
         )
         .unwrap();
 
@@ -319,11 +327,52 @@ mod tests {
             "ollama",
             &test_network_config_no_retry(),
             false,
+            true,
         )
         .unwrap();
 
         let err = provider.call_api("system", "hi", None).await.unwrap_err();
         assert!(matches!(err, GcopError::LlmApi { status: 429, .. }));
+        mock.assert_async().await;
+    }
+
+    /// `send_prompt_collect` must fall through to `send_prompt` for providers
+    /// where `supports_streaming()` is `false` — i.e. NOT upgrade the
+    /// transport to SSE. Verified by registering a permissive single-mock and
+    /// asserting the body the implementation submits is exactly the existing
+    /// Ollama request shape (`"stream": false` for the synchronous endpoint),
+    /// rather than the streaming endpoint shape.
+    #[tokio::test]
+    async fn test_ollama_send_prompt_collect_falls_through_to_buffered() {
+        ensure_crypto_provider();
+        let mut server = Server::new_async().await;
+        // Asserts: the body the implementation sends has the Ollama
+        // non-streaming `"stream": false`, not the upgraded `"stream": true`.
+        let mock = server
+            .mock("POST", "/api/generate")
+            .match_body(mockito::Matcher::PartialJson(
+                serde_json::json!({"stream": false}),
+            ))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"response":"Hello via collect","done":true}"#)
+            .create_async()
+            .await;
+
+        let provider = OllamaProvider::new(
+            &test_provider_config(server.url(), None, "llama3".to_string()),
+            "ollama",
+            &test_network_config_no_retry(),
+            false,
+            true,
+        )
+        .unwrap();
+
+        let result = provider
+            .send_prompt_collect("system", "hi", None)
+            .await
+            .unwrap();
+        assert_eq!(result, "Hello via collect");
         mock.assert_async().await;
     }
 }

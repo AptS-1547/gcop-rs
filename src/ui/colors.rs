@@ -23,9 +23,9 @@ pub fn error(msg: &str, colored: bool) {
 /// Show warning message (yellow ⚠)
 pub fn warning(msg: &str, colored: bool) {
     if colored {
-        println!("{} {}", "⚠".yellow().bold(), msg.yellow());
+        eprintln!("{} {}", "⚠".yellow().bold(), msg.yellow());
     } else {
-        println!("⚠ {}", msg);
+        eprintln!("⚠ {}", msg);
     }
 }
 

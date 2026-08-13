@@ -126,6 +126,10 @@ pub struct ClaudeProvider {
     max_retry_delay_ms: u64,
     colored: bool,
     strip_thinking: bool,
+    /// HTTP transport may use SSE. Set by the factory from
+    /// `LLMConfig::stream_transport`. When `false`, [`supports_streaming`] returns
+    /// `false` and all paths fall through to non-streaming HTTP.
+    stream_transport_enabled: bool,
 }
 
 #[derive(Clone, Serialize)]
@@ -167,6 +171,7 @@ impl ClaudeProvider {
         provider_name: &str,
         network_config: &NetworkConfig,
         colored: bool,
+        stream_transport_enabled: bool,
     ) -> Result<Self> {
         let api_key = extract_api_key(config, "Claude")?;
         let endpoint = build_endpoint(config, DEFAULT_CLAUDE_BASE, CLAUDE_API_SUFFIX);
@@ -188,6 +193,7 @@ impl ClaudeProvider {
             max_retry_delay_ms: network_config.max_retry_delay_ms,
             colored,
             strip_thinking,
+            stream_transport_enabled,
         })
     }
 }
@@ -261,7 +267,9 @@ impl ApiBackend for ClaudeProvider {
     }
 
     fn supports_streaming(&self) -> bool {
-        true
+        // Provider supports SSE natively; final gate is the
+        // `stream_transport_enabled` flag plumbed from `LLMConfig`.
+        self.stream_transport_enabled
     }
 
     fn strip_thinking(&self) -> bool {
@@ -391,6 +399,7 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     use crate::error::GcopError;
+    use crate::llm::LLMProvider;
     use crate::llm::provider::test_utils::{
         ensure_crypto_provider, test_network_config_no_retry, test_provider_config,
     };
@@ -418,6 +427,7 @@ mod tests {
             "claude",
             &test_network_config_no_retry(),
             false,
+            true,
         )
         .unwrap();
 
@@ -446,6 +456,7 @@ mod tests {
             "claude",
             &test_network_config_no_retry(),
             false,
+            true,
         )
         .unwrap();
 
@@ -474,6 +485,7 @@ mod tests {
             "claude",
             &test_network_config_no_retry(),
             false,
+            true,
         )
         .unwrap();
 
@@ -560,6 +572,7 @@ mod tests {
             "claude",
             &test_network_config_no_retry(),
             false,
+            true,
         )
         .unwrap();
 
@@ -610,6 +623,7 @@ mod tests {
             "claude",
             &test_network_config_no_retry(),
             false,
+            true,
         )
         .unwrap();
 
@@ -667,6 +681,7 @@ mod tests {
             "claude",
             &test_network_config_no_retry(),
             false,
+            true,
         )
         .unwrap();
 
@@ -674,5 +689,125 @@ mod tests {
         // thinking 被忽略，两个 text block 用 \n 拼接
         assert_eq!(result, "First part\nSecond part");
         mock.assert_async().await;
+    }
+
+    // ============================================================
+    // send_prompt_collect: HTTP transport always streams (stream:true)
+    // and the result is the concatenated SSE delta payload, regardless
+    // of how the caller plans to render it.
+    // ============================================================
+
+    /// Body must carry `stream: true`; result is the concatenation of all
+    /// `content_block_delta` text payloads up to `message_stop`.
+    #[tokio::test]
+    async fn test_claude_send_prompt_collect_streams_and_accumulates() {
+        ensure_crypto_provider();
+        let mut server = Server::new_async().await;
+        let mock = server
+            .mock("POST", "/v1/messages")
+            .match_body(mockito::Matcher::PartialJson(serde_json::json!({
+                "stream": true,
+            })))
+            .with_status(200)
+            .with_header("content-type", "text/event-stream")
+            .with_body(concat!(
+                "data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"Hello\"}}\n\n",
+                "data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\" world\"}}\n\n",
+                "data: {\"type\":\"message_stop\"}\n\n",
+            ))
+            .create_async()
+            .await;
+
+        let provider = ClaudeProvider::new(
+            &test_provider_config(
+                server.url(),
+                Some("sk-ant-test".to_string()),
+                "claude-3-haiku-20240307".to_string(),
+            ),
+            "claude",
+            &test_network_config_no_retry(),
+            false,
+            true,
+        )
+        .unwrap();
+
+        let result = provider
+            .send_prompt_collect("system", "hi", None)
+            .await
+            .unwrap();
+        assert_eq!(result, "Hello world");
+        mock.assert_async().await;
+    }
+
+    /// Regression: legacy `send_prompt` (used by `validate` etc.) must NOT
+    /// upgrade to streaming HTTP — `stream` stays absent from the JSON body
+    /// (because it's `Option<bool>` with `skip_serializing_if = "Option::is_none"`).
+    #[tokio::test]
+    async fn test_claude_send_prompt_body_has_no_stream_field() {
+        ensure_crypto_provider();
+        let mut server = Server::new_async().await;
+        // A custom matcher: body parses as JSON and the "stream" key is absent.
+        let mock = server
+            .mock("POST", "/v1/messages")
+            .match_body(mockito::Matcher::Any)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"content":[{"type":"text","text":"ok"}]}"#)
+            .create_async()
+            .await;
+
+        let provider = ClaudeProvider::new(
+            &test_provider_config(
+                server.url(),
+                Some("sk-ant-test".to_string()),
+                "claude-3-haiku-20240307".to_string(),
+            ),
+            "claude",
+            &test_network_config_no_retry(),
+            false,
+            true,
+        )
+        .unwrap();
+
+        let _ = provider.send_prompt("system", "hi", None).await.unwrap();
+        mock.assert_async().await;
+        // Inspect the recorded request body via mockito's last-request hook:
+        // Mockito does not expose request bodies in stable APIs for assertion,
+        // so we use a complementary mock that DOES require `stream:true`
+        // and assert it is NEVER hit.
+        let mut server2 = Server::new_async().await;
+        let stream_mock = server2
+            .mock("POST", "/v1/messages")
+            .match_body(mockito::Matcher::PartialJson(
+                serde_json::json!({"stream": true}),
+            ))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"content":[{"type":"text","text":"ok"}]}"#)
+            .expect(0)
+            .create_async()
+            .await;
+        let provider2 = ClaudeProvider::new(
+            &test_provider_config(
+                server2.url(),
+                Some("sk-ant-test".to_string()),
+                "claude-3-haiku-20240307".to_string(),
+            ),
+            "claude",
+            &test_network_config_no_retry(),
+            false,
+            true,
+        )
+        .unwrap();
+        // Also register a permissive fallback so the second call succeeds.
+        let _fallback = server2
+            .mock("POST", "/v1/messages")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"content":[{"type":"text","text":"ok"}]}"#)
+            .create_async()
+            .await;
+        let _ = provider2.send_prompt("system", "hi", None).await.unwrap();
+        stream_mock.assert_async().await; // expect(0) verified
     }
 }

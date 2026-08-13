@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Independent Streaming Transport**: Added `[llm].stream_transport` (default `true`) to use SSE for supported providers in JSON, hooks, split commits, and other buffered flows; `[ui].streaming` now exclusively controls interactive live rendering
 - **Lockfile Diff Summaries**: Common dependency lockfiles are always sent to the LLM as summary-only entries, preserving file names and `+N -M` change counts while omitting full patch content; covers commit, review, hook, and split commit prompts, including lockfile-only changes
 - **Configurable Lockfile Patterns**: Added `[file].lockfile_patterns` for extra glob patterns such as `**/*.lock`; built-in lockfiles include Cargo, npm/yarn/pnpm, Poetry/Pipfile/uv, Composer/Gemfile, Go, Bun, Deno, Nix flake, Conan, Pub, Mix, Stack, and CocoaPods lockfiles
 - **Editor File Type Detection**: Configuration and split-group edits now use `.toml` temporary files, while commit-message edits use the conventional `COMMIT_EDITMSG` filename for editor syntax detection
