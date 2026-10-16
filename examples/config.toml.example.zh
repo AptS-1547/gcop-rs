@@ -11,6 +11,7 @@ default_provider = "claude"
 # 对支持的 provider 使用 SSE，即使 JSON、hook、拆分提交等流程只收集最终文本。
 # 仅在端点拒绝 SSE 时设为 false。
 stream_transport = true
+# SSE 支持兼容网关的可选字段空格、LF/CRLF/CR 换行与多行数据。
 
 # Claude
 [llm.providers.claude]

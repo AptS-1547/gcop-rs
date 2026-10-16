@@ -4,6 +4,12 @@ gcop-rs supports multiple LLM providers. You can use built-in providers or add c
 
 `gcop-rs` does not hardcode model allowlists. The examples below are common choices, not an exhaustive or validated list.
 
+## Streaming compatibility
+
+Claude, OpenAI Chat Completions, OpenAI Responses, and Gemini use SSE when `llm.stream_transport` is enabled. Their decoders accept fields with or without a space after `data:`, LF/CRLF/CR line endings, multiline data, and UTF-8 characters split across HTTP chunks. This also applies to compatible models such as Kimi served through a gateway.
+
+Each SSE event ends with a blank line. A stream must reach its protocol's completion signal: `message_stop` for Claude, `[DONE]` or `finish_reason` for Chat Completions, `response.completed` or `[DONE]` for Responses, and `finishReason` for Gemini. An EOF before that signal remains a truncation error.
+
 ## Built-in Providers
 
 ### Claude (Anthropic)

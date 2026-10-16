@@ -429,6 +429,7 @@ provider.openai.stream.response_incomplete: "OpenAI Responses API 响应未完�
 provider.openai.stream.unknown_incomplete_reason: "未知"
 provider.gemini_no_candidates: "Gemini 响应中没有 candidates"
 provider.stream_processing_error: "流处理错误：%{error}"
+provider.stream.invalid_sse: "SSE 流格式无效：%{error}"
 provider.api_key_empty: "API key 为空"
 provider.api_validation_failed: "%{provider} API 验证失败：%{body}"
 provider.ollama_parse_tags_failed: "解析 Ollama tags 响应失败：%{error}"

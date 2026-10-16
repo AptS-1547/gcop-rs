@@ -1018,8 +1018,8 @@ mod tests {
             .with_status(200)
             .with_header("content-type", "text/event-stream")
             .with_body(
-                "data: {\"choices\":[{\"delta\":{\"content\":\"Hi\"},\"finish_reason\":null}]}\n\
-                 data: [DONE]\n",
+                "data: {\"choices\":[{\"delta\":{\"content\":\"Hi\"},\"finish_reason\":null}]}\n\n\
+                 data: [DONE]\n\n",
             )
             .create_async()
             .await;
@@ -1058,8 +1058,8 @@ mod tests {
             .with_status(200)
             .with_header("content-type", "text/event-stream")
             .with_body(
-                "data: {\"type\":\"response.output_text.delta\",\"delta\":\"Hi\",\"sequence_number\":1}\n\
-                 data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_123\",\"status\":\"completed\"},\"sequence_number\":2}\n",
+                "data: {\"type\":\"response.output_text.delta\",\"delta\":\"Hi\",\"sequence_number\":1}\n\n\
+                 data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_123\",\"status\":\"completed\"},\"sequence_number\":2}\n\n",
             )
             .create_async()
             .await;
@@ -1097,9 +1097,9 @@ mod tests {
             .with_status(200)
             .with_header("content-type", "text/event-stream")
             .with_body(
-                "data: {\"choices\":[{\"delta\":{\"content\":\"Hello\"},\"finish_reason\":null}]}\n\
-                 data: {\"choices\":[{\"delta\":{\"content\":\" world\"},\"finish_reason\":null}]}\n\
-                 data: [DONE]\n",
+                "data: {\"choices\":[{\"delta\":{\"content\":\"Hello\"},\"finish_reason\":null}]}\n\n\
+                 data: {\"choices\":[{\"delta\":{\"content\":\" world\"},\"finish_reason\":null}]}\n\n\
+                 data: [DONE]\n\n",
             )
             .create_async()
             .await;
@@ -1139,9 +1139,9 @@ mod tests {
             .with_status(200)
             .with_header("content-type", "text/event-stream")
             .with_body(
-                "data: {\"type\":\"response.output_text.delta\",\"delta\":\"Hello\",\"sequence_number\":1}\n\
-                 data: {\"type\":\"response.output_text.delta\",\"delta\":\" world\",\"sequence_number\":2}\n\
-                 data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_1\",\"status\":\"completed\"},\"sequence_number\":3}\n",
+                "data: {\"type\":\"response.output_text.delta\",\"delta\":\"Hello\",\"sequence_number\":1}\n\n\
+                 data: {\"type\":\"response.output_text.delta\",\"delta\":\" world\",\"sequence_number\":2}\n\n\
+                 data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_1\",\"status\":\"completed\"},\"sequence_number\":3}\n\n",
             )
             .create_async()
             .await;

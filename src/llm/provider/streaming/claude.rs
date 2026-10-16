@@ -3,6 +3,7 @@ use reqwest::Response;
 use serde::Deserialize;
 use tokio::sync::mpsc;
 
+use super::sse_data;
 use crate::error::{GcopError, Result};
 use crate::llm::StreamChunk;
 use crate::ui::colors;
@@ -46,54 +47,33 @@ pub async fn process_claude_stream(
     tx: mpsc::Sender<StreamChunk>,
     colored: bool,
 ) -> Result<()> {
-    let mut stream = response.bytes_stream();
-    let mut buffer = String::new();
+    let mut stream = sse_data(response);
     let mut parse_errors = 0usize;
 
-    while let Some(chunk_result) = stream.next().await {
-        let chunk = chunk_result.map_err(GcopError::Network)?;
-        buffer.push_str(&String::from_utf8_lossy(&chunk));
-
-        // Claude SSE uses double newlines to delimit event blocks
-        while let Some(pos) = buffer.find("\n\n") {
-            let event_block = buffer[..pos].to_string();
-            buffer = buffer[pos + 2..].to_string();
-
-            // Find data: rows
-            for line in event_block.lines() {
-                if let Some(data) = line.strip_prefix("data: ") {
-                    match serde_json::from_str::<ClaudeSSEEvent>(data) {
-                        Ok(ClaudeSSEEvent::ContentBlockDelta { delta }) => {
-                            if delta.delta_type == "text_delta" && !delta.text.is_empty() {
-                                let _ = tx.send(StreamChunk::Delta(delta.text)).await;
-                            }
-                        }
-                        Ok(ClaudeSSEEvent::MessageStop) => {
-                            if parse_errors > 0 {
-                                colors::warning(
-                                    &rust_i18n::t!(
-                                        "provider.stream.claude_parse_errors",
-                                        count = parse_errors
-                                    ),
-                                    colored,
-                                );
-                            }
-                            let _ = tx.send(StreamChunk::Done).await;
-                            return Ok(());
-                        }
-                        Ok(ClaudeSSEEvent::Other) => {
-                            // Ignore other event types
-                        }
-                        Err(e) => {
-                            parse_errors += 1;
-                            tracing::warn!(
-                                "Failed to parse Claude SSE data: {}, line: {}",
-                                e,
-                                data
-                            );
-                        }
-                    }
+    while let Some(data) = stream.next().await {
+        let data = data?;
+        match serde_json::from_str::<ClaudeSSEEvent>(&data) {
+            Ok(ClaudeSSEEvent::ContentBlockDelta { delta }) => {
+                if delta.delta_type == "text_delta" && !delta.text.is_empty() {
+                    let _ = tx.send(StreamChunk::Delta(delta.text)).await;
                 }
+            }
+            Ok(ClaudeSSEEvent::MessageStop) => {
+                if parse_errors > 0 {
+                    colors::warning(
+                        &rust_i18n::t!("provider.stream.claude_parse_errors", count = parse_errors),
+                        colored,
+                    );
+                }
+                let _ = tx.send(StreamChunk::Done).await;
+                return Ok(());
+            }
+            Ok(ClaudeSSEEvent::Other) => {
+                // Ignore other event types
+            }
+            Err(e) => {
+                parse_errors += 1;
+                tracing::warn!("Failed to parse Claude SSE data: {}, line: {}", e, data);
             }
         }
     }
@@ -184,6 +164,30 @@ mod tests {
         let chunks = drain(rx).await;
         assert_eq!(chunks.len(), 2);
         assert_eq!(delta_text(&chunks[0]), "Hello");
+        assert_done(&chunks[1]);
+    }
+
+    #[tokio::test]
+    async fn test_claude_cchp_stream_without_field_spaces() {
+        let body = concat!(
+            "event:message_start\n",
+            "data:{\"type\":\"message_start\",\"message\":{\"id\":\"msg_kimi\",\"role\":\"assistant\",\"content\":[]}}\n\n",
+            "event:content_block_delta\n",
+            "data:{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"Consider the changes\"}}\n\n",
+            "event:content_block_delta\n",
+            "data:{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"fix: handle SSE fields\"}}\n\n",
+            "event:message_delta\n",
+            "data:{\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":10}}\n\n",
+            "event:message_stop\n",
+            "data:{\"type\":\"message_stop\"}\n\n",
+        );
+        let (tx, rx) = mpsc::channel(16);
+        let result = process_claude_stream(sse_response(body), tx, false).await;
+
+        assert!(result.is_ok(), "{result:?}");
+        let chunks = drain(rx).await;
+        assert_eq!(chunks.len(), 2);
+        assert_eq!(delta_text(&chunks[0]), "fix: handle SSE fields");
         assert_done(&chunks[1]);
     }
 

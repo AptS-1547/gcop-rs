@@ -13,7 +13,7 @@
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
-    "vitepress": "2.0.0-alpha.15"
+    "vitepress": "2.0.0-alpha.20"
   },
   "packageManager": "bun@1.3.14"
 }

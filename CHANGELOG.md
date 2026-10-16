@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.2] - 2026-10-16
+
+### Fixed
+
+- **SSE Compatibility**: Claude, OpenAI Chat Completions, OpenAI Responses, and Gemini accept SSE fields with or without a space after the colon, LF/CRLF/CR line endings, and multiline data; valid responses from gateways such as CCHP no longer produce false stream-truncation errors
+- **Streaming Text Integrity**: Preserve UTF-8 text across HTTP chunk boundaries, including Chinese text and emoji; incomplete terminal events and transport failures continue to report errors
+
+### Changed
+
+- **Dependencies**: Updated Rust dependencies, including `reqwest` 0.13.5, `rustls` 0.23.46, `tokio` 1.53.3, `mockall` 0.15, and `which` 8.0.6; updated VitePress to 2.0.0-alpha.20 and refreshed the documentation lockfile while retaining Rust 1.88 support
+
 ## [0.14.1] - 2026-08-14
 
 ### Added
@@ -735,7 +746,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Edit action properly returns to menu without triggering regeneration
 - Commit message display no longer duplicates after editing
 
-[Unreleased]: https://github.com/AptS-1547/gcop-rs/compare/v0.14.1...HEAD
+[Unreleased]: https://github.com/AptS-1547/gcop-rs/compare/v0.14.2...HEAD
+[0.14.2]: https://github.com/AptS-1547/gcop-rs/compare/v0.14.1...v0.14.2
 [0.14.1]: https://github.com/AptS-1547/gcop-rs/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/AptS-1547/gcop-rs/compare/v0.13.9...v0.14.0
 [0.13.9]: https://github.com/AptS-1547/gcop-rs/compare/v0.13.8...v0.13.9

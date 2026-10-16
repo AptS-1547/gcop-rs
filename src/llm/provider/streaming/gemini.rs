@@ -3,7 +3,7 @@ use reqwest::Response;
 use serde::Deserialize;
 use tokio::sync::mpsc;
 
-use super::parse_sse_line;
+use super::sse_data;
 use crate::error::{GcopError, Result};
 use crate::llm::StreamChunk;
 use crate::ui::colors;
@@ -44,85 +44,67 @@ pub async fn process_gemini_stream(
     tx: mpsc::Sender<StreamChunk>,
     colored: bool,
 ) -> Result<()> {
-    let mut stream = response.bytes_stream();
-    let mut buffer = String::new();
+    let mut stream = sse_data(response);
     let mut parse_errors = 0usize;
 
-    while let Some(chunk_result) = stream.next().await {
-        let chunk = chunk_result.map_err(GcopError::Network)?;
-        buffer.push_str(&String::from_utf8_lossy(&chunk));
-
-        // Process by row
-        while let Some(pos) = buffer.find('\n') {
-            let line = buffer[..pos].trim().to_string();
-            buffer = buffer[pos + 1..].to_string();
-
-            if line.is_empty() {
-                continue;
-            }
-
-            if let Some(data) = parse_sse_line(&line) {
-                match serde_json::from_str::<GeminiStreamChunk>(data) {
-                    Ok(chunk) => {
-                        if let Some(candidates) = &chunk.candidates
-                            && let Some(candidate) = candidates.first()
-                        {
-                            // Extract text
-                            if let Some(content) = &candidate.content
-                                && let Some(parts) = &content.parts
+    while let Some(data) = stream.next().await {
+        let data = data?;
+        match serde_json::from_str::<GeminiStreamChunk>(&data) {
+            Ok(chunk) => {
+                if let Some(candidates) = &chunk.candidates
+                    && let Some(candidate) = candidates.first()
+                {
+                    // Extract text
+                    if let Some(content) = &candidate.content
+                        && let Some(parts) = &content.parts
+                    {
+                        for part in parts {
+                            if let Some(text) = &part.text
+                                && !text.is_empty()
                             {
-                                for part in parts {
-                                    if let Some(text) = &part.text
-                                        && !text.is_empty()
-                                    {
-                                        let _ = tx.send(StreamChunk::Delta(text.clone())).await;
-                                    }
-                                }
-                            }
-
-                            // Check if it is finished (any finishReason indicates the end of the stream)
-                            if let Some(reason) = &candidate.finish_reason {
-                                if reason != "STOP" && reason != "MAX_TOKENS" {
-                                    // SAFETY / RECITATION / OTHER: return Err, consistent with
-                                    // non-streaming path (gemini.rs:234-239)
-                                    tracing::warn!(
-                                        "Gemini stream ended with non-STOP reason: {}",
-                                        reason
-                                    );
-                                    return Err(GcopError::LlmContentBlocked {
-                                        provider: "Gemini".to_string(),
-                                        reason: reason.clone(),
-                                    });
-                                }
-                                if reason == "MAX_TOKENS" {
-                                    tracing::warn!("Gemini stream truncated (MAX_TOKENS)");
-                                    colors::warning(
-                                        &rust_i18n::t!(
-                                            "provider.stream.gemini_finish_reason_warning",
-                                            reason = reason.as_str()
-                                        ),
-                                        colored,
-                                    );
-                                }
-                                if parse_errors > 0 {
-                                    colors::warning(
-                                        &rust_i18n::t!(
-                                            "provider.stream.gemini_parse_errors",
-                                            count = parse_errors
-                                        ),
-                                        colored,
-                                    );
-                                }
-                                let _ = tx.send(StreamChunk::Done).await;
-                                return Ok(());
+                                let _ = tx.send(StreamChunk::Delta(text.clone())).await;
                             }
                         }
                     }
-                    Err(e) => {
-                        parse_errors += 1;
-                        tracing::warn!("Failed to parse Gemini SSE data: {}, line: {}", e, data);
+
+                    // Check if it is finished (any finishReason indicates the end of the stream)
+                    if let Some(reason) = &candidate.finish_reason {
+                        if reason != "STOP" && reason != "MAX_TOKENS" {
+                            // SAFETY / RECITATION / OTHER: return Err, consistent with
+                            // non-streaming path (gemini.rs:234-239)
+                            tracing::warn!("Gemini stream ended with non-STOP reason: {}", reason);
+                            return Err(GcopError::LlmContentBlocked {
+                                provider: "Gemini".to_string(),
+                                reason: reason.clone(),
+                            });
+                        }
+                        if reason == "MAX_TOKENS" {
+                            tracing::warn!("Gemini stream truncated (MAX_TOKENS)");
+                            colors::warning(
+                                &rust_i18n::t!(
+                                    "provider.stream.gemini_finish_reason_warning",
+                                    reason = reason.as_str()
+                                ),
+                                colored,
+                            );
+                        }
+                        if parse_errors > 0 {
+                            colors::warning(
+                                &rust_i18n::t!(
+                                    "provider.stream.gemini_parse_errors",
+                                    count = parse_errors
+                                ),
+                                colored,
+                            );
+                        }
+                        let _ = tx.send(StreamChunk::Done).await;
+                        return Ok(());
                     }
                 }
+            }
+            Err(e) => {
+                parse_errors += 1;
+                tracing::warn!("Failed to parse Gemini SSE data: {}, line: {}", e, data);
             }
         }
     }
@@ -234,8 +216,8 @@ mod tests {
     #[tokio::test]
     async fn test_gemini_normal_stop() {
         let body = concat!(
-            "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"Hello\"}],\"role\":\"model\"}}]}\n",
-            "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"!\"}],\"role\":\"model\"},\"finishReason\":\"STOP\"}]}\n",
+            "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"Hello\"}],\"role\":\"model\"}}]}\n\n",
+            "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"!\"}],\"role\":\"model\"},\"finishReason\":\"STOP\"}]}\n\n",
         );
         let (tx, rx) = mpsc::channel(16);
         let result = process_gemini_stream(sse_response(body), tx, false).await;
@@ -250,7 +232,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_gemini_content_blocked_safety() {
-        let body = "data: {\"candidates\":[{\"finishReason\":\"SAFETY\"}]}\n";
+        let body = "data: {\"candidates\":[{\"finishReason\":\"SAFETY\"}]}\n\n";
         let (tx, rx) = mpsc::channel(16);
         let result = process_gemini_stream(sse_response(body), tx, false).await;
 
@@ -268,7 +250,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_gemini_content_blocked_recitation() {
-        let body = "data: {\"candidates\":[{\"finishReason\":\"RECITATION\"}]}\n";
+        let body = "data: {\"candidates\":[{\"finishReason\":\"RECITATION\"}]}\n\n";
         let (tx, _rx) = mpsc::channel(16);
         let result = process_gemini_stream(sse_response(body), tx, false).await;
 
@@ -280,7 +262,7 @@ mod tests {
     /// MAX_TOKENS: partial output is sent, then Done. Returns Ok (not an error).
     #[tokio::test]
     async fn test_gemini_max_tokens_sends_done() {
-        let body = "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"partial\"}],\"role\":\"model\"},\"finishReason\":\"MAX_TOKENS\"}]}\n";
+        let body = "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"partial\"}],\"role\":\"model\"},\"finishReason\":\"MAX_TOKENS\"}]}\n\n";
         let (tx, rx) = mpsc::channel(16);
         let result = process_gemini_stream(sse_response(body), tx, false).await;
 
@@ -297,7 +279,7 @@ mod tests {
     /// Gemini stream ending without a finish reason is incomplete.
     #[tokio::test]
     async fn test_gemini_no_finish_reason_returns_error_without_done() {
-        let body = "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"incomplete\"}],\"role\":\"model\"}}]}\n";
+        let body = "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"incomplete\"}],\"role\":\"model\"}}]}\n\n";
         let (tx, rx) = mpsc::channel(16);
         let result = process_gemini_stream(sse_response(body), tx, false).await;
 

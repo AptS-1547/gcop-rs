@@ -4,6 +4,12 @@ gcop-rs 支持多个 LLM provider。你可以使用内置 provider 或添加自�
 
 `gcop-rs` 不会内置模型白名单；下面列出的模型只是常见示例，不代表穷尽列表或内建校验列表。
 
+## 流式兼容性
+
+启用 `llm.stream_transport` 时，Claude、OpenAI Chat Completions、OpenAI Responses 和 Gemini 使用 SSE。解析器支持 `data:` 后有空格或无空格、LF/CRLF/CR 换行、多行数据，以及跨 HTTP 分段的 UTF-8 字符。这也适用于通过网关提供的 Kimi 等兼容模型。
+
+每个 SSE 事件以空行结束。流必须收到对应协议的完成信号：Claude 的 `message_stop`、Chat Completions 的 `[DONE]` 或 `finish_reason`、Responses 的 `response.completed` 或 `[DONE]`，以及 Gemini 的 `finishReason`。在完成信号之前遇到 EOF，仍会报告流截断错误。
+
 ## 内置 Providers
 
 ### Claude (Anthropic)

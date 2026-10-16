@@ -9,6 +9,7 @@
 # Options: "claude" | "openai" | "ollama" | "gemini"
 default_provider = "claude"
 # Use SSE for supported providers even when the response is buffered (JSON, hooks, split commits).
+# SSE accepts optional field spaces, LF/CRLF/CR, and multiline data from compatible gateways.
 # Set false only for endpoints that reject SSE.
 stream_transport = true
 

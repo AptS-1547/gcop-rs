@@ -429,6 +429,7 @@ provider.openai.stream.response_incomplete: "OpenAI Responses API response incom
 provider.openai.stream.unknown_incomplete_reason: "unknown"
 provider.gemini_no_candidates: "Gemini response contains no candidates"
 provider.stream_processing_error: "Stream processing error: %{error}"
+provider.stream.invalid_sse: "Invalid SSE stream: %{error}"
 provider.api_key_empty: "API key is empty"
 provider.api_validation_failed: "%{provider} API validation failed: %{body}"
 provider.ollama_parse_tags_failed: "Failed to parse Ollama tags response: %{error}"

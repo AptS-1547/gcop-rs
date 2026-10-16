@@ -2,7 +2,7 @@ use futures_util::StreamExt;
 use reqwest::Response;
 use tokio::sync::mpsc;
 
-use super::parse_sse_line;
+use super::sse_data;
 use crate::error::{GcopError, Result};
 use crate::llm::StreamChunk;
 use crate::ui::colors;
@@ -82,67 +82,49 @@ pub async fn process_openai_stream(
     tx: mpsc::Sender<StreamChunk>,
     colored: bool,
 ) -> Result<()> {
-    let mut stream = response.bytes_stream();
-    let mut buffer = String::new();
+    let mut stream = sse_data(response);
     let mut parse_errors = 0usize;
 
-    while let Some(chunk_result) = stream.next().await {
-        let chunk = chunk_result.map_err(GcopError::Network)?;
-        buffer.push_str(&String::from_utf8_lossy(&chunk));
-
-        // Process by row
-        while let Some(pos) = buffer.find('\n') {
-            let line = buffer[..pos].trim().to_string();
-            buffer = buffer[pos + 1..].to_string();
-
-            if line.is_empty() {
-                continue;
+    while let Some(data) = stream.next().await {
+        let data = data?;
+        if data == "[DONE]" {
+            if parse_errors > 0 {
+                colors::warning(
+                    &rust_i18n::t!("provider.stream.openai_parse_errors", count = parse_errors),
+                    colored,
+                );
             }
+            let _ = tx.send(StreamChunk::Done).await;
+            return Ok(());
+        }
 
-            if let Some(data) = parse_sse_line(&line) {
-                if data == "[DONE]" {
-                    if parse_errors > 0 {
-                        colors::warning(
-                            &rust_i18n::t!(
-                                "provider.stream.openai_parse_errors",
-                                count = parse_errors
-                            ),
-                            colored,
-                        );
+        // Parse JSON
+        match serde_json::from_str::<OpenAIDelta>(&data) {
+            Ok(delta) => {
+                if let Some(choice) = delta.choices.first() {
+                    if let Some(content) = &choice.delta.content
+                        && !content.is_empty()
+                    {
+                        let _ = tx.send(StreamChunk::Delta(content.clone())).await;
                     }
-                    let _ = tx.send(StreamChunk::Done).await;
-                    return Ok(());
-                }
-
-                // Parse JSON
-                match serde_json::from_str::<OpenAIDelta>(data) {
-                    Ok(delta) => {
-                        if let Some(choice) = delta.choices.first() {
-                            if let Some(content) = &choice.delta.content
-                                && !content.is_empty()
-                            {
-                                let _ = tx.send(StreamChunk::Delta(content.clone())).await;
-                            }
-                            if choice.finish_reason.is_some() {
-                                if parse_errors > 0 {
-                                    colors::warning(
-                                        &rust_i18n::t!(
-                                            "provider.stream.openai_parse_errors",
-                                            count = parse_errors
-                                        ),
-                                        colored,
-                                    );
-                                }
-                                let _ = tx.send(StreamChunk::Done).await;
-                                return Ok(());
-                            }
+                    if choice.finish_reason.is_some() {
+                        if parse_errors > 0 {
+                            colors::warning(
+                                &rust_i18n::t!(
+                                    "provider.stream.openai_parse_errors",
+                                    count = parse_errors
+                                ),
+                                colored,
+                            );
                         }
-                    }
-                    Err(e) => {
-                        parse_errors += 1;
-                        tracing::warn!("Failed to parse SSE data: {}, line: {}", e, data);
+                        let _ = tx.send(StreamChunk::Done).await;
+                        return Ok(());
                     }
                 }
+            }
+            Err(e) => {
+                parse_errors += 1;
+                tracing::warn!("Failed to parse SSE data: {}, line: {}", e, data);
             }
         }
     }
@@ -168,77 +150,59 @@ pub async fn process_openai_responses_stream(
     tx: mpsc::Sender<StreamChunk>,
     colored: bool,
 ) -> Result<()> {
-    let mut stream = response.bytes_stream();
-    let mut buffer = String::new();
+    let mut stream = sse_data(response);
     let mut parse_errors = 0usize;
 
-    while let Some(chunk_result) = stream.next().await {
-        let chunk = chunk_result.map_err(GcopError::Network)?;
-        buffer.push_str(&String::from_utf8_lossy(&chunk));
+    while let Some(data) = stream.next().await {
+        let data = data?;
+        if data == "[DONE]" {
+            warn_openai_responses_parse_errors(parse_errors, colored);
+            let _ = tx.send(StreamChunk::Done).await;
+            return Ok(());
+        }
 
-        while let Some(pos) = buffer.find('\n') {
-            let line = buffer[..pos].trim().to_string();
-            buffer = buffer[pos + 1..].to_string();
+        if let Some(error) = parse_openai_responses_error_envelope(&data) {
+            return Err(openai_responses_error(error));
+        }
 
-            if line.is_empty() {
-                continue;
-            }
-
-            if let Some(data) = parse_sse_line(&line) {
-                if data == "[DONE]" {
+        match serde_json::from_str::<OpenAIResponsesEvent>(&data) {
+            Ok(event) => match event.event_type.as_str() {
+                "response.output_text.delta" => {
+                    if let Some(delta) = event.delta
+                        && !delta.is_empty()
+                    {
+                        let _ = tx.send(StreamChunk::Delta(delta)).await;
+                    }
+                }
+                // Delta events already emitted the text. `text` is a finalized copy.
+                "response.output_text.done" if event.text.is_none() => {
+                    tracing::debug!("OpenAI Responses stream output_text.done without text");
+                }
+                "response.completed" => {
                     warn_openai_responses_parse_errors(parse_errors, colored);
                     let _ = tx.send(StreamChunk::Done).await;
                     return Ok(());
                 }
-
-                if let Some(error) = parse_openai_responses_error_envelope(data) {
-                    return Err(openai_responses_error(error));
+                "response.failed" => {
+                    return Err(openai_responses_event_error(
+                        event.response,
+                        rust_i18n::t!("provider.openai.stream.response_failed").into_owned(),
+                    ));
                 }
-
-                match serde_json::from_str::<OpenAIResponsesEvent>(data) {
-                    Ok(event) => match event.event_type.as_str() {
-                        "response.output_text.delta" => {
-                            if let Some(delta) = event.delta
-                                && !delta.is_empty()
-                            {
-                                let _ = tx.send(StreamChunk::Delta(delta)).await;
-                            }
-                        }
-                        "response.output_text.done"
-                            // Delta events already emitted the text. `text` is a finalized copy.
-                            if event.text.is_none() => {
-                                tracing::debug!(
-                                    "OpenAI Responses stream output_text.done without text"
-                                );
-                            }
-                        "response.completed" => {
-                            warn_openai_responses_parse_errors(parse_errors, colored);
-                            let _ = tx.send(StreamChunk::Done).await;
-                            return Ok(());
-                        }
-                        "response.failed" => {
-                            return Err(openai_responses_event_error(
-                                event.response,
-                                rust_i18n::t!("provider.openai.stream.response_failed")
-                                    .into_owned(),
-                            ));
-                        }
-                        "response.incomplete" => {
-                            return Err(openai_responses_incomplete_error(event.response));
-                        }
-                        _ => {
-                            // Ignore lifecycle and non-text events.
-                        }
-                    },
-                    Err(e) => {
-                        parse_errors += 1;
-                        tracing::warn!(
-                            "Failed to parse OpenAI Responses SSE data: {}, line: {}",
-                            e,
-                            data
-                        );
-                    }
+                "response.incomplete" => {
+                    return Err(openai_responses_incomplete_error(event.response));
                 }
+                _ => {
+                    // Ignore lifecycle and non-text events.
+                }
+            },
+            Err(e) => {
+                parse_errors += 1;
+                tracing::warn!(
+                    "Failed to parse OpenAI Responses SSE data: {}, line: {}",
+                    e,
+                    data
+                );
             }
         }
     }
@@ -363,17 +327,6 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_sse_line() {
-        use super::super::parse_sse_line;
-        assert_eq!(parse_sse_line("data: hello"), Some("hello"));
-        assert_eq!(parse_sse_line("data: [DONE]"), Some("[DONE]"));
-
-        // Rows that do not match the "data: " prefix should return None
-        assert_eq!(parse_sse_line("event: message_start"), None);
-        assert_eq!(parse_sse_line("data:").is_some(), false);
-    }
-
-    #[test]
     fn test_openai_delta_parse() {
         let json = r#"{"choices":[{"delta":{"content":"Hello"},"finish_reason":null}]}"#;
         let delta: OpenAIDelta = serde_json::from_str(json).unwrap();
@@ -385,8 +338,8 @@ mod tests {
     #[tokio::test]
     async fn test_openai_normal_completion_with_done() {
         let body = concat!(
-            "data: {\"choices\":[{\"delta\":{\"content\":\"Hello\"},\"finish_reason\":null}]}\n",
-            "data: [DONE]\n",
+            "data: {\"choices\":[{\"delta\":{\"content\":\"Hello\"},\"finish_reason\":null}]}\n\n",
+            "data: [DONE]\n\n",
         );
         let (tx, rx) = mpsc::channel(16);
         let result = process_openai_stream(sse_response(body), tx, false).await;
@@ -401,7 +354,7 @@ mod tests {
     #[tokio::test]
     async fn test_openai_normal_completion_via_finish_reason() {
         // finish_reason present → treated as end of stream (no [DONE] required)
-        let body = "data: {\"choices\":[{\"delta\":{\"content\":\"World\"},\"finish_reason\":\"stop\"}]}\n";
+        let body = "data: {\"choices\":[{\"delta\":{\"content\":\"World\"},\"finish_reason\":\"stop\"}]}\n\n";
         let (tx, rx) = mpsc::channel(16);
         let result = process_openai_stream(sse_response(body), tx, false).await;
 
@@ -415,7 +368,7 @@ mod tests {
     /// All lines fail to parse AND no [DONE] → LlmStreamTruncated.
     #[tokio::test]
     async fn test_openai_truncated_all_parse_errors() {
-        let body = "data: bad-json\ndata: also-bad\n";
+        let body = "data: bad-json\n\ndata: also-bad\n\n";
         let (tx, rx) = mpsc::channel(16);
         let result = process_openai_stream(sse_response(body), tx, false).await;
 
@@ -431,8 +384,7 @@ mod tests {
     /// A clean EOF without `[DONE]` or `finish_reason` is still incomplete.
     #[tokio::test]
     async fn test_openai_clean_truncation_returns_error_without_done() {
-        let body =
-            "data: {\"choices\":[{\"delta\":{\"content\":\"partial\"},\"finish_reason\":null}]}\n";
+        let body = "data: {\"choices\":[{\"delta\":{\"content\":\"partial\"},\"finish_reason\":null}]}\n\n";
         let (tx, rx) = mpsc::channel(16);
         let result = process_openai_stream(sse_response(body), tx, false).await;
 
@@ -460,9 +412,9 @@ mod tests {
     #[tokio::test]
     async fn test_openai_responses_normal_completion() {
         let body = concat!(
-            "data: {\"type\":\"response.output_text.delta\",\"item_id\":\"msg_123\",\"output_index\":0,\"content_index\":0,\"delta\":\"Hello\",\"sequence_number\":1}\n",
-            "data: {\"type\":\"response.output_text.delta\",\"item_id\":\"msg_123\",\"output_index\":0,\"content_index\":0,\"delta\":\" world\",\"sequence_number\":2}\n",
-            "data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_123\",\"status\":\"completed\"},\"sequence_number\":3}\n",
+            "data: {\"type\":\"response.output_text.delta\",\"item_id\":\"msg_123\",\"output_index\":0,\"content_index\":0,\"delta\":\"Hello\",\"sequence_number\":1}\n\n",
+            "data: {\"type\":\"response.output_text.delta\",\"item_id\":\"msg_123\",\"output_index\":0,\"content_index\":0,\"delta\":\" world\",\"sequence_number\":2}\n\n",
+            "data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_123\",\"status\":\"completed\"},\"sequence_number\":3}\n\n",
         );
         let (tx, rx) = mpsc::channel(16);
         let result = process_openai_responses_stream(sse_response(body), tx, false).await;
@@ -477,7 +429,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_openai_responses_done_event_completes() {
-        let body = "data: [DONE]\n";
+        let body = "data: [DONE]\n\n";
         let (tx, rx) = mpsc::channel(16);
         let result = process_openai_responses_stream(sse_response(body), tx, false).await;
 
@@ -490,8 +442,8 @@ mod tests {
     #[tokio::test]
     async fn test_openai_responses_ignores_unknown_events() {
         let body = concat!(
-            "data: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_123\"},\"sequence_number\":1}\n",
-            "data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_123\",\"status\":\"completed\"},\"sequence_number\":2}\n",
+            "data: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_123\"},\"sequence_number\":1}\n\n",
+            "data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_123\",\"status\":\"completed\"},\"sequence_number\":2}\n\n",
         );
         let (tx, rx) = mpsc::channel(16);
         let result = process_openai_responses_stream(sse_response(body), tx, false).await;
@@ -504,7 +456,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_openai_responses_top_level_error_envelope() {
-        let body = "data: {\"error\":{\"type\":\"rate_limit_error\",\"message\":\"Concurrency limit exceeded for account, please retry later\"}}\n";
+        let body = "data: {\"error\":{\"type\":\"rate_limit_error\",\"message\":\"Concurrency limit exceeded for account, please retry later\"}}\n\n";
         let (tx, rx) = mpsc::channel(16);
         let result = process_openai_responses_stream(sse_response(body), tx, false).await;
 
@@ -524,7 +476,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_openai_responses_parse_errors_are_truncated_error() {
-        let body = "data: {\"not\":\"a responses event\"}\n";
+        let body = "data: {\"not\":\"a responses event\"}\n\n";
         let (tx, rx) = mpsc::channel(16);
         let result = process_openai_responses_stream(sse_response(body), tx, false).await;
 
@@ -539,7 +491,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_openai_responses_clean_truncation_returns_error_without_done() {
-        let body = "data: {\"type\":\"response.output_text.delta\",\"delta\":\"partial\"}\n";
+        let body = "data: {\"type\":\"response.output_text.delta\",\"delta\":\"partial\"}\n\n";
         let (tx, rx) = mpsc::channel(16);
         let result = process_openai_responses_stream(sse_response(body), tx, false).await;
 
@@ -558,7 +510,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_openai_responses_failed_event() {
-        let body = "data: {\"type\":\"response.failed\",\"response\":{\"error\":{\"code\":\"server_error\",\"message\":\"failed\"}},\"sequence_number\":1}\n";
+        let body = "data: {\"type\":\"response.failed\",\"response\":{\"error\":{\"code\":\"server_error\",\"message\":\"failed\"}},\"sequence_number\":1}\n\n";
         let (tx, rx) = mpsc::channel(16);
         let result = process_openai_responses_stream(sse_response(body), tx, false).await;
 
@@ -573,7 +525,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_openai_responses_incomplete_event() {
-        let body = "data: {\"type\":\"response.incomplete\",\"response\":{\"incomplete_details\":{\"reason\":\"max_output_tokens\"}},\"sequence_number\":1}\n";
+        let body = "data: {\"type\":\"response.incomplete\",\"response\":{\"incomplete_details\":{\"reason\":\"max_output_tokens\"}},\"sequence_number\":1}\n\n";
         let (tx, rx) = mpsc::channel(16);
         let result = process_openai_responses_stream(sse_response(body), tx, false).await;
 
